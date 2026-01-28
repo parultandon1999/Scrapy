@@ -32,6 +32,7 @@ class Scraper:
                  max_file_size_mb=None):
         
         self.start_url = self._normalize_url(start_url)
+        self.should_stop = False
         self.domain = urlparse(self.start_url).netloc
         
         # Use config values as defaults
@@ -991,6 +992,10 @@ class Scraper:
     async def worker(self, browser, worker_id):
         """Worker coroutine that processes pages from the queue."""
         while True:
+            if self.should_stop:
+                print(f"[Worker {worker_id}] Stopping...")
+                break
+            
             url = None
             depth = 0
             
@@ -1021,12 +1026,8 @@ class Scraper:
             if self.login_url:
                 login_success = await self.perform_login(browser)
                 if not login_success:
-                    print("\nLogin failed, but continuing with crawl...")
-                    response = input("Continue without authentication? (y/n): ").lower()
-                    if response != 'y':
-                        await browser.close()
-                        print("Crawl cancelled.")
-                        return
+                    print("\nLogin failed. Continuing without authentication...")
+                    # Auto-continue without user input for API compatibility
             
             print(f"Starting Authenticated Async Crawl on: {self.start_url}")
             print(f"Max Pages: {self.max_pages}")

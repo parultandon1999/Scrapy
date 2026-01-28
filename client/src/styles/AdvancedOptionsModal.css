@@ -1,0 +1,234 @@
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 10px;
+}
+
+/* Modal Content */
+.modal-content {
+  background: #ffffff;
+  border-radius: 3px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 70px rgba(0, 0, 0, 0.15);
+}
+
+body.dark-mode .modal-content {
+  background: #1a1a1a;
+  box-shadow: 0 4px 70px rgba(0, 0, 0, 0.5);
+}
+
+/* Modal Header */
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #dadce0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+body.dark-mode .modal-header {
+  border-bottom-color: #2a2a2a;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #202124;
+}
+
+body.dark-mode .modal-header h2 {
+  color: #e0e0e0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: #5f6368;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  color: #202124;
+}
+
+body.dark-mode .modal-close {
+  color: #999999;
+}
+
+body.dark-mode .modal-close:hover {
+  color: #e0e0e0;
+}
+
+/* Modal Body */
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Option Section */
+.option-section {
+  margin-bottom: 22px;
+}
+
+.option-section:last-child {
+  margin-bottom: 0;
+}
+
+.option-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #202124;
+}
+
+body.dark-mode .option-section h3 {
+  color: #e0e0e0;
+}
+
+/* Option Grid */
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.option-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.option-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.option-field label {
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #5f6368;
+}
+
+body.dark-mode .option-field label {
+  color: #999999;
+}
+
+.option-field input {
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #202124;
+  transition: all 0.2s;
+}
+
+.option-field input:focus {
+  outline: none;
+}
+
+body.dark-mode .option-field input {
+  background: #0a0a0a;
+  border-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+body.dark-mode .option-field input:focus {
+  outline: none;
+}
+
+/* Checkboxes */
+.option-checkboxes {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #202124;
+}
+
+body.dark-mode .checkbox-label {
+  color: #e0e0e0;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Modal Footer */
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #dadce0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+body.dark-mode .modal-footer {
+  border-top-color: #2a2a2a;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+
+/* Responsive */
+@media (max-width: 768px) {
+  .modal-content {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .option-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .option-checkboxes {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modal-actions {
+    width: 100%;
+  }
+
+  .modal-actions button {
+    flex: 1;
+  }
+}
