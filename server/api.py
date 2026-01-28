@@ -131,6 +131,9 @@ async def start_scraper(config_data: ScraperConfig):
             success_indicator=config_data.success_indicator,
         )
         
+        # Reset the stopped flag for new scraping session
+        scraper_instance.was_stopped_manually = False
+        
         # Start scraper in background
         scraper_task = asyncio.create_task(run_scraper())
         
@@ -159,22 +162,109 @@ async def run_scraper():
 
 @app.get("/api/scraper/status")
 async def get_scraper_status():
-    """Get current scraper status"""
+    """Get current scraper status with recent pages"""
     if not scraper_instance:
         return {
             "running": False,
             "pages_scraped": 0,
             "queue_size": 0,
-            "visited": 0
+            "visited": 0,
+            "recent_pages": [],
+            "recent_files": [],
+            "file_types": {}
         }
     
+    # Get recent pages from database
+    recent_pages = []
+    recent_files = []
+    file_types = {}
+    total_pages_in_db = 0
+    
+    try:
+        conn = sqlite3.connect(scraper_instance.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Check if database has any data
+        cursor.execute('SELECT COUNT(*) as count FROM pages')
+        total_pages_in_db = cursor.fetchone()['count']
+        
+        # Get last 10 scraped pages
+        cursor.execute('''
+            SELECT id, url, title, depth, datetime(timestamp, 'unixepoch') as scraped_at
+            FROM pages
+            ORDER BY timestamp DESC
+            LIMIT 10
+        ''')
+        recent_pages = [dict(row) for row in cursor.fetchall()]
+        
+        # Get last 10 downloaded files
+        try:
+            cursor.execute('''
+                SELECT fa.file_name, fa.file_extension, fa.file_size_bytes,
+                       fa.download_status, p.url as page_url,
+                       datetime(fa.download_timestamp, 'unixepoch') as downloaded_at
+                FROM file_assets fa
+                JOIN pages p ON fa.page_id = p.id
+                ORDER BY fa.download_timestamp DESC
+                LIMIT 10
+            ''')
+            recent_files = [dict(row) for row in cursor.fetchall()]
+            
+            # Get file type counts
+            cursor.execute('''
+                SELECT file_extension, COUNT(*) as count
+                FROM file_assets
+                WHERE download_status = 'success'
+                GROUP BY file_extension
+                ORDER BY count DESC
+            ''')
+            file_types = {row['file_extension']: row['count'] for row in cursor.fetchall()}
+        except sqlite3.OperationalError:
+            pass
+        
+        conn.close()
+    except Exception as e:
+        print(f"Error fetching recent data: {e}")
+    
+    # If database is empty, reset stats
+    is_running = scraper_task and not scraper_task.done()
+    if total_pages_in_db == 0 and not is_running:
+        return {
+            "running": False,
+            "pages_scraped": 0,
+            "queue_size": 0,
+            "visited": 0,
+            "max_pages": 0,
+            "downloads": {},
+            "recent_pages": [],
+            "recent_files": [],
+            "start_url": "",
+            "max_depth": 0,
+            "concurrent_limit": 0,
+            "authenticated": False,
+            "was_stopped": False,
+            "file_types": {}
+        }
+    
+    was_stopped = getattr(scraper_instance, 'was_stopped_manually', False)
+    print(f"DEBUG: Status check - was_stopped_manually={was_stopped}, instance={id(scraper_instance)}, running={is_running}")
+    
     return {
-        "running": scraper_task and not scraper_task.done(),
+        "running": is_running,
         "pages_scraped": scraper_instance.pages_scraped,
         "queue_size": len(scraper_instance.queue),
         "visited": len(scraper_instance.visited),
         "max_pages": scraper_instance.max_pages,
-        "downloads": scraper_instance.downloads_stats if hasattr(scraper_instance, 'downloads_stats') else {}
+        "downloads": scraper_instance.downloads_stats if hasattr(scraper_instance, 'downloads_stats') else {},
+        "recent_pages": recent_pages,
+        "recent_files": recent_files,
+        "start_url": scraper_instance.start_url,
+        "max_depth": scraper_instance.max_depth,
+        "concurrent_limit": scraper_instance.concurrent_limit,
+        "authenticated": bool(scraper_instance.storage_state) if hasattr(scraper_instance, 'storage_state') else False,
+        "was_stopped": was_stopped,
+        "file_types": file_types
     }
 
 @app.post("/api/scraper/stop")
@@ -187,6 +277,8 @@ async def stop_scraper():
     
     if scraper_instance:
         scraper_instance.should_stop = True
+        scraper_instance.was_stopped_manually = True
+        print(f"DEBUG: Set was_stopped_manually to True on instance {id(scraper_instance)}")
 
     scraper_task.cancel()
 

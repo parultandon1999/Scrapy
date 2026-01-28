@@ -4,6 +4,7 @@ import './styles/global.css'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Home from './pages/Home'
+import ScrapingProgress from './pages/ScrapingProgress'
 import Database from './pages/Database'
 import History from './pages/History'
 import Config from './pages/Config'
@@ -43,6 +44,7 @@ function App() {
         <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/progress" element={<ScrapingProgress />} />
           <Route path="/database" element={<Database />} />
           <Route path="/history" element={<History />} />
           <Route path="/config" element={<Config />} />

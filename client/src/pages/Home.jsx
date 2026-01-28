@@ -1,36 +1,19 @@
-import { useState, useEffect } from 'react'
-import { startScraper, getScraperStatus, stopScraper } from '../services/api'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { startScraper } from '../services/api'
 import AdvancedOptionsModal from '../components/AdvancedOptionsModal'
+import SearchBar from '../components/Searchbar'
 import '../styles/Home.css'
 
 function Home() {
+  const navigate = useNavigate()
   const [url, setUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [status, setStatus] = useState(null)
   const [error, setError] = useState(null)
   const [showAdvancedModal, setShowAdvancedModal] = useState(false)
   const [advancedOptions, setAdvancedOptions] = useState({})
 
-  // Poll status every 2 seconds when scraper is running
-  useEffect(() => {
-    let interval
-    if (status?.running) {
-      interval = setInterval(fetchStatus, 2000)
-    }
-    return () => clearInterval(interval)
-  }, [status?.running])
-
-  const fetchStatus = async () => {
-    try {
-      const data = await getScraperStatus()
-      setStatus(data)
-    } catch (err) {
-      console.error('Error fetching status:', err)
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const handleSubmit = async () => {
     setError(null)
     setIsLoading(true)
 
@@ -60,21 +43,13 @@ function Home() {
       const response = await startScraper(payload)
       
       if (response.success) {
-        fetchStatus()
+        // Navigate to progress page
+        navigate('/progress', { state: { url } })
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to start scraper')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleStop = async () => {
-    try {
-      await stopScraper()
-      fetchStatus()
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to stop scraper')
     }
   }
 
@@ -84,53 +59,35 @@ function Home() {
 
   return (
     <div className="home">
-      {/* Main content - centered like Google */}
+      {/* Main content - centered */}
       <main className="main">
         <div className="logo">
-          <h1 className={status?.running ? 'syncing' : ''}>Scrapy</h1>
+          <h1>Scrapy</h1>
         </div>
-
-        <form className="search-form" onSubmit={handleSubmit}>
-          <div className="search-box">
-            <input
-              type="url"
-              placeholder="Enter URL to scrape..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              required
-              disabled={status?.running}
-            />
-          </div>
-          
-          <div className="buttons">
-            {!status?.running ? (
-              <>
-                <button 
-                  type="submit" 
-                  className="btn-primary"
-                  disabled={isLoading || !url}
-                >
-                  {isLoading ? 'Starting...' : 'Start Scraping'}
-                </button>
-                <button 
-                  type="button" 
-                  className="btn-secondary"
-                  onClick={() => setShowAdvancedModal(true)}
-                >
-                  Advanced Options
-                </button>
-              </>
-            ) : (
-              <button 
-                type="button" 
-                className="btn-stop"
-                onClick={handleStop}
-              >
-                Stop Scraping
-              </button>
-            )}
-          </div>
-        </form>
+        <SearchBar 
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          disabled={isLoading}
+          onSubmit={handleSubmit}
+        />
+        
+        <div className="buttons">
+          <button 
+            type="button"
+            className="btn-primary"
+            disabled={isLoading || !url}
+            onClick={handleSubmit}
+          >
+            {isLoading ? 'Starting...' : 'Start Scraping'}
+          </button>
+          <button 
+            type="button" 
+            className="btn-secondary"
+            onClick={() => setShowAdvancedModal(true)}
+          >
+            Advanced Options
+          </button>
+        </div>
 
         <AdvancedOptionsModal
           isOpen={showAdvancedModal}
@@ -143,69 +100,6 @@ function Home() {
         {error && (
           <div className="message error-message">
             <p>{error}</p>
-          </div>
-        )}
-
-        {/* Status Display */}
-        {status?.running && (
-          <div className={`status-panel ${status?.running ? 'syncing' : ''}`}>
-            <h3>Scraping in Progress...</h3>
-            <div className="status-stats">
-              <div className="stat-item">
-                <span className="stat-label">Pages Scraped:</span>
-                <span className={`stat-value ${status?.running ? 'syncing' : ''}`}>{status.pages_scraped} / {status.max_pages}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Queue Size:</span>
-                <span className={`stat-value ${status?.running ? 'syncing' : ''}`}>{status.queue_size}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Visited:</span>
-                <span className={`stat-value ${status?.running ? 'syncing' : ''}`}>{status.visited}</span>
-              </div>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="progress-bar">
-              <div 
-                className={`progress-fill ${status?.running ? 'syncing' : ''}`}
-                style={{ width: `${(status.pages_scraped / status.max_pages) * 100}%` }}
-              />
-            </div>
-            <p className="progress-text">
-              {Math.round((status.pages_scraped / status.max_pages) * 100)}% Complete
-            </p>
-
-            {/* Download Stats */}
-            {status.downloads && Object.keys(status.downloads).length > 0 && (
-              <div className="download-stats">
-                <h4>Download Statistics</h4>
-                <div className="status-stats">
-                  <div className="stat-item">
-                    <span className="stat-label">Successful:</span>
-                    <span className={`stat-value ${status?.running ? 'syncing' : ''}`}>{status.downloads.successful || 0}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Failed:</span>
-                    <span className={`stat-value ${status?.running ? 'syncing' : ''}`}>{status.downloads.failed || 0}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Total Size:</span>
-                    <span className={`stat-value ${status?.running ? 'syncing' : ''}`}>
-                      {((status.downloads.total_bytes || 0) / (1024 * 1024)).toFixed(2)} MB
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Completion Message */}
-        {status && !status.running && status.pages_scraped > 0 && (
-          <div className="message success-message">
-            <h3>✓ Scraping Complete!</h3>
-            <p>Successfully scraped {status.pages_scraped} pages</p>
           </div>
         )}
       </main>

@@ -4,12 +4,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: relative;
-  z-index: 10;
+  position: sticky;
+  top: 0;
+  z-index: 1000;  /* Change from 10 to 1000 */
+  background: #ffffff;
 }
+
 
 body.dark-mode .header {
   background: #0a0a0a;
+  border-bottom: 1px solid #222121;
 }
 
 .nav {
