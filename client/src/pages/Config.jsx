@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import {
   Settings, Clock, Shield, Download, Globe, Eye, EyeOff,
   AlertCircle, X, ToggleRight
@@ -7,7 +9,7 @@ import ToggleSwitch from '../components/ToggleSwitch'
 import * as api from '../services/api'
 import '../styles/Config.css'
 
-function Config() {
+function Config({ darkMode, toggleDarkMode }) {
   const [activeSection, setActiveSection] = useState('features')
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -199,7 +201,9 @@ function Config() {
   }
 
   return (
-    <div className="database-page">
+    <>
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="config" />
+      <div className="database-page">
       {/* Sidebar Navigation */}
       <aside className="db-sidebar">
         <h2><Settings size={20} /> Config</h2>
@@ -258,6 +262,8 @@ function Config() {
         )}
       </main>
     </div>
+    <Footer />
+  </>
   )
 }
 

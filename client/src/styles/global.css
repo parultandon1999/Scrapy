@@ -155,7 +155,6 @@ body.dark-mode .field-error-tooltip {
   }
 }
 
-
 /* Light Mode (Default) */
 body {
   background: #ffffff;
@@ -166,12 +165,6 @@ body {
 body.dark-mode {
   background: #0a0a0a;
   color: #e0e0e0;
-}
-
-.app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
 /* Common Buttons */

@@ -1,10 +1,7 @@
 import { Moon, Sun } from '@phosphor-icons/react'
-import { Link, useLocation } from 'react-router-dom'
 import '../styles/Navbar.css'
 
-function Navbar({ darkMode, toggleDarkMode }) {
-  const location = useLocation()
-
+function Navbar({ darkMode, toggleDarkMode, currentPage }) {
   return (
     <header className="header">
       <button 
@@ -16,21 +13,21 @@ function Navbar({ darkMode, toggleDarkMode }) {
       </button>
 
       <nav className="nav">
-        <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
+        <a href="/" className={currentPage === 'home' ? 'active' : ''}>
           Home
-        </Link>
-        <Link to="/database" className={location.pathname === '/database' ? 'active' : ''}>
+        </a>
+        <a href="/database" className={currentPage === 'database' ? 'active' : ''}>
           Database
-        </Link>
-        <Link to="/history" className={location.pathname === '/history' ? 'active' : ''}>
+        </a>
+        <a href="/history" className={currentPage === 'history' ? 'active' : ''}>
           History
-        </Link>
-        <Link to="/config" className={location.pathname === '/config' ? 'active' : ''}>
+        </a>
+        <a href="/config" className={currentPage === 'config' ? 'active' : ''}>
           Config
-        </Link>
-        <Link to="/selector-finder" className={location.pathname === '/selector-finder' ? 'active' : ''}>
+        </a>
+        <a href="/selector-finder" className={currentPage === 'selector-finder' ? 'active' : ''}>
           Selector Finder
-        </Link>
+        </a>
       </nav>
     </header>
   )

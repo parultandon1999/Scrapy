@@ -3,6 +3,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: calc(100vh - 140px);
 }
 
 /* Main Content */
@@ -202,23 +203,4 @@ body.dark-mode .download-stats h4 {
     grid-template-columns: 1fr;
     gap: 12px;
   }
-}
-
-/* Options Badge */
-.options-badge {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 2px 8px;
-  background: #e8f0fe;
-  color: #1a73e8;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-body.dark-mode .options-badge {
-  background: #1a2a3a;
-  color: #8ab4f8;
 }

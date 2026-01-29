@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import {
   Search, Copy, CheckCircle, XCircle, AlertCircle, X,
   FileCode, MousePointer, FormInput, TestTube, Plus, Minus, Image
@@ -6,7 +8,7 @@ import {
 import * as api from '../services/api'
 import '../styles/SelectorFinder.css'
 
-function SelectorFinder() {
+function SelectorFinder({ darkMode, toggleDarkMode }) {
   const [activeSection, setActiveSection] = useState('analyze')
   const [loginUrl, setLoginUrl] = useState('')
   const [loading, setLoading] = useState(false)
@@ -154,7 +156,9 @@ function SelectorFinder() {
   }
 
   return (
-    <div className="database-page">
+    <>
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="selector-finder" />
+      <div className="database-page">
       {/* Sidebar Navigation */}
       <aside className="db-sidebar">
         <h2><Search size={20} /> Selector Finder</h2>
@@ -915,6 +919,8 @@ function SelectorFinder() {
         )}
       </main>
     </div>
+    <Footer />
+  </>
   )
 }
 

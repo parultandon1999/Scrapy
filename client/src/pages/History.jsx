@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import {
   Clock, Globe, FileText, HardDrive, Link2, Calendar,
   Layers, Trash2, Eye, BarChart3, Download, ChevronRight,
@@ -8,7 +10,7 @@ import {
 import * as api from '../services/api'
 import '../styles/History.css'
 
-function History() {
+function History({ darkMode, toggleDarkMode }) {
   const navigate = useNavigate()
   const [activeView, setActiveView] = useState('sessions')
   const [sessions, setSessions] = useState([])
@@ -132,7 +134,9 @@ function History() {
   }
 
   return (
-    <div className="database-page">
+    <>
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="history" />
+      <div className="database-page">
       {/* Sidebar Navigation */}
       <aside className="db-sidebar">
         <h2><Clock size={20} /> History</h2>
@@ -482,6 +486,8 @@ function History() {
         )}
       </main>
     </div>
+    <Footer />
+  </>
   )
 }
 

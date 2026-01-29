@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import {
   Activity, Globe, FileText, Download, Layers, Clock,
   ExternalLink, File, CheckCircle, XCircle, ChevronDown,
@@ -9,7 +11,7 @@ import {
 import * as api from '../services/api'
 import '../styles/ScrapingProgress.css'
 
-function ScrapingProgress() {
+function ScrapingProgress({ darkMode, toggleDarkMode }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { sessionId } = useParams()
@@ -170,7 +172,9 @@ function ScrapingProgress() {
   }
 
   return (
-    <div className="database-page">
+    <>
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
+      <div className="database-page">
       {/* Sidebar Navigation */}
       <aside className="db-sidebar">
         <h2><Activity size={20} /> Progress</h2>
@@ -481,6 +485,8 @@ function ScrapingProgress() {
         )}
       </main>
     </div>
+    <Footer />
+  </>
   )
 }
 

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { startScraper } from '../services/api'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import AdvancedOptionsModal from '../components/AdvancedOptionsModal'
 import SearchBar from '../components/Searchbar'
 import '../styles/Home.css'
 
-function Home() {
+function Home({ darkMode, toggleDarkMode }) {
   const navigate = useNavigate()
   const [url, setUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -71,9 +73,11 @@ function Home() {
   }
 
   return (
-    <div className="home">
-      {/* Main content - centered */}
-      <main className="main">
+    <>
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
+      <div className="home">
+        {/* Main content - centered */}
+        <main className="main">
         <div className="logo">
           <h1>Scrapy</h1>
         </div>
@@ -116,8 +120,10 @@ function Home() {
             <p>{error}</p>
           </div>
         )}
-      </main>
-    </div>
+        </main>
+      </div>
+      <Footer />
+    </>
   )
 }
 

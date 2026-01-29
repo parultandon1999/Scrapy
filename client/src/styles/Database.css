@@ -1,11 +1,11 @@
 /* Minimalistic Database Dashboard - Complete Styles */
 
 /* Base Layout */
-.database-page { display: flex; min-height: calc(100vh - 120px); background: #fafafa; }
+.database-page { display: flex; min-height: calc(100vh - 120px); background: #ffffff; }
 body.dark-mode .database-page { background: #000000; }
 
 /* Sidebar - Compact */
-.db-sidebar { width: 200px; background: #fff; border-right: 1px solid #e0e0e0; padding: 20px 0; position: sticky; top: 68px; height: calc(100vh - 120px); overflow-y: auto; }
+.db-sidebar { width: 200px; background: #fff; border-right: 1px solid #e0e0e0; padding: 13px 0; position: sticky; top: 68px; height: calc(100vh - 60px); overflow-y: auto; }
 body.dark-mode .db-sidebar { background: #0a0a0a; border-right-color: #1a1a1a; }
 .db-sidebar h2 { padding: 0 16px; margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #202124; display: flex; align-items: center; gap: 8px; }
 body.dark-mode .db-sidebar h2 { color: #e0e0e0; }

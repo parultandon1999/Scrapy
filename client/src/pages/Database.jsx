@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import { 
   LayoutDashboard, FileText, FolderOpen, Package, 
   HardDrive, Link2, Search, Download, ChevronLeft, 
@@ -10,7 +12,7 @@ import {
 import * as api from '../services/api'
 import '../styles/Database.css'
 
-function Database() {
+function Database({ darkMode, toggleDarkMode }) {
   const [activeView, setActiveView] = useState('dashboard')
   const [stats, setStats] = useState(null)
   const [pages, setPages] = useState([])
@@ -297,7 +299,9 @@ function Database() {
   }
 
   return (
-    <div className="database-page">
+    <>
+      <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="database" />
+      <div className="database-page">
       {/* Sidebar Navigation */}
       <aside className="db-sidebar">
         <h2><DatabaseIcon size={20} /> Database</h2>
@@ -1056,6 +1060,8 @@ function Database() {
         )}
       </main>
     </div>
+    <Footer />
+  </>
   )
 }
 
