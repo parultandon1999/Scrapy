@@ -184,6 +184,204 @@ export const exportData = async () => {
   return response.data
 }
 
+/**
+ * Get files grouped by extension
+ * @returns {Promise<Object>} Files grouped by extension
+ */
+export const getFilesByExtension = async () => {
+  const response = await apiClient.get('/api/data/files-by-extension')
+  return response.data
+}
+
+/**
+ * Get largest downloaded files
+ * @param {number} [limit=10] - Number of files to retrieve
+ * @returns {Promise<Object>} Largest files array
+ */
+export const getLargestDownloads = async (limit = 10) => {
+  const response = await apiClient.get('/api/data/largest-downloads', {
+    params: { limit }
+  })
+  return response.data
+}
+
+/**
+ * Get top links by frequency
+ * @param {string} [linkType='internal'] - Link type ('internal' or 'external')
+ * @param {number} [limit=20] - Number of links to retrieve
+ * @returns {Promise<Object>} Top links array
+ */
+export const getTopLinks = async (linkType = 'internal', limit = 20) => {
+  const response = await apiClient.get('/api/data/top-links', {
+    params: { link_type: linkType, limit }
+  })
+  return response.data
+}
+
+// ============================================================================
+// ANALYTICS APIs (Database)
+// ============================================================================
+
+/**
+ * Get scraping activity timeline
+ * @returns {Promise<Object>} Timeline data
+ */
+export const getScrapingTimeline = async () => {
+  const response = await apiClient.get('/api/data/analytics/timeline')
+  return response.data
+}
+
+/**
+ * Get statistics grouped by domain
+ * @returns {Promise<Object>} Domain statistics
+ */
+export const getDomainStatistics = async () => {
+  const response = await apiClient.get('/api/data/analytics/domains')
+  return response.data
+}
+
+/**
+ * Get page count distribution by depth
+ * @returns {Promise<Object>} Depth distribution data
+ */
+export const getDepthDistribution = async () => {
+  const response = await apiClient.get('/api/data/analytics/depth-distribution')
+  return response.data
+}
+
+/**
+ * Get detailed file type analytics
+ * @returns {Promise<Object>} File type analytics
+ */
+export const getFileTypeAnalytics = async () => {
+  const response = await apiClient.get('/api/data/analytics/file-types')
+  return response.data
+}
+
+/**
+ * Get comprehensive link analysis
+ * @returns {Promise<Object>} Link analysis with broken links and most referenced pages
+ */
+export const getLinkAnalysis = async () => {
+  const response = await apiClient.get('/api/data/analytics/link-analysis')
+  return response.data
+}
+
+// ============================================================================
+// BULK OPERATIONS APIs
+// ============================================================================
+
+/**
+ * Delete multiple pages and their related data
+ * @param {number[]} pageIds - Array of page IDs to delete
+ * @returns {Promise<Object>} Response with deleted count
+ */
+export const bulkDeletePages = async (pageIds) => {
+  const response = await apiClient.post('/api/data/bulk/delete-pages', pageIds)
+  return response.data
+}
+
+/**
+ * Delete multiple file assets
+ * @param {number[]} fileIds - Array of file IDs to delete
+ * @returns {Promise<Object>} Response with deleted count
+ */
+export const bulkDeleteFiles = async (fileIds) => {
+  const response = await apiClient.post('/api/data/bulk/delete-files', fileIds)
+  return response.data
+}
+
+// ============================================================================
+// FILTERING APIs
+// ============================================================================
+
+/**
+ * Filter pages with advanced criteria
+ * @param {Object} filters - Filter options
+ * @param {number} [filters.minDepth] - Minimum depth
+ * @param {number} [filters.maxDepth] - Maximum depth
+ * @param {boolean} [filters.hasFiles] - Filter by file presence
+ * @param {string} [filters.startDate] - Start date (YYYY-MM-DD)
+ * @param {string} [filters.endDate] - End date (YYYY-MM-DD)
+ * @param {number} [filters.limit=50] - Number of results
+ * @returns {Promise<Object>} Filtered pages
+ */
+export const filterPages = async (filters) => {
+  const params = {}
+  if (filters.minDepth !== undefined) params.min_depth = filters.minDepth
+  if (filters.maxDepth !== undefined) params.max_depth = filters.maxDepth
+  if (filters.hasFiles !== undefined) params.has_files = filters.hasFiles
+  if (filters.startDate) params.start_date = filters.startDate
+  if (filters.endDate) params.end_date = filters.endDate
+  if (filters.limit) params.limit = filters.limit
+  
+  const response = await apiClient.get('/api/data/filter/pages', { params })
+  return response.data
+}
+
+/**
+ * Compare statistics between multiple domains
+ * @param {string[]} domains - Array of domain names
+ * @returns {Promise<Object>} Comparison data
+ */
+export const compareDomains = async (domains) => {
+  const response = await apiClient.get('/api/data/compare/domains', {
+    params: { domains: domains.join(',') }
+  })
+  return response.data
+}
+
+// ============================================================================
+// HISTORY APIs
+// ============================================================================
+
+/**
+ * Get list of all scraped domains with their page counts (Legacy endpoint for backward compatibility)
+ * @returns {Promise<Object>} URLs array with domain information
+ */
+export const getScrapedUrls = async () => {
+  const response = await apiClient.get('/api/data/scraped-urls')
+  return response.data
+}
+
+/**
+ * Get detailed scraping sessions with statistics
+ * @returns {Promise<Object>} Sessions array with detailed stats
+ */
+export const getScrapingSessions = async () => {
+  const response = await apiClient.get('/api/history/sessions')
+  return response.data
+}
+
+/**
+ * Get detailed information about a specific scraping session
+ * @param {string} domain - Domain URL to get details for
+ * @returns {Promise<Object>} Session details with overview, depth distribution, file stats, and recent pages
+ */
+export const getSessionDetails = async (domain) => {
+  const response = await apiClient.get(`/api/history/session/${encodeURIComponent(domain)}`)
+  return response.data
+}
+
+/**
+ * Delete all data for a specific scraping session
+ * @param {string} domain - Domain URL to delete
+ * @returns {Promise<Object>} Response with deleted pages count
+ */
+export const deleteSession = async (domain) => {
+  const response = await apiClient.delete(`/api/history/session/${encodeURIComponent(domain)}`)
+  return response.data
+}
+
+/**
+ * Get overall scraping history statistics
+ * @returns {Promise<Object>} Statistics including total sessions, pages, files, and size
+ */
+export const getHistoryStatistics = async () => {
+  const response = await apiClient.get('/api/history/statistics')
+  return response.data
+}
+
 // ============================================================================
 // PROXY APIs
 // ============================================================================
@@ -236,6 +434,50 @@ export const getPerformanceAnalytics = async () => {
 export const analyzeLoginPage = async (loginUrl) => {
   const response = await apiClient.post('/api/selector-finder/analyze', {
     login_url: loginUrl
+  })
+  return response.data
+}
+
+/**
+ * Test login with provided selectors
+ * @param {Object} testData - Test login data
+ * @param {string} testData.loginUrl - URL of the login page
+ * @param {string} testData.username - Username to test
+ * @param {string} testData.password - Password to test
+ * @param {string} testData.usernameSelector - CSS selector for username field
+ * @param {string} testData.passwordSelector - CSS selector for password field
+ * @param {string} testData.submitSelector - CSS selector for submit button
+ * @param {string} [testData.successIndicator] - Optional CSS selector for success indicator
+ * @returns {Promise<Object>} Test results
+ */
+export const testLoginSelectors = async (testData) => {
+  const response = await apiClient.post('/api/selector-finder/test-login', {
+    login_url: testData.loginUrl,
+    username: testData.username,
+    password: testData.password,
+    username_selector: testData.usernameSelector,
+    password_selector: testData.passwordSelector,
+    submit_selector: testData.submitSelector,
+    success_indicator: testData.successIndicator || null
+  })
+  return response.data
+}
+
+/**
+ * Find HTML elements by text content or attributes
+ * @param {Object} searchData - Search data
+ * @param {string} searchData.url - URL of the page to search
+ * @param {Array<string>} searchData.searchQueries - Array of texts to search for
+ * @param {Array<string>} searchData.imageUrls - Array of image URLs to search for
+ * @param {string} searchData.searchType - Search type: 'text', 'partial', or 'attribute'
+ * @returns {Promise<Object>} Found elements grouped by search query
+ */
+export const findElementByContent = async (searchData) => {
+  const response = await apiClient.post('/api/selector-finder/find-element', {
+    url: searchData.url,
+    search_queries: searchData.searchQueries,
+    image_urls: searchData.imageUrls || [],
+    search_type: searchData.searchType
   })
   return response.data
 }

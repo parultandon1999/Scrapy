@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react'
-import { getConfig, updateConfig } from '../services/api'
+import {
+  Settings, Clock, Shield, Download, Globe, Eye, EyeOff,
+  AlertCircle, X, ToggleRight
+} from 'lucide-react'
+import ToggleSwitch from '../components/ToggleSwitch'
+import * as api from '../services/api'
 import '../styles/Config.css'
 
 function Config() {
+  const [activeSection, setActiveSection] = useState('features')
   const [config, setConfig] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
-  const [editMode, setEditMode] = useState({})
+  const [showPasswords, setShowPasswords] = useState(false)
 
   useEffect(() => {
     fetchConfig()
@@ -16,7 +22,7 @@ function Config() {
   const fetchConfig = async () => {
     try {
       setLoading(true)
-      const data = await getConfig()
+      const data = await api.getConfig()
       setConfig(data)
     } catch (err) {
       setError('Failed to load configuration')
@@ -25,124 +31,232 @@ function Config() {
     }
   }
 
-  const handleUpdate = async (section, key, value) => {
+  const handleValueChange = async (section, key, value) => {
     try {
+      setSaving(true)
       setError(null)
-      setSuccess(null)
-      await updateConfig(section, key, value)
-      setSuccess(`Updated ${section}.${key}`)
-      fetchConfig()
-      setTimeout(() => setSuccess(null), 3000)
+      
+      await api.updateConfig(section, key, value)
+      
+      // Update local config immediately
+      setConfig(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [key]: value
+        }
+      }))
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to update configuration')
+      // Revert on error
+      fetchConfig()
+    } finally {
+      setSaving(false)
     }
   }
 
-  const toggleEdit = (section, key) => {
-    const editKey = `${section}.${key}`
-    setEditMode(prev => ({
-      ...prev,
-      [editKey]: !prev[editKey]
-    }))
+  const renderBooleanControl = (section, key, value) => {
+    return (
+      <div className="config-control">
+        <ToggleSwitch
+          checked={value}
+          onChange={(e) => handleValueChange(section, key, e.target.checked)}
+        />
+      </div>
+    )
   }
 
-  const renderConfigSection = (sectionName, sectionData) => {
+  const renderNumberControl = (section, key, value) => {
     return (
-      <div className="config-section" key={sectionName}>
-        <h3>{sectionName.toUpperCase()}</h3>
-        <div className="config-items">
-          {Object.entries(sectionData).map(([key, value]) => {
-            const editKey = `${sectionName}.${key}`
-            const isEditing = editMode[editKey]
-            
-            return (
-              <div className="config-item" key={key}>
-                <div className="config-label">
-                  <span className="config-key">{key}</span>
-                  <span className="config-type">{typeof value}</span>
-                </div>
-                <div className="config-value-container">
-                  {isEditing ? (
-                    <input
-                      type={typeof value === 'number' ? 'number' : typeof value === 'boolean' ? 'checkbox' : 'text'}
-                      defaultValue={typeof value === 'boolean' ? undefined : value}
-                      defaultChecked={typeof value === 'boolean' ? value : undefined}
-                      className="config-input"
-                      onBlur={(e) => {
-                        const newValue = typeof value === 'number' 
-                          ? parseInt(e.target.value)
-                          : typeof value === 'boolean'
-                          ? e.target.checked
-                          : e.target.value
-                        handleUpdate(sectionName, key, newValue)
-                        toggleEdit(sectionName, key)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.target.blur()
-                        }
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <span className="config-value">
-                      {typeof value === 'boolean' ? (value ? '✓ true' : '✗ false') : String(value)}
-                    </span>
-                  )}
-                  <button
-                    className="config-edit-btn"
-                    onClick={() => toggleEdit(sectionName, key)}
-                  >
-                    {isEditing ? 'Cancel' : 'Edit'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+      <div className="config-control">
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => {
+            const newValue = parseInt(e.target.value) || 0
+            setConfig(prev => ({
+              ...prev,
+              [section]: { ...prev[section], [key]: newValue }
+            }))
+          }}
+          onBlur={(e) => {
+            const newValue = parseInt(e.target.value) || 0
+            handleValueChange(section, key, newValue)
+          }}
+          className="config-input-number"
+          disabled={saving}
+        />
+      </div>
+    )
+  }
+
+  const renderStringControl = (section, key, value, isPassword = false) => {
+    return (
+      <div className="config-control">
+        <div className="input-with-icon">
+          <input
+            type={isPassword && !showPasswords ? 'password' : 'text'}
+            value={value || ''}
+            onChange={(e) => {
+              setConfig(prev => ({
+                ...prev,
+                [section]: { ...prev[section], [key]: e.target.value }
+              }))
+            }}
+            onBlur={(e) => {
+              handleValueChange(section, key, e.target.value)
+            }}
+            className="config-input-text"
+            placeholder={`Enter ${key}...`}
+            disabled={saving}
+          />
+          {isPassword && (
+            <button
+              className="toggle-password-btn"
+              onClick={() => setShowPasswords(!showPasswords)}
+            >
+              {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          )}
         </div>
       </div>
     )
   }
 
+  const renderConfigItem = (section, key, value) => {
+    const isPassword = key.toLowerCase().includes('password')
+    const valueType = typeof value
+    
+    return (
+      <div className="config-item-row" key={key}>
+        <div className="config-item-label">
+          <span className="config-item-key">{key.replace(/_/g, ' ')}</span>
+          <span className="config-item-type">{valueType}</span>
+        </div>
+        <div className="config-item-value">
+          {valueType === 'boolean' && renderBooleanControl(section, key, value)}
+          {valueType === 'number' && renderNumberControl(section, key, value)}
+          {valueType === 'string' && renderStringControl(section, key, value, isPassword)}
+          {value === null && renderStringControl(section, key, '', isPassword)}
+        </div>
+      </div>
+    )
+  }
+
+  const getSectionIcon = (section) => {
+    const icons = {
+      features: <ToggleRight size={18} />,
+      scraper: <Settings size={18} />,
+      proxy: <Globe size={18} />,
+      auth: <Shield size={18} />,
+      file_download: <Download size={18} />,
+      timeouts: <Clock size={18} />,
+      delays: <Clock size={18} />
+    }
+    return icons[section] || <Settings size={18} />
+  }
+
+  const getSectionTitle = (section) => {
+    const titles = {
+      features: 'Feature Flags',
+      scraper: 'Scraper Settings',
+      proxy: 'Proxy Configuration',
+      auth: 'Authentication',
+      file_download: 'File Downloads',
+      timeouts: 'Timeouts',
+      delays: 'Delays'
+    }
+    return titles[section] || section
+  }
+
+  const getSectionDescription = (section) => {
+    const descriptions = {
+      features: 'Enable or disable major features (can be overridden by frontend)',
+      scraper: 'Core scraping parameters and limits (used as defaults)',
+      proxy: 'Proxy rotation and testing settings (always applied)',
+      auth: 'Login credentials and selectors (used as defaults)',
+      file_download: 'File download configuration (always applied)',
+      timeouts: 'Network and page load timeouts (always applied)',
+      delays: 'Human-like delays between actions (always applied)'
+    }
+    return descriptions[section] || ''
+  }
+
   if (loading) {
     return (
-      <div className="page-container">
-        <div className="page-header">
-          <h1>Configuration</h1>
-        </div>
-        <div className="loading">Loading configuration...</div>
+      <div className="database-page">
+        <aside className="db-sidebar">
+          <h2><Settings size={20} /> Config</h2>
+        </aside>
+        <main className="db-main">
+          <div className="db-loading">
+            <div className="spinner"></div>
+            <p>Loading configuration...</p>
+          </div>
+        </main>
       </div>
     )
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>Configuration</h1>
-        <p className="page-description">Manage scraper settings and preferences</p>
-      </div>
+    <div className="database-page">
+      {/* Sidebar Navigation */}
+      <aside className="db-sidebar">
+        <h2><Settings size={20} /> Config</h2>
+        <nav className="db-nav">
+          {config && Object.keys(config).map((section) => (
+            <button
+              key={section}
+              className={`db-nav-item ${activeSection === section ? 'active' : ''}`}
+              onClick={() => setActiveSection(section)}
+            >
+              {getSectionIcon(section)}
+              {getSectionTitle(section)}
+            </button>
+          ))}
+        </nav>
+      </aside>
 
-      {error && (
-        <div className="message error-message">
-          <p>{error}</p>
-        </div>
-      )}
-
-      {success && (
-        <div className="message success-message">
-          <p>{success}</p>
-        </div>
-      )}
-
-      <div className="config-container">
-        {config && Object.entries(config).map(([section, data]) => 
-          renderConfigSection(section, data)
+      {/* Main Content */}
+      <main className="db-main">
+        {error && (
+          <div className="db-error">
+            <AlertCircle size={18} />
+            <p>{error}</p>
+            <button onClick={() => setError(null)}><X size={18} /></button>
+          </div>
         )}
-      </div>
 
-      <div className="config-note">
-        <p><strong>Note:</strong> Changes take effect immediately but may require restarting the scraper for active jobs.</p>
-      </div>
+        {config && config[activeSection] && (
+          <div className="config-view">
+            <div className="view-header-compact">
+              <div>
+                <h1>
+                  {getSectionIcon(activeSection)}
+                  {getSectionTitle(activeSection)}
+                </h1>
+                <p className="section-description">{getSectionDescription(activeSection)}</p>
+              </div>
+            </div>
+
+            <div className="config-section-content">
+              {Object.entries(config[activeSection]).map(([key, value]) => 
+                renderConfigItem(activeSection, key, value)
+              )}
+            </div>
+
+            <div className="config-note">
+              <AlertCircle size={16} />
+              <div>
+                <strong>How Config Works:</strong> These settings apply to NEW scraping jobs. 
+                Settings marked as "defaults" can be overridden by Advanced Options on the Home page. 
+                Settings marked as "always applied" cannot be overridden and always use these values.
+                Changes take effect immediately - no restart needed!
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   )
 }

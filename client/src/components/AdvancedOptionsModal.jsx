@@ -26,6 +26,38 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
   }
 
   const handleSave = () => {
+    // Validate numeric inputs
+    if (options.max_pages && parseInt(options.max_pages) < 1) {
+      setFieldError('Max pages must be at least 1')
+      return
+    }
+    
+    if (options.max_depth && parseInt(options.max_depth) < 1) {
+      setFieldError('Max depth must be at least 1')
+      return
+    }
+    
+    if (options.concurrent_limit && parseInt(options.concurrent_limit) < 1) {
+      setFieldError('Concurrent limit must be at least 1')
+      return
+    }
+    
+    if (options.max_file_size_mb && parseInt(options.max_file_size_mb) < 1) {
+      setFieldError('Max file size must be at least 1 MB')
+      return
+    }
+    
+    // Validate URL if provided
+    if (options.login_url && options.login_url.trim()) {
+      try {
+        new URL(options.login_url)
+      } catch {
+        setFieldError('Invalid login URL format')
+        return
+      }
+    }
+    
+    setFieldError('')
     onSave(options)
     onClose()
   }

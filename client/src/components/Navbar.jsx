@@ -31,12 +31,6 @@ function Navbar({ darkMode, toggleDarkMode }) {
         <Link to="/selector-finder" className={location.pathname === '/selector-finder' ? 'active' : ''}>
           Selector Finder
         </Link>
-        <Link to="/docs" className={location.pathname === '/docs' ? 'active' : ''}>
-          Docs
-        </Link>
-        <Link to="/about" className={location.pathname === '/about' ? 'active' : ''}>
-          About
-        </Link>
       </nav>
     </header>
   )

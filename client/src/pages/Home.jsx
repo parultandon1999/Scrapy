@@ -43,8 +43,12 @@ function Home() {
       const response = await startScraper(payload)
       
       if (response.success) {
-        // Navigate to progress page
-        navigate('/progress', { state: { url } })
+        // Generate unique session ID for this scraping session
+        const timestamp = Date.now()
+        const sessionId = btoa(`${url}-${timestamp}`).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16)
+        
+        // Navigate to progress page with unique session ID
+        navigate(`/progress/${sessionId}`, { state: { url, isLiveScraping: true } })
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to start scraper')
@@ -55,6 +59,15 @@ function Home() {
 
   const handleSaveOptions = (options) => {
     setAdvancedOptions(options)
+  }
+
+  const hasAdvancedOptions = () => {
+    return Object.entries(advancedOptions).some(([key, value]) => {
+      if (key === 'headless' || key === 'download_file_assets') {
+        return false // Don't count default boolean values
+      }
+      return value !== '' && value !== undefined && value !== null
+    })
   }
 
   return (
@@ -86,6 +99,7 @@ function Home() {
             onClick={() => setShowAdvancedModal(true)}
           >
             Advanced Options
+            {hasAdvancedOptions() && <span className="options-badge">Active</span>}
           </button>
         </div>
 

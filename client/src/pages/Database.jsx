@@ -1,45 +1,106 @@
 import { useState, useEffect } from 'react'
-import { getStats, getPages, getFileAssets, searchContent, searchFiles } from '../services/api'
+import { 
+  LayoutDashboard, FileText, FolderOpen, Package, 
+  HardDrive, Link2, Search, Download, ChevronLeft, 
+  ChevronRight, X, ExternalLink, File, CheckCircle, 
+  XCircle, Database as DatabaseIcon, TrendingUp, Hash,
+  BarChart3, PieChart, Activity, Filter, Trash2, GitCompare,
+  Calendar, Layers, AlertCircle
+} from 'lucide-react'
+import * as api from '../services/api'
 import '../styles/Database.css'
 
 function Database() {
-  const [activeTab, setActiveTab] = useState('stats')
+  const [activeView, setActiveView] = useState('dashboard')
   const [stats, setStats] = useState(null)
   const [pages, setPages] = useState([])
   const [files, setFiles] = useState([])
+  const [filesByExtension, setFilesByExtension] = useState([])
+  const [largestDownloads, setLargestDownloads] = useState([])
+  const [topLinks, setTopLinks] = useState([])
+  const [pageDetails, setPageDetails] = useState(null)
   const [searchResults, setSearchResults] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchType, setSearchType] = useState('content')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchType, setSearchType] = useState('content')
+  const [linkType, setLinkType] = useState('internal')
+  const [fileStatus, setFileStatus] = useState('all')
+  const [pageLimit, setPageLimit] = useState(20)
+  const [pageOffset, setPageOffset] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [selectedPageId, setSelectedPageId] = useState(null)
+  
+  // New state for advanced features
+  const [timeline, setTimeline] = useState([])
+  const [domains, setDomains] = useState([])
+  const [depthDistribution, setDepthDistribution] = useState([])
+  const [fileAnalytics, setFileAnalytics] = useState([])
+  const [linkAnalysis, setLinkAnalysis] = useState(null)
+  const [selectedPages, setSelectedPages] = useState([])
+  const [filterOptions, setFilterOptions] = useState({
+    minDepth: '',
+    maxDepth: '',
+    hasFiles: null,
+    startDate: '',
+    endDate: ''
+  })
 
   useEffect(() => {
-    if (activeTab === 'stats') {
-      fetchStats()
-    } else if (activeTab === 'pages') {
+    if (activeView === 'dashboard') {
+      fetchDashboardData()
+    } else if (activeView === 'pages') {
       fetchPages()
-    } else if (activeTab === 'files') {
+    } else if (activeView === 'files') {
       fetchFiles()
+    } else if (activeView === 'files-by-ext') {
+      fetchFilesByExtension()
+    } else if (activeView === 'largest-downloads') {
+      fetchLargestDownloads(10)
+    } else if (activeView === 'top-links') {
+      fetchTopLinks(linkType, 20)
+    } else if (activeView === 'analytics') {
+      fetchAnalytics()
+    } else if (activeView === 'timeline') {
+      fetchTimeline()
+    } else if (activeView === 'domains') {
+      fetchDomains()
+    } else if (activeView === 'link-analysis') {
+      fetchLinkAnalysis()
     }
-  }, [activeTab])
+  }, [activeView, pageLimit, pageOffset, linkType, fileStatus])
+
+  const fetchDashboardData = async () => {
+    setLoading(true)
+    try {
+      await Promise.all([
+        fetchStats(),
+        fetchFilesByExtension(),
+        fetchLargestDownloads(5),
+        fetchTopLinks('internal', 5)
+      ])
+    } catch (err) {
+      setError('Failed to load dashboard')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const fetchStats = async () => {
     try {
-      setLoading(true)
-      const data = await getStats()
+      const data = await api.getStats()
       setStats(data)
     } catch (err) {
-      setError('Failed to load statistics')
-    } finally {
-      setLoading(false)
+      console.error('Failed to load stats:', err)
     }
   }
 
   const fetchPages = async () => {
     try {
       setLoading(true)
-      const data = await getPages(50, 0)
+      const data = await api.getPages(pageLimit, pageOffset)
       setPages(data.pages)
+      setTotalPages(data.total)
     } catch (err) {
       setError('Failed to load pages')
     } finally {
@@ -50,10 +111,51 @@ function Database() {
   const fetchFiles = async () => {
     try {
       setLoading(true)
-      const data = await getFileAssets(50)
+      const data = await api.getFileAssets(50, fileStatus === 'all' ? null : fileStatus)
       setFiles(data.files)
     } catch (err) {
       setError('Failed to load files')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchFilesByExtension = async () => {
+    try {
+      const data = await api.getFilesByExtension()
+      setFilesByExtension(data.files_by_extension || [])
+    } catch (err) {
+      console.error('Failed to load files by extension:', err)
+    }
+  }
+
+  const fetchLargestDownloads = async (limit) => {
+    try {
+      const data = await api.getLargestDownloads(limit)
+      setLargestDownloads(data.largest_downloads || [])
+    } catch (err) {
+      console.error('Failed to load largest downloads:', err)
+    }
+  }
+
+  const fetchTopLinks = async (type, limit) => {
+    try {
+      const data = await api.getTopLinks(type, limit)
+      setTopLinks(data.top_links || [])
+    } catch (err) {
+      console.error('Failed to load top links:', err)
+    }
+  }
+
+  const fetchPageDetails = async (pageId) => {
+    try {
+      setLoading(true)
+      const data = await api.getPageDetails(pageId)
+      setPageDetails(data)
+      setSelectedPageId(pageId)
+      setActiveView('page-details')
+    } catch (err) {
+      setError('Failed to load page details')
     } finally {
       setLoading(false)
     }
@@ -67,10 +169,11 @@ function Database() {
       setLoading(true)
       setError(null)
       const data = searchType === 'content' 
-        ? await searchContent(searchQuery, 50)
-        : await searchFiles(searchQuery, 50)
+        ? await api.searchContent(searchQuery, 50)
+        : await api.searchFiles(searchQuery, 50)
+      
       setSearchResults(data)
-      setActiveTab('search')
+      setActiveView('search')
     } catch (err) {
       setError('Search failed')
     } finally {
@@ -78,240 +181,880 @@ function Database() {
     }
   }
 
+  const handleExportData = async () => {
+    try {
+      setLoading(true)
+      const data = await api.exportData()
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `scraped_data_export_${Date.now()}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError('Failed to export data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // New analytics functions
+  const fetchTimeline = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getScrapingTimeline()
+      setTimeline(data.timeline || [])
+    } catch (err) {
+      setError('Failed to load timeline')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchDomains = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getDomainStatistics()
+      setDomains(data.domains || [])
+    } catch (err) {
+      setError('Failed to load domains')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true)
+      const [depthData, fileData] = await Promise.all([
+        api.getDepthDistribution(),
+        api.getFileTypeAnalytics()
+      ])
+      setDepthDistribution(depthData.depth_distribution || [])
+      setFileAnalytics(fileData.file_analytics || [])
+    } catch (err) {
+      setError('Failed to load analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchLinkAnalysis = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getLinkAnalysis()
+      setLinkAnalysis(data)
+    } catch (err) {
+      setError('Failed to load link analysis')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedPages.length === 0) return
+    if (!confirm(`Delete ${selectedPages.length} selected pages?`)) return
+    
+    try {
+      setLoading(true)
+      const data = await api.bulkDeletePages(selectedPages)
+      setSelectedPages([])
+      fetchPages()
+      alert(`Deleted ${data.deleted_count} pages`)
+    } catch (err) {
+      setError('Failed to delete pages')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFilterPages = async () => {
+    try {
+      setLoading(true)
+      const data = await api.filterPages({
+        minDepth: filterOptions.minDepth,
+        maxDepth: filterOptions.maxDepth,
+        hasFiles: filterOptions.hasFiles,
+        startDate: filterOptions.startDate,
+        endDate: filterOptions.endDate,
+        limit: pageLimit
+      })
+      setPages(data.pages)
+      setTotalPages(data.total)
+    } catch (err) {
+      setError('Failed to filter pages')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const formatBytes = (bytes) => {
-    if (!bytes) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+    return api.formatBytes(bytes)
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1>Database Query</h1>
-        <p className="page-description">Browse and search scraped data</p>
-      </div>
-
-      {/* Search Bar */}
-      <form className="search-bar" onSubmit={handleSearch}>
-        <select 
-          value={searchType} 
-          onChange={(e) => setSearchType(e.target.value)}
-          className="search-type-select"
-        >
-          <option value="content">Search Content</option>
-          <option value="files">Search Files</option>
-        </select>
-        <input
-          type="text"
-          placeholder={`Search ${searchType}...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
-        />
-        <button type="submit" className="btn-primary" disabled={loading}>
-          Search
-        </button>
-      </form>
-
-      {/* Tabs */}
-      <div className="tabs">
-        <button 
-          className={`tab ${activeTab === 'stats' ? 'active' : ''}`}
-          onClick={() => setActiveTab('stats')}
-        >
-          Statistics
-        </button>
-        <button 
-          className={`tab ${activeTab === 'pages' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pages')}
-        >
-          Pages
-        </button>
-        <button 
-          className={`tab ${activeTab === 'files' ? 'active' : ''}`}
-          onClick={() => setActiveTab('files')}
-        >
-          Files
-        </button>
-        {searchResults && (
+    <div className="database-page">
+      {/* Sidebar Navigation */}
+      <aside className="db-sidebar">
+        <h2><DatabaseIcon size={20} /> Database</h2>
+        <nav className="db-nav">
           <button 
-            className={`tab ${activeTab === 'search' ? 'active' : ''}`}
-            onClick={() => setActiveTab('search')}
+            className={`db-nav-item ${activeView === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveView('dashboard')}
           >
-            Search Results
+            <LayoutDashboard size={18} />
+            Dashboard
           </button>
-        )}
-      </div>
-
-      {error && (
-        <div className="message error-message">
-          <p>{error}</p>
+          <button 
+            className={`db-nav-item ${activeView === 'pages' ? 'active' : ''}`}
+            onClick={() => setActiveView('pages')}
+          >
+            <FileText size={18} />
+            Pages
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'files' ? 'active' : ''}`}
+            onClick={() => setActiveView('files')}
+          >
+            <FolderOpen size={18} />
+            Files
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'files-by-ext' ? 'active' : ''}`}
+            onClick={() => setActiveView('files-by-ext')}
+          >
+            <Package size={18} />
+            By Type
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'largest-downloads' ? 'active' : ''}`}
+            onClick={() => setActiveView('largest-downloads')}
+          >
+            <HardDrive size={18} />
+            Largest
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'top-links' ? 'active' : ''}`}
+            onClick={() => setActiveView('top-links')}
+          >
+            <Link2 size={18} />
+            Links
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveView('search')}
+          >
+            <Search size={18} />
+            Search
+          </button>
+          
+          <div className="nav-divider"></div>
+          
+          <button 
+            className={`db-nav-item ${activeView === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActiveView('analytics')}
+          >
+            <BarChart3 size={18} />
+            Analytics
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'timeline' ? 'active' : ''}`}
+            onClick={() => setActiveView('timeline')}
+          >
+            <Activity size={18} />
+            Timeline
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'domains' ? 'active' : ''}`}
+            onClick={() => setActiveView('domains')}
+          >
+            <Layers size={18} />
+            Domains
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'link-analysis' ? 'active' : ''}`}
+            onClick={() => setActiveView('link-analysis')}
+          >
+            <AlertCircle size={18} />
+            Link Analysis
+          </button>
+        </nav>
+        
+        <div className="db-actions">
+          <button onClick={handleExportData} className="export-btn" disabled={loading}>
+            <Download size={16} />
+            Export Data
+          </button>
         </div>
-      )}
+      </aside>
 
-      {/* Content */}
-      <div className="tab-content">
-        {loading ? (
-          <div className="loading">Loading...</div>
-        ) : (
-          <>
-            {/* Statistics Tab */}
-            {activeTab === 'stats' && stats && (
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <h3>Total Pages</h3>
-                  <p className="stat-number">{stats.total_pages || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Total Links</h3>
-                  <p className="stat-number">{stats.total_links || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Internal Links</h3>
-                  <p className="stat-number">{stats.internal_links || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>External Links</h3>
-                  <p className="stat-number">{stats.external_links || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Total Media</h3>
-                  <p className="stat-number">{stats.total_media || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Total Headers</h3>
-                  <p className="stat-number">{stats.total_headers || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>File Assets</h3>
-                  <p className="stat-number">{stats.total_file_assets || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Successful Downloads</h3>
-                  <p className="stat-number">{stats.successful_downloads || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Failed Downloads</h3>
-                  <p className="stat-number">{stats.failed_downloads || 0}</p>
-                </div>
-                <div className="stat-card">
-                  <h3>Total Download Size</h3>
-                  <p className="stat-number">{(stats.total_download_size_mb || 0).toFixed(2)} MB</p>
+      {/* Main Content */}
+      <main className="db-main">
+        {error && (
+          <div className="db-error">
+            <p>{error}</p>
+            <button onClick={() => setError(null)}><X size={18} /></button>
+          </div>
+        )}
+
+        {loading && activeView !== 'dashboard' && (
+          <div className="db-loading">
+            <div className="spinner"></div>
+            <p>Loading...</p>
+          </div>
+        )}
+
+        {/* Dashboard View */}
+        {activeView === 'dashboard' && stats && (
+          <div className="dashboard-view">
+            <h1>Overview</h1>
+            
+            {/* Compact Stats Grid */}
+            <div className="stats-grid-compact">
+              <div className="stat-card-compact">
+                <FileText size={20} className="stat-icon-compact" />
+                <div>
+                  <div className="stat-label">Pages</div>
+                  <div className="stat-value">{stats.total_pages || 0}</div>
                 </div>
               </div>
-            )}
+              <div className="stat-card-compact">
+                <Link2 size={20} className="stat-icon-compact" />
+                <div>
+                  <div className="stat-label">Links</div>
+                  <div className="stat-value">{stats.total_links || 0}</div>
+                </div>
+              </div>
+              <div className="stat-card-compact">
+                <TrendingUp size={20} className="stat-icon-compact" />
+                <div>
+                  <div className="stat-label">Internal</div>
+                  <div className="stat-value">{stats.internal_links || 0}</div>
+                </div>
+              </div>
+              <div className="stat-card-compact">
+                <ExternalLink size={20} className="stat-icon-compact" />
+                <div>
+                  <div className="stat-label">External</div>
+                  <div className="stat-value">{stats.external_links || 0}</div>
+                </div>
+              </div>
+              <div className="stat-card-compact">
+                <Package size={20} className="stat-icon-compact" />
+                <div>
+                  <div className="stat-label">Files</div>
+                  <div className="stat-value">{stats.total_file_assets || 0}</div>
+                </div>
+              </div>
+              <div className="stat-card-compact">
+                <CheckCircle size={20} className="stat-icon-compact success" />
+                <div>
+                  <div className="stat-label">Downloaded</div>
+                  <div className="stat-value">{stats.successful_downloads || 0}</div>
+                </div>
+              </div>
+              <div className="stat-card-compact">
+                <XCircle size={20} className="stat-icon-compact danger" />
+                <div>
+                  <div className="stat-label">Failed</div>
+                  <div className="stat-value">{stats.failed_downloads || 0}</div>
+                </div>
+              </div>
+              <div className="stat-card-compact">
+                <HardDrive size={20} className="stat-icon-compact" />
+                <div>
+                  <div className="stat-label">Total Size</div>
+                  <div className="stat-value">{(stats.total_download_size_mb || 0).toFixed(1)} MB</div>
+                </div>
+              </div>
+            </div>
 
-            {/* Pages Tab */}
-            {activeTab === 'pages' && (
-              <div className="data-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>URL</th>
-                      <th>Title</th>
-                      <th>Depth</th>
-                      <th>Scraped At</th>
+            {/* Compact Widgets */}
+            <div className="widgets-compact">
+              <div className="widget-compact">
+                <div className="widget-header-compact">
+                  <h3><Package size={16} /> Files by Type</h3>
+                  <button onClick={() => setActiveView('files-by-ext')} className="widget-link-compact">
+                    View All <ChevronRight size={14} />
+                  </button>
+                </div>
+                <div className="widget-list">
+                  {filesByExtension.slice(0, 5).map((item, idx) => (
+                    <div key={idx} className="widget-list-item">
+                      <span className="file-badge-compact">{item.file_extension}</span>
+                      <div className="widget-bar-compact">
+                        <div 
+                          className="widget-bar-fill-compact" 
+                          style={{width: `${(item.count / filesByExtension[0]?.count * 100) || 0}%`}}
+                        ></div>
+                      </div>
+                      <span className="widget-count-compact">{item.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="widget-compact">
+                <div className="widget-header-compact">
+                  <h3><HardDrive size={16} /> Largest Files</h3>
+                  <button onClick={() => setActiveView('largest-downloads')} className="widget-link-compact">
+                    View All <ChevronRight size={14} />
+                  </button>
+                </div>
+                <div className="widget-list">
+                  {largestDownloads.map((file, idx) => (
+                    <div key={idx} className="widget-list-item">
+                      <File size={14} className="file-icon-compact" />
+                      <span className="widget-filename-compact">{file.file_name}</span>
+                      <span className="widget-size-compact">{formatBytes(file.file_size_bytes)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="widget-compact">
+                <div className="widget-header-compact">
+                  <h3><Link2 size={16} /> Top Links</h3>
+                  <button onClick={() => setActiveView('top-links')} className="widget-link-compact">
+                    View All <ChevronRight size={14} />
+                  </button>
+                </div>
+                <div className="widget-list">
+                  {topLinks.map((link, idx) => (
+                    <div key={idx} className="widget-list-item">
+                      <span className="widget-url-compact">{link.url.substring(0, 40)}...</span>
+                      <span className="frequency-badge-compact"><Hash size={12} />{link.frequency}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pages View */}
+        {activeView === 'pages' && !loading && (
+          <div className="list-view">
+            <div className="view-header-compact">
+              <h1><FileText size={24} /> Pages ({totalPages})</h1>
+              <div className="view-controls-compact">
+                <select value={pageLimit} onChange={(e) => setPageLimit(Number(e.target.value))} className="control-select-compact">
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+                <button onClick={() => setPageOffset(Math.max(0, pageOffset - pageLimit))} disabled={pageOffset === 0} className="control-btn-compact">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="page-info-compact">{pageOffset + 1}-{Math.min(pageOffset + pageLimit, totalPages)}</span>
+                <button onClick={() => setPageOffset(pageOffset + pageLimit)} disabled={pageOffset + pageLimit >= totalPages} className="control-btn-compact">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="data-table-compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>URL</th>
+                    <th>Title</th>
+                    <th>Depth</th>
+                    <th>Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pages.map((page) => (
+                    <tr key={page.id}>
+                      <td className="url-cell-compact">
+                        <a href={page.url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink size={14} /> {page.url}
+                        </a>
+                      </td>
+                      <td>{page.title || 'No title'}</td>
+                      <td><span className="depth-badge-compact">D{page.depth}</span></td>
+                      <td className="date-cell-compact">{page.scraped_at}</td>
+                      <td><button onClick={() => fetchPageDetails(page.id)} className="action-btn-compact">View</button></td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {pages.map((page) => (
-                      <tr key={page.id}>
-                        <td>{page.id}</td>
-                        <td className="url-cell">
-                          <a href={page.url} target="_blank" rel="noopener noreferrer">
-                            {page.url}
-                          </a>
-                        </td>
-                        <td>{page.title || 'No title'}</td>
-                        <td>{page.depth}</td>
-                        <td>{page.scraped_at}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {pages.length === 0 && (
-                  <p className="no-data">No pages found. Start scraping to see data.</p>
-                )}
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-            {/* Files Tab */}
-            {activeTab === 'files' && (
-              <div className="data-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Filename</th>
-                      <th>Extension</th>
-                      <th>Size</th>
-                      <th>Status</th>
-                      <th>Source Page</th>
+        {/* Files View */}
+        {activeView === 'files' && !loading && (
+          <div className="list-view">
+            <div className="view-header-compact">
+              <h1><FolderOpen size={24} /> Files</h1>
+              <div className="view-controls-compact">
+                <select value={fileStatus} onChange={(e) => setFileStatus(e.target.value)} className="control-select-compact">
+                  <option value="all">All</option>
+                  <option value="success">Success</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+            </div>
+            <div className="data-table-compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {files.map((file, idx) => (
+                    <tr key={idx}>
+                      <td className="file-cell-compact">
+                        <File size={14} /> {file.file_name}
+                      </td>
+                      <td><span className="file-badge-compact">{file.file_extension}</span></td>
+                      <td className="size-cell-compact">{formatBytes(file.file_size_bytes)}</td>
+                      <td>
+                        {file.download_status === 'success' ? (
+                          <span className="status-badge-compact success"><CheckCircle size={12} /> Success</span>
+                        ) : (
+                          <span className="status-badge-compact failed"><XCircle size={12} /> Failed</span>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {files.map((file, idx) => (
-                      <tr key={idx}>
-                        <td>{file.file_name}</td>
-                        <td><span className="badge">{file.file_extension}</span></td>
-                        <td>{formatBytes(file.file_size_bytes)}</td>
-                        <td>
-                          <span className={`status-badge ${file.download_status}`}>
-                            {file.download_status}
-                          </span>
-                        </td>
-                        <td className="url-cell">
-                          <a href={file.page_url} target="_blank" rel="noopener noreferrer">
-                            {file.page_url}
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {files.length === 0 && (
-                  <p className="no-data">No files found. Enable file downloads in config.</p>
-                )}
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-            {/* Search Results Tab */}
-            {activeTab === 'search' && searchResults && (
-              <div className="search-results">
-                <h3>Search Results for "{searchResults.keyword}" ({searchResults.total} found)</h3>
+        {/* Files by Extension View */}
+        {activeView === 'files-by-ext' && !loading && (
+          <div className="list-view">
+            <div className="view-header-compact">
+              <h1><Package size={24} /> Files by Type</h1>
+            </div>
+            <div className="data-table-compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Extension</th>
+                    <th>Count</th>
+                    <th>Total Size</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filesByExtension.map((item, idx) => (
+                    <tr key={idx}>
+                      <td><span className="file-badge-compact">{item.file_extension}</span></td>
+                      <td className="count-cell-compact">{item.count}</td>
+                      <td className="size-cell-compact">{(item.total_size / (1024 * 1024)).toFixed(2)} MB</td>
+                      <td>
+                        {item.download_status === 'success' ? (
+                          <span className="status-badge-compact success"><CheckCircle size={12} /> Success</span>
+                        ) : (
+                          <span className="status-badge-compact failed"><XCircle size={12} /> Failed</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Largest Downloads View */}
+        {activeView === 'largest-downloads' && !loading && (
+          <div className="list-view">
+            <div className="view-header-compact">
+              <h1><HardDrive size={24} /> Largest Files</h1>
+            </div>
+            <div className="data-table-compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {largestDownloads.map((file, idx) => (
+                    <tr key={idx}>
+                      <td className="file-cell-compact">
+                        <File size={14} /> {file.file_name}
+                      </td>
+                      <td><span className="file-badge-compact">{file.file_extension}</span></td>
+                      <td className="size-cell-compact highlight">{formatBytes(file.file_size_bytes)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Top Links View */}
+        {activeView === 'top-links' && !loading && (
+          <div className="list-view">
+            <div className="view-header-compact">
+              <h1><Link2 size={24} /> Top Links</h1>
+              <div className="view-controls-compact">
+                <select value={linkType} onChange={(e) => setLinkType(e.target.value)} className="control-select-compact">
+                  <option value="internal">Internal</option>
+                  <option value="external">External</option>
+                </select>
+              </div>
+            </div>
+            <div className="data-table-compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>URL</th>
+                    <th>Frequency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topLinks.map((link, idx) => (
+                    <tr key={idx}>
+                      <td className="url-cell-compact">
+                        <a href={link.url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink size={14} /> {link.url}
+                        </a>
+                      </td>
+                      <td><span className="frequency-badge-compact"><Hash size={12} />{link.frequency}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Search View */}
+        {activeView === 'search' && (
+          <div className="search-view">
+            <div className="view-header-compact">
+              <h1><Search size={24} /> Search</h1>
+            </div>
+            <form onSubmit={handleSearch} className="search-form-compact">
+              <select value={searchType} onChange={(e) => setSearchType(e.target.value)} className="search-select-compact">
+                <option value="content">Content</option>
+                <option value="files">Files</option>
+              </select>
+              <input
+                type="text"
+                placeholder={`Search ${searchType}...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input-compact"
+              />
+              <button type="submit" className="search-btn-compact" disabled={loading}>
+                <Search size={16} /> Search
+              </button>
+            </form>
+
+            {searchResults && (
+              <div className="search-results-compact">
+                <h3>{searchResults.total} results for "{searchResults.keyword}"</h3>
                 {searchResults.results.length > 0 ? (
-                  <div className="results-list">
+                  <div className="results-list-compact">
                     {searchResults.results.map((result, idx) => (
-                      <div className="result-item" key={idx}>
-                        {result.title && <h4>{result.title}</h4>}
-                        {result.file_name && <h4>{result.file_name}</h4>}
+                      <div className="result-card-compact" key={idx}>
+                        {result.title && <h4><FileText size={16} /> {result.title}</h4>}
+                        {result.file_name && <h4><File size={16} /> {result.file_name}</h4>}
                         {result.url && (
                           <a href={result.url} target="_blank" rel="noopener noreferrer">
-                            {result.url}
+                            <ExternalLink size={14} /> {result.url}
                           </a>
                         )}
                         {result.page_url && (
                           <a href={result.page_url} target="_blank" rel="noopener noreferrer">
-                            {result.page_url}
+                            <ExternalLink size={14} /> {result.page_url}
                           </a>
                         )}
-                        {result.preview && <p className="preview">{result.preview}...</p>}
-                        {result.file_extension && (
-                          <span className="badge">{result.file_extension}</span>
-                        )}
+                        {result.preview && <p className="result-preview-compact">{result.preview}...</p>}
+                        {result.file_extension && <span className="file-badge-compact">{result.file_extension}</span>}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="no-data">No results found.</p>
+                  <p className="no-results-compact">No results found</p>
                 )}
               </div>
             )}
-          </>
+          </div>
         )}
-      </div>
+
+        {/* Page Details View */}
+        {activeView === 'page-details' && pageDetails && !loading && (
+          <div className="details-view">
+            <div className="view-header-compact">
+              <h1><FileText size={24} /> Page Details</h1>
+              <button onClick={() => setActiveView('pages')} className="back-btn-compact">
+                <ChevronLeft size={16} /> Back
+              </button>
+            </div>
+            
+            <div className="details-grid-compact">
+              <div className="detail-section-compact">
+                <h3>Information</h3>
+                <div className="detail-items-compact">
+                  <div className="detail-row-compact">
+                    <span className="detail-label-compact">URL:</span>
+                    <a href={pageDetails.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink size={14} /> {pageDetails.url}
+                    </a>
+                  </div>
+                  <div className="detail-row-compact">
+                    <span className="detail-label-compact">Title:</span>
+                    <span>{pageDetails.title || 'No title'}</span>
+                  </div>
+                  <div className="detail-row-compact">
+                    <span className="detail-label-compact">Depth:</span>
+                    <span className="depth-badge-compact">D{pageDetails.depth}</span>
+                  </div>
+                  <div className="detail-row-compact">
+                    <span className="detail-label-compact">Date:</span>
+                    <span>{new Date(pageDetails.timestamp * 1000).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {pageDetails.headers && pageDetails.headers.length > 0 && (
+                <div className="detail-section-compact">
+                  <h3>Headers ({pageDetails.headers.length})</h3>
+                  <div className="headers-list-compact">
+                    {pageDetails.headers.slice(0, 5).map((header, idx) => (
+                      <div key={idx} className="header-item-compact">
+                        <span className="header-type-compact">{header.header_type}</span>
+                        <span>{header.header_text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {pageDetails.links && pageDetails.links.length > 0 && (
+                <div className="detail-section-compact">
+                  <h3>Links ({pageDetails.links.length})</h3>
+                  <div className="links-summary-compact">
+                    <span><TrendingUp size={14} /> Internal: {pageDetails.links.filter(l => l.link_type === 'internal').length}</span>
+                    <span><ExternalLink size={14} /> External: {pageDetails.links.filter(l => l.link_type === 'external').length}</span>
+                  </div>
+                </div>
+              )}
+
+              {pageDetails.file_assets && pageDetails.file_assets.length > 0 && (
+                <div className="detail-section-compact">
+                  <h3>Files ({pageDetails.file_assets.length})</h3>
+                  <div className="files-list-compact">
+                    {pageDetails.file_assets.map((file, idx) => (
+                      <div key={idx} className="file-item-compact">
+                        <File size={14} />
+                        <span className="file-badge-compact">{file.file_extension}</span>
+                        <span className="file-name-compact">{file.file_name}</span>
+                        {file.download_status === 'success' ? (
+                          <CheckCircle size={14} className="success-icon" />
+                        ) : (
+                          <XCircle size={14} className="error-icon" />
+                        )}
+                        <span className="file-size-compact">{formatBytes(file.file_size_bytes)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Analytics View */}
+        {activeView === 'analytics' && !loading && (
+          <div className="analytics-view">
+            <h1><BarChart3 size={24} /> Analytics</h1>
+            
+            <div className="analytics-grid">
+              <div className="analytics-card">
+                <h3><Layers size={18} /> Depth Distribution</h3>
+                <div className="chart-container">
+                  {depthDistribution.map((item, idx) => (
+                    <div key={idx} className="chart-bar-item">
+                      <span className="chart-label">Depth {item.depth}</span>
+                      <div className="chart-bar-bg">
+                        <div 
+                          className="chart-bar-fill"
+                          style={{width: `${(item.page_count / Math.max(...depthDistribution.map(d => d.page_count))) * 100}%`}}
+                        ></div>
+                      </div>
+                      <span className="chart-value">{item.page_count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="analytics-card">
+                <h3><PieChart size={18} /> File Type Analytics</h3>
+                <div className="analytics-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Total</th>
+                        <th>Success</th>
+                        <th>Failed</th>
+                        <th>Avg Size</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fileAnalytics.slice(0, 10).map((item, idx) => (
+                        <tr key={idx}>
+                          <td><span className="file-badge-compact">{item.file_extension}</span></td>
+                          <td>{item.total_files}</td>
+                          <td className="success-text">{item.successful}</td>
+                          <td className="error-text">{item.failed}</td>
+                          <td>{formatBytes(item.avg_bytes)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Timeline View */}
+        {activeView === 'timeline' && !loading && (
+          <div className="timeline-view">
+            <h1><Activity size={24} /> Scraping Timeline</h1>
+            <div className="timeline-container">
+              {timeline.map((item, idx) => (
+                <div key={idx} className="timeline-item">
+                  <div className="timeline-date">
+                    <Calendar size={16} />
+                    {item.date}
+                  </div>
+                  <div className="timeline-stats">
+                    <span className="timeline-stat">
+                      <FileText size={14} /> {item.pages_scraped} pages
+                    </span>
+                    <span className="timeline-stat">
+                      <Layers size={14} /> {item.depths_reached} depths
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Domains View */}
+        {activeView === 'domains' && !loading && (
+          <div className="domains-view">
+            <h1><Layers size={24} /> Domain Statistics</h1>
+            <div className="data-table-compact">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Domain</th>
+                    <th>Pages</th>
+                    <th>Avg Depth</th>
+                    <th>First Scraped</th>
+                    <th>Last Scraped</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {domains.map((domain, idx) => (
+                    <tr key={idx}>
+                      <td className="url-cell-compact">
+                        <a href={domain.domain} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink size={14} /> {domain.domain}
+                        </a>
+                      </td>
+                      <td className="count-cell-compact">{domain.page_count}</td>
+                      <td>{domain.avg_depth?.toFixed(1)}</td>
+                      <td className="date-cell-compact">{new Date(domain.first_scraped * 1000).toLocaleDateString()}</td>
+                      <td className="date-cell-compact">{new Date(domain.last_scraped * 1000).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Link Analysis View */}
+        {activeView === 'link-analysis' && linkAnalysis && !loading && (
+          <div className="link-analysis-view">
+            <h1><AlertCircle size={24} /> Link Analysis</h1>
+            
+            <div className="analysis-grid">
+              <div className="analysis-section">
+                <h3><XCircle size={18} /> Broken Links ({linkAnalysis.broken_links?.length || 0})</h3>
+                <div className="data-table-compact">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>URL</th>
+                        <th>References</th>
+                        <th>Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linkAnalysis.broken_links?.slice(0, 20).map((link, idx) => (
+                        <tr key={idx}>
+                          <td className="url-cell-compact">
+                            <a href={link.url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink size={14} /> {link.url}
+                            </a>
+                          </td>
+                          <td className="count-cell-compact">{link.reference_count}</td>
+                          <td><span className="link-type-badge">{link.link_type}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="analysis-section">
+                <h3><TrendingUp size={18} /> Most Referenced Pages</h3>
+                <div className="data-table-compact">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Page</th>
+                        <th>Inbound Links</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linkAnalysis.most_referenced_pages?.map((page, idx) => (
+                        <tr key={idx}>
+                          <td className="url-cell-compact">
+                            <a href={page.url} target="_blank" rel="noopener noreferrer">
+                              <FileText size={14} /> {page.title || page.url}
+                            </a>
+                          </td>
+                          <td className="count-cell-compact highlight">{page.inbound_links}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   )
 }
