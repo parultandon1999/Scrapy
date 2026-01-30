@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { startScraper } from '../services/api'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import AdvancedOptionsModal from '../components/AdvancedOptionsModal'
+import AdvancedOptionsModal from '../components/AdvancedOptionsHome'
 import SearchBar from '../components/Searchbar'
 import '../styles/Home.css'
 

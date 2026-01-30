@@ -35,6 +35,9 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
         <a href="/history" className={currentPage === 'history' ? 'active' : ''}>
           History
         </a>
+        <a href="/extraction-rules" className={currentPage === 'extraction-rules' ? 'active' : ''}>
+          Extraction Rules
+        </a>
         <a href="/config" className={currentPage === 'config' ? 'active' : ''}>
           Config
         </a>

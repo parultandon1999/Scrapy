@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import NumericInput from '../components/InputValidator'
 import ToggleSwitch from './ToggleSwitch'
-import '../styles/AdvancedOptionsModal.css'
+import '../styles/AdvancedOptionsHome.css'
 
 function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
   const [fieldError, setFieldError] = useState('')
