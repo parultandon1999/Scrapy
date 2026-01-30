@@ -55,3 +55,34 @@ body.dark-mode .search-box input:focus {
   box-shadow: 0 2px 12px rgba(255, 255, 255, 0.1);
   background: #1f1f1f;
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .search-form {
+    max-width: 100%;
+  }
+
+  .search-box {
+    margin-bottom: 24px;
+  }
+
+  .search-box input {
+    padding: 12px 16px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-box input {
+    padding: 11px 14px;
+    font-size: 14px;
+    border-radius: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .search-box input {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}

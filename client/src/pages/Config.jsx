@@ -40,7 +40,6 @@ function Config({ darkMode, toggleDarkMode }) {
       
       await api.updateConfig(section, key, value)
       
-      // Update local config immediately
       setConfig(prev => ({
         ...prev,
         [section]: {
@@ -50,80 +49,73 @@ function Config({ darkMode, toggleDarkMode }) {
       }))
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to update configuration')
-      // Revert on error
       fetchConfig()
     } finally {
       setSaving(false)
     }
   }
 
-  const renderBooleanControl = (section, key, value) => {
-    return (
-      <div className="config-control">
-        <ToggleSwitch
-          checked={value}
-          onChange={(e) => handleValueChange(section, key, e.target.checked)}
-        />
-      </div>
-    )
-  }
+  const renderBooleanControl = (section, key, value) => (
+    <div className="config-control">
+      <ToggleSwitch
+        checked={value}
+        onChange={(e) => handleValueChange(section, key, e.target.checked)}
+      />
+    </div>
+  )
 
-  const renderNumberControl = (section, key, value) => {
-    return (
-      <div className="config-control">
+  const renderNumberControl = (section, key, value) => (
+    <div className="config-control">
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => {
+          const newValue = parseInt(e.target.value) || 0
+          setConfig(prev => ({
+            ...prev,
+            [section]: { ...prev[section], [key]: newValue }
+          }))
+        }}
+        onBlur={(e) => {
+          const newValue = parseInt(e.target.value) || 0
+          handleValueChange(section, key, newValue)
+        }}
+        className="config-input-number"
+        disabled={saving}
+      />
+    </div>
+  )
+
+  const renderStringControl = (section, key, value, isPassword = false) => (
+    <div className="config-control">
+      <div className="input-with-icon">
         <input
-          type="number"
-          value={value}
+          type={isPassword && !showPasswords ? 'password' : 'text'}
+          value={value || ''}
           onChange={(e) => {
-            const newValue = parseInt(e.target.value) || 0
             setConfig(prev => ({
               ...prev,
-              [section]: { ...prev[section], [key]: newValue }
+              [section]: { ...prev[section], [key]: e.target.value }
             }))
           }}
           onBlur={(e) => {
-            const newValue = parseInt(e.target.value) || 0
-            handleValueChange(section, key, newValue)
+            handleValueChange(section, key, e.target.value)
           }}
-          className="config-input-number"
+          className="config-input-text"
+          placeholder={`Enter ${key}...`}
           disabled={saving}
         />
+        {isPassword && (
+          <button
+            className="toggle-password-btn"
+            onClick={() => setShowPasswords(!showPasswords)}
+          >
+            {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        )}
       </div>
-    )
-  }
-
-  const renderStringControl = (section, key, value, isPassword = false) => {
-    return (
-      <div className="config-control">
-        <div className="input-with-icon">
-          <input
-            type={isPassword && !showPasswords ? 'password' : 'text'}
-            value={value || ''}
-            onChange={(e) => {
-              setConfig(prev => ({
-                ...prev,
-                [section]: { ...prev[section], [key]: e.target.value }
-              }))
-            }}
-            onBlur={(e) => {
-              handleValueChange(section, key, e.target.value)
-            }}
-            className="config-input-text"
-            placeholder={`Enter ${key}...`}
-            disabled={saving}
-          />
-          {isPassword && (
-            <button
-              className="toggle-password-btn"
-              onClick={() => setShowPasswords(!showPasswords)}
-            >
-              {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          )}
-        </div>
-      </div>
-    )
-  }
+    </div>
+  )
 
   const renderConfigItem = (section, key, value) => {
     const isPassword = key.toLowerCase().includes('password')
@@ -162,9 +154,9 @@ function Config({ darkMode, toggleDarkMode }) {
     const titles = {
       features: 'Feature Flags',
       scraper: 'Scraper Settings',
-      proxy: 'Proxy Configuration',
+      proxy: 'Proxy Config',
       auth: 'Authentication',
-      file_download: 'File Downloads',
+      file_download: 'Downloads',
       timeouts: 'Timeouts',
       delays: 'Delays'
     }
@@ -173,29 +165,24 @@ function Config({ darkMode, toggleDarkMode }) {
 
   const getSectionDescription = (section) => {
     const descriptions = {
-      features: 'Enable or disable major features (can be overridden by frontend)',
-      scraper: 'Core scraping parameters and limits (used as defaults)',
-      proxy: 'Proxy rotation and testing settings (always applied)',
-      auth: 'Login credentials and selectors (used as defaults)',
-      file_download: 'File download configuration (always applied)',
-      timeouts: 'Network and page load timeouts (always applied)',
-      delays: 'Human-like delays between actions (always applied)'
+      features: 'Enable or disable major features',
+      scraper: 'Core scraping parameters and limits',
+      proxy: 'Proxy rotation and testing settings',
+      auth: 'Login credentials and selectors',
+      file_download: 'File download configuration',
+      timeouts: 'Network and page load timeouts',
+      delays: 'Human-like delays between actions'
     }
     return descriptions[section] || ''
   }
 
   if (loading) {
     return (
-      <div className="database-page">
-        <aside className="db-sidebar">
-          <h2><Settings size={20} /> Config</h2>
-        </aside>
-        <main className="db-main">
-          <div className="db-loading">
-            <div className="spinner"></div>
-            <p>Loading configuration...</p>
-          </div>
-        </main>
+      <div className="database-page loading-state">
+        <div className="db-loading">
+          <div className="spinner"></div>
+          <p>Loading configuration...</p>
+        </div>
       </div>
     )
   }
@@ -203,67 +190,68 @@ function Config({ darkMode, toggleDarkMode }) {
   return (
     <>
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="config" />
+      
       <div className="database-page">
-      {/* Sidebar Navigation */}
-      <aside className="db-sidebar">
-        <h2><Settings size={20} /> Config</h2>
-        <nav className="db-nav">
-          {config && Object.keys(config).map((section) => (
-            <button
-              key={section}
-              className={`db-nav-item ${activeSection === section ? 'active' : ''}`}
-              onClick={() => setActiveSection(section)}
-            >
-              {getSectionIcon(section)}
-              {getSectionTitle(section)}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main className="db-main">
-        {error && (
-          <div className="db-error">
-            <AlertCircle size={18} />
-            <p>{error}</p>
-            <button onClick={() => setError(null)}><X size={18} /></button>
+        {/* Sidebar / Mobile Tabs Container */}
+        <aside className="db-sidebar">
+          <div className="sidebar-header">
+            <h2><Settings size={20} /> Config</h2>
           </div>
-        )}
+          <nav className="db-nav">
+            {config && Object.keys(config).map((section) => (
+              <button
+                key={section}
+                className={`db-nav-item ${activeSection === section ? 'active' : ''}`}
+                onClick={() => setActiveSection(section)}
+              >
+                {getSectionIcon(section)}
+                <span>{getSectionTitle(section)}</span>
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-        {config && config[activeSection] && (
-          <div className="config-view">
-            <div className="view-header-compact">
-              <div>
-                <h1>
-                  {getSectionIcon(activeSection)}
-                  {getSectionTitle(activeSection)}
-                </h1>
-                <p className="section-description">{getSectionDescription(activeSection)}</p>
+        {/* Main Content */}
+        <main className="db-main">
+          {error && (
+            <div className="db-error">
+              <AlertCircle size={18} />
+              <p>{error}</p>
+              <button onClick={() => setError(null)}><X size={18} /></button>
+            </div>
+          )}
+
+          {config && config[activeSection] && (
+            <div className="config-view">
+              <div className="view-header-compact">
+                <div>
+                  <h1>
+                    {getSectionIcon(activeSection)}
+                    {getSectionTitle(activeSection)}
+                  </h1>
+                  <p className="section-description">{getSectionDescription(activeSection)}</p>
+                </div>
+              </div>
+
+              <div className="config-section-content">
+                {Object.entries(config[activeSection]).map(([key, value]) => 
+                  renderConfigItem(activeSection, key, value)
+                )}
+              </div>
+
+              <div className="config-note">
+                <AlertCircle size={16} />
+                <div>
+                  <strong>Note:</strong> Changes take effect immediately. 
+                  Some settings may be overridden by job-specific options.
+                </div>
               </div>
             </div>
-
-            <div className="config-section-content">
-              {Object.entries(config[activeSection]).map(([key, value]) => 
-                renderConfigItem(activeSection, key, value)
-              )}
-            </div>
-
-            <div className="config-note">
-              <AlertCircle size={16} />
-              <div>
-                <strong>How Config Works:</strong> These settings apply to NEW scraping jobs. 
-                Settings marked as "defaults" can be overridden by Advanced Options on the Home page. 
-                Settings marked as "always applied" cannot be overridden and always use these values.
-                Changes take effect immediately - no restart needed!
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-    </div>
-    <Footer />
-  </>
+          )}
+        </main>
+      </div>
+      <Footer />
+    </>
   )
 }
 
