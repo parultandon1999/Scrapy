@@ -14,7 +14,6 @@ from playwright.async_api import async_playwright
 
 import config
 from scraper import Scraper
-from selector_finder import SelectorFinder
 from collections import Counter
 
 app = FastAPI(title="Web Scraper API", version="1.0.0")
@@ -32,12 +31,7 @@ scraper_task = None
 websocket_connections = []
 current_session_id = None
 
-# ============================================================================
-# PROXY TESTER CLASS (Moved from proxy_tester.py)
-# ============================================================================
-
 class ProxyTester:
-    """Test and validate proxy servers for web scraping"""
     
     def __init__(self, proxy_file=None):
         self.proxy_file = proxy_file if proxy_file is not None else config.PROXY['proxy_file']
@@ -45,7 +39,6 @@ class ProxyTester:
         self.failed_proxies = []
     
     def load_proxies(self):
-        """Load proxies from file"""
         proxies = []
         try:
             with open(self.proxy_file, 'r') as f:
@@ -60,7 +53,6 @@ class ProxyTester:
         return proxies
     
     async def test_proxy(self, proxy, test_url=None, timeout=None):
-        """Test a single proxy"""
         test_url = test_url if test_url is not None else config.PROXY['test_url']
         timeout = timeout if timeout is not None else config.PROXY['test_timeout']
         parsed_proxy = urlparse(proxy)
@@ -139,7 +131,6 @@ class ProxyTester:
                     await browser.close()
     
     async def test_all_proxies(self, concurrent_tests=None, test_url=None):
-        """Test all proxies concurrently"""
         concurrent_tests = concurrent_tests if concurrent_tests is not None else config.PROXY['concurrent_tests']
         test_url = test_url if test_url is not None else config.PROXY['test_url']
         proxies = self.load_proxies()
@@ -164,10 +155,6 @@ class ProxyTester:
         self.failed_proxies = [r for r in results if r["status"] != "Working"]
         
         return results
-
-# ============================================================================
-# PYDANTIC MODELS
-# ============================================================================
 
 class ScraperConfig(BaseModel):
     start_url: str
@@ -1005,13 +992,11 @@ async def list_proxies():
 
 @app.get("/api/analytics/performance")
 async def get_performance_analytics():
-    """Get comprehensive performance analytics including proxy, depth, and timeline stats"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Proxy statistics
         cursor.execute("""
             SELECT proxy_used, COUNT(*) as page_count
             FROM pages
@@ -1029,7 +1014,6 @@ async def get_performance_analytics():
                 'percentage': (row['page_count'] / total_pages * 100) if total_pages > 0 else 0
             })
         
-        # Depth statistics
         cursor.execute("""
             SELECT depth, COUNT(*) as page_count
             FROM pages
@@ -1047,7 +1031,6 @@ async def get_performance_analytics():
                 'percentage': (row['page_count'] / total_depth_pages * 100) if total_depth_pages > 0 else 0
             })
         
-        # Timeline statistics
         cursor.execute("""
             SELECT 
                 MIN(timestamp) as start_time,
@@ -1073,7 +1056,6 @@ async def get_performance_analytics():
                 timeline['pages_per_second'] = timeline_row['total_pages'] / duration
                 timeline['pages_per_minute'] = (timeline_row['total_pages'] / duration) * 60
         
-        # Pages per minute breakdown
         if timeline_row['start_time']:
             cursor.execute("""
                 SELECT 
@@ -1103,7 +1085,6 @@ async def get_performance_analytics():
 
 @app.get("/api/analytics/fingerprints")
 async def get_fingerprint_analytics():
-    """Get fingerprint diversity analysis"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1124,7 +1105,6 @@ async def get_fingerprint_analytics():
         
         fingerprints = [json.loads(row['fingerprint']) for row in rows]
         
-        # Extract data
         timezones = [fp['timezone_id'] for fp in fingerprints]
         viewports = [f"{fp['viewport']['width']}x{fp['viewport']['height']}" for fp in fingerprints]
         user_agents = [
@@ -1133,7 +1113,6 @@ async def get_fingerprint_analytics():
         ]
         locales = [fp['locale'] for fp in fingerprints]
         
-        # Calculate diversity
         unique_combinations = len(set(
             (fp['timezone_id'], 
              f"{fp['viewport']['width']}x{fp['viewport']['height']}", 
@@ -1159,7 +1138,6 @@ async def get_fingerprint_analytics():
 
 @app.get("/api/analytics/geolocation")
 async def get_geolocation_analytics():
-    """Get geographical distribution from fingerprints"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1173,7 +1151,6 @@ async def get_geolocation_analytics():
         
         fingerprints = [json.loads(row['fingerprint']) for row in rows]
         
-        # City mapping
         city_map = {
             (40.7128, -74.0060): "New York",
             (34.0522, -118.2437): "Los Angeles",
