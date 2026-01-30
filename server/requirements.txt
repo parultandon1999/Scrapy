@@ -1,8 +1,0 @@
-playwright
-aiohttp
-tabulate
-fastapi
-uvicorn[standard]
-pydantic
-websockets
-python-multipart

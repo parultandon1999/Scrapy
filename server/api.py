@@ -8,16 +8,29 @@ import sqlite3
 import os
 import uuid
 import time
+import logging
 from datetime import datetime
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
-
 import config
 from scraper import Scraper
 from collections import Counter
 
+# --- Logging Configuration ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("api.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("API")
+
+# --- FastAPI Application Setup ---
 app = FastAPI(title="Web Scraper API", version="1.0.0")
 
+# Configure CORS to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
@@ -26,19 +39,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Global State ---
+# Holds the reference to the currently running scraper instance
 scraper_instance = None
+# Holds the asyncio task for the background scraper process
 scraper_task = None
+# List of active websocket connections for real-time updates
 websocket_connections = []
+# Unique ID for the current scraping session
 current_session_id = None
 
 class ProxyTester:
+    """
+    Utility class to validate proxy servers using Playwright.
+    
+    It attempts to connect to a target URL via the proxy and checks 
+    latency and success status.
+    """
     
     def __init__(self, proxy_file=None):
+        """
+        Initialize the ProxyTester.
+
+        Args:
+            proxy_file (str, optional): Path to the file containing proxy list. 
+                                        Defaults to config value.
+        """
         self.proxy_file = proxy_file if proxy_file is not None else config.PROXY['proxy_file']
         self.working_proxies = []
         self.failed_proxies = []
     
     def load_proxies(self):
+        """
+        Reads proxies from the configuration file.
+
+        Returns:
+            list: A list of proxy strings (e.g., 'http://user:pass@host:port').
+        """
         proxies = []
         try:
             with open(self.proxy_file, 'r') as f:
@@ -46,13 +83,24 @@ class ProxyTester:
                     line = line.strip()
                     if line and not line.startswith('#'):
                         proxies.append(line)
-            print(f"Loaded {len(proxies)} proxies from {self.proxy_file}")
+            logger.info(f"Loaded {len(proxies)} proxies from {self.proxy_file}")
         except FileNotFoundError:
-            print(f"File not found: {self.proxy_file}")
+            logger.error(f"File not found: {self.proxy_file}")
         
         return proxies
     
     async def test_proxy(self, proxy, test_url=None, timeout=None):
+        """
+        Tests a single proxy connection.
+
+        Args:
+            proxy (str): The proxy string to test.
+            test_url (str, optional): The URL to visit to verify connectivity.
+            timeout (int, optional): Timeout in milliseconds.
+
+        Returns:
+            dict: Result containing status, response time, and debug info.
+        """
         test_url = test_url if test_url is not None else config.PROXY['test_url']
         timeout = timeout if timeout is not None else config.PROXY['test_timeout']
         parsed_proxy = urlparse(proxy)
@@ -71,6 +119,7 @@ class ProxyTester:
             browser = None
             try:
                 browser = await p.chromium.launch(headless=True)
+                # Create context with the specific proxy configuration
                 context = await browser.new_context(
                     proxy=proxy_config,
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -82,6 +131,7 @@ class ProxyTester:
                 if response and response.status < 400:
                     elapsed = time.time() - start_time
                     
+                    # Try to capture IP content if testing against httpbin
                     try:
                         content = await page.content()
                         if 'httpbin' in test_url:
@@ -131,17 +181,28 @@ class ProxyTester:
                     await browser.close()
     
     async def test_all_proxies(self, concurrent_tests=None, test_url=None):
+        """
+        Tests all loaded proxies concurrently in batches.
+
+        Args:
+            concurrent_tests (int, optional): Number of concurrent browser checks.
+            test_url (str, optional): Target URL for testing.
+
+        Returns:
+            list: List of result dictionaries for all proxies.
+        """
         concurrent_tests = concurrent_tests if concurrent_tests is not None else config.PROXY['concurrent_tests']
         test_url = test_url if test_url is not None else config.PROXY['test_url']
         proxies = self.load_proxies()
         
         if not proxies:
-            print("No proxies to test!")
+            logger.warning("No proxies to test!")
             return []
         
-        print(f"Testing {len(proxies)} proxies with {concurrent_tests} concurrent tests...")
+        logger.info(f"Testing {len(proxies)} proxies with {concurrent_tests} concurrent tests...")
         
         results = []
+        # Process in batches to control resource usage
         for i in range(0, len(proxies), concurrent_tests):
             batch = proxies[i:i+concurrent_tests]
             batch_results = await asyncio.gather(*[
@@ -149,14 +210,17 @@ class ProxyTester:
             ])
             results.extend(batch_results)
             
-            print(f"Progress: {min(i+concurrent_tests, len(proxies))}/{len(proxies)} tested")
+            logger.info(f"Progress: {min(i+concurrent_tests, len(proxies))}/{len(proxies)} tested")
         
         self.working_proxies = [r for r in results if r["status"] == "Working"]
         self.failed_proxies = [r for r in results if r["status"] != "Working"]
         
         return results
 
+# --- Pydantic Models for Request Validation ---
+
 class ScraperConfig(BaseModel):
+    """Configuration payload for starting a scraping job."""
     start_url: str
     max_pages: Optional[int] = 50
     max_depth: Optional[int] = 2
@@ -174,18 +238,22 @@ class ScraperConfig(BaseModel):
     extraction_rules: Optional[List[dict]] = []
 
 class ProxyTestRequest(BaseModel):
+    """Request payload for triggering proxy tests."""
     test_url: Optional[str] = "https://httpbin.org/ip"
     concurrent_tests: Optional[int] = 5
 
 class ConfigUpdate(BaseModel):
+    """Payload for updating runtime configuration."""
     section: str
     key: str
     value: Any
 
 class SelectorFinderRequest(BaseModel):
+    """Payload for analyzing a login page to find selectors."""
     login_url: str
 
 class TestLoginRequest(BaseModel):
+    """Payload for testing login credentials and selectors."""
     login_url: str
     username: str
     password: str
@@ -195,28 +263,40 @@ class TestLoginRequest(BaseModel):
     success_indicator: Optional[str] = None
 
 class FindElementRequest(BaseModel):
+    """Payload for searching specific elements on a page."""
     url: str
     search_queries: List[str]
     search_type: str = "partial"
     image_urls: Optional[List[str]] = []
 
 class SearchRequest(BaseModel):
+    """Payload for searching crawled content."""
     keyword: str
     limit: Optional[int] = 20
 
+# --- WebSocket Helper ---
+
 async def broadcast_message(message: dict):
+    """
+    Sends a JSON message to all connected WebSocket clients.
+    Handles disconnection by removing dead connections.
+    """
     for connection in websocket_connections:
         try:
             await connection.send_json(message)
         except:
             websocket_connections.remove(connection)
 
+# --- API Endpoints ---
+
 @app.get("/")
 async def root():
+    """Health check endpoint."""
     return {"message": "Web Scraper API", "status": "running"}
 
 @app.get("/api/config")
 async def get_config():
+    """Retrieves current application configuration settings."""
     return {
         "features": config.FEATURES,
         "scraper": config.SCRAPER,
@@ -229,6 +309,7 @@ async def get_config():
 
 @app.put("/api/config")
 async def update_config(update: ConfigUpdate):
+    """Updates a specific configuration value at runtime."""
     try:
         section = getattr(config, update.section.upper())
         if update.key in section:
@@ -241,6 +322,12 @@ async def update_config(update: ConfigUpdate):
 
 @app.post("/api/scraper/start")
 async def start_scraper(config_data: ScraperConfig):
+    """
+    Initializes and starts the scraper background task.
+    
+    Raises:
+        HTTPException: If a scraper instance is already running.
+    """
     global scraper_instance, scraper_task, current_session_id
     
     if scraper_task and not scraper_task.done():
@@ -249,6 +336,7 @@ async def start_scraper(config_data: ScraperConfig):
     try:
         current_session_id = str(uuid.uuid4())
         
+        # Initialize the Scraper logic class
         scraper_instance = Scraper(
             start_url=config_data.start_url,
             max_pages=config_data.max_pages,
@@ -269,6 +357,7 @@ async def start_scraper(config_data: ScraperConfig):
         scraper_instance.was_stopped_manually = False
         scraper_instance.session_id = current_session_id
         
+        # Run scraper in the background
         scraper_task = asyncio.create_task(run_scraper())
         
         await broadcast_message({
@@ -284,6 +373,7 @@ async def start_scraper(config_data: ScraperConfig):
         raise HTTPException(status_code=500, detail=str(e))
 
 async def run_scraper():
+    """Wrapper to run scraper and broadcast completion events."""
     global scraper_instance
     try:
         await scraper_instance.run()
@@ -299,8 +389,13 @@ async def run_scraper():
 
 @app.get("/api/scraper/status")
 async def get_scraper_status():
+    """
+    Polled by frontend to get real-time status of the scrape.
+    Returns current stats, recent pages, files, and running state.
+    """
     global current_session_id
     
+    # If no scraper has been initialized yet
     if not scraper_instance:
         return {
             "running": False,
@@ -320,6 +415,7 @@ async def get_scraper_status():
     
     session_id = getattr(scraper_instance, 'session_id', current_session_id)
     
+    # Fetch latest data from SQLite for UI
     try:
         conn = sqlite3.connect(scraper_instance.db_path)
         conn.row_factory = sqlite3.Row
@@ -328,6 +424,7 @@ async def get_scraper_status():
         cursor.execute('SELECT COUNT(*) as count FROM pages')
         total_pages_in_db = cursor.fetchone()['count']
         
+        # Get recently scraped pages
         cursor.execute('''
             SELECT id, url, title, depth, datetime(timestamp, 'unixepoch') as scraped_at
             FROM pages
@@ -335,11 +432,13 @@ async def get_scraper_status():
         ''')
         all_pages = [dict(row) for row in cursor.fetchall()]
         
+        # Filter mostly by what's in memory if running, or all if finished
         if hasattr(scraper_instance, 'visited'):
             recent_pages = [p for p in all_pages if p['url'] in scraper_instance.visited]
         else:
             recent_pages = all_pages
         
+        # Get recently downloaded files
         try:
             cursor.execute('''
                 SELECT fa.file_name, fa.file_extension, fa.file_size_bytes,
@@ -356,6 +455,7 @@ async def get_scraper_status():
             else:
                 recent_files = all_files
             
+            # Aggregate file types
             file_type_counts = {}
             for f in recent_files:
                 if f['download_status'] == 'success':
@@ -367,9 +467,11 @@ async def get_scraper_status():
         
         conn.close()
     except Exception as e:
-        print(f"Error fetching recent data: {e}")
+        logger.error(f"Error fetching recent data: {e}")
     
     is_running = scraper_task and not scraper_task.done()
+    
+    # Reset state if database is empty and not running
     if total_pages_in_db == 0 and not is_running:
         return {
             "running": False,
@@ -390,7 +492,6 @@ async def get_scraper_status():
         }
     
     was_stopped = getattr(scraper_instance, 'was_stopped_manually', False)
-    print(f"DEBUG: Status check - session_id={session_id}, was_stopped_manually={was_stopped}, instance={id(scraper_instance)}, running={is_running}")
     
     return {
         "running": is_running,
@@ -412,6 +513,7 @@ async def get_scraper_status():
 
 @app.post("/api/scraper/stop")
 async def stop_scraper():
+    """Signals the running scraper task to stop gracefully."""
     global scraper_task, scraper_instance
     
     if not scraper_task or scraper_task.done():
@@ -420,7 +522,7 @@ async def stop_scraper():
     if scraper_instance:
         scraper_instance.should_stop = True
         scraper_instance.was_stopped_manually = True
-        print(f"DEBUG: Set was_stopped_manually to True on instance {id(scraper_instance)}")
+        logger.debug(f"Set was_stopped_manually to True on instance {id(scraper_instance)}")
 
     scraper_task.cancel()
 
@@ -438,6 +540,7 @@ async def stop_scraper():
 
 @app.get("/api/data/stats")
 async def get_stats():
+    """Retrieves aggregate statistics from the database (total pages, links, files)."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -481,6 +584,7 @@ async def get_stats():
 
 @app.get("/api/data/pages")
 async def get_pages(limit: int = 20, offset: int = 0):
+    """Paginated retrieval of scraped pages."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -511,6 +615,7 @@ async def get_pages(limit: int = 20, offset: int = 0):
 
 @app.get("/api/data/scraped-urls")
 async def get_scraped_urls():
+    """Returns a list of unique domains that have been scraped."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -556,6 +661,7 @@ async def get_scraped_urls():
 
 @app.get("/api/history/sessions")
 async def get_scraping_sessions():
+    """Analyzes DB data to group pages into logical scraping sessions by domain."""
     try:
         from urllib.parse import urlparse
         conn = sqlite3.connect(config.get_db_path())
@@ -566,6 +672,7 @@ async def get_scraping_sessions():
         pages = cursor.fetchall()
         
         domains = {}
+        # Group pages by domain to simulate sessions
         for page in pages:
             try:
                 parsed = urlparse(page['url'])
@@ -630,6 +737,7 @@ async def get_scraping_sessions():
 
 @app.get("/api/history/session/{domain:path}")
 async def get_session_details(domain: str):
+    """Retrieves detailed stats for a specific domain session."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -696,6 +804,7 @@ async def get_session_details(domain: str):
 
 @app.delete("/api/history/session/{domain:path}")
 async def delete_session(domain: str):
+    """Deletes all scraped data related to a specific domain."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         cursor = conn.cursor()
@@ -706,6 +815,7 @@ async def delete_session(domain: str):
         if page_ids:
             placeholders = ','.join('?' * len(page_ids))
             
+            # Delete dependent records first (FK constraint safety)
             cursor.execute(f'DELETE FROM headers WHERE page_id IN ({placeholders})', page_ids)
             cursor.execute(f'DELETE FROM links WHERE page_id IN ({placeholders})', page_ids)
             cursor.execute(f'DELETE FROM media WHERE page_id IN ({placeholders})', page_ids)
@@ -722,6 +832,7 @@ async def delete_session(domain: str):
 
 @app.get("/api/history/statistics")
 async def get_history_statistics():
+    """Aggregates high-level metrics across all scraping sessions."""
     try:
         from urllib.parse import urlparse
         conn = sqlite3.connect(config.get_db_path())
@@ -782,6 +893,7 @@ async def get_history_statistics():
 
 @app.get("/api/data/pages-by-url")
 async def get_pages_by_url(start_url: str):
+    """Filters pages and files belonging to a specific starting URL/domain."""
     try:
         from urllib.parse import urlparse
         
@@ -830,6 +942,7 @@ async def get_pages_by_url(start_url: str):
 
 @app.get("/api/data/page/{page_id}")
 async def get_page_details(page_id: int):
+    """Retrieves all data associated with a single scraped page ID."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -871,6 +984,7 @@ async def get_page_details(page_id: int):
 
 @app.get("/api/data/files")
 async def get_file_assets(limit: int = 50, status: Optional[str] = None):
+    """Retrieves a list of downloaded file assets, optionally filtered by status."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -903,6 +1017,10 @@ async def get_file_assets(limit: int = 50, status: Optional[str] = None):
 
 @app.get("/api/proxy/image")
 async def proxy_image(url: str):
+    """
+    Proxies image requests to avoid CORS issues in the frontend.
+    Useful for displaying external images in the UI.
+    """
     try:
         import aiohttp
         from fastapi.responses import Response
@@ -928,6 +1046,7 @@ async def proxy_image(url: str):
 
 @app.get("/api/screenshot/{page_id}")
 async def get_screenshot(page_id: int):
+    """Retrieves the full-page screenshot associated with a scraped page."""
     try:
         from fastapi.responses import FileResponse
         
@@ -939,28 +1058,31 @@ async def get_screenshot(page_id: int):
         page = cursor.fetchone()
         conn.close()
         
-        if not page:
-            raise HTTPException(status_code=404, detail="Page not found")
+        if not page or not page['folder_path']:
+            logger.warning(f"Page {page_id} not found in database")
+            raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
         
-        screenshot_path = os.path.join(page['folder_path'], 'screenshot.png')
+        server_dir = os.path.dirname(os.path.abspath(__file__))
+        screenshot_path = os.path.join(server_dir, page['folder_path'], 'screenshot.png')
+        screenshot_path = os.path.normpath(screenshot_path)
+        
+        logger.debug(f"Looking for screenshot at: {screenshot_path}")
+        logger.debug(f"Path exists: {os.path.exists(screenshot_path)}")
         
         if not os.path.exists(screenshot_path):
-            raise HTTPException(status_code=404, detail="Screenshot not found")
+            logger.warning(f"Screenshot file not found at {screenshot_path}")
+            raise HTTPException(status_code=404, detail=f"Screenshot file not found")
         
-        return FileResponse(
-            screenshot_path,
-            media_type="image/png",
-            headers={
-                "Cache-Control": "public, max-age=86400"
-            }
-        )
+        return FileResponse(screenshot_path, media_type="image/png")
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error getting screenshot: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/proxies/test")
 async def test_proxies(request: ProxyTestRequest):
+    """Triggers a background test of all configured proxies."""
     try:
         tester = ProxyTester()
         results = await tester.test_all_proxies(
@@ -978,6 +1100,7 @@ async def test_proxies(request: ProxyTestRequest):
 
 @app.get("/api/proxies/list")
 async def list_proxies():
+    """Lists currently configured proxies from file."""
     try:
         proxies = []
         if os.path.exists(config.PROXY['proxy_file']):
@@ -992,11 +1115,13 @@ async def list_proxies():
 
 @app.get("/api/analytics/performance")
 async def get_performance_analytics():
+    """Generates performance metrics: proxy usage, depth stats, pages/min."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
+        # Proxy usage statistics
         cursor.execute("""
             SELECT proxy_used, COUNT(*) as page_count
             FROM pages
@@ -1014,6 +1139,7 @@ async def get_performance_analytics():
                 'percentage': (row['page_count'] / total_pages * 100) if total_pages > 0 else 0
             })
         
+        # Depth analysis
         cursor.execute("""
             SELECT depth, COUNT(*) as page_count
             FROM pages
@@ -1031,6 +1157,7 @@ async def get_performance_analytics():
                 'percentage': (row['page_count'] / total_depth_pages * 100) if total_depth_pages > 0 else 0
             })
         
+        # Throughput timeline
         cursor.execute("""
             SELECT 
                 MIN(timestamp) as start_time,
@@ -1085,6 +1212,7 @@ async def get_performance_analytics():
 
 @app.get("/api/analytics/fingerprints")
 async def get_fingerprint_analytics():
+    """Analyzes the diversity of browser fingerprints used during scraping."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1113,6 +1241,7 @@ async def get_fingerprint_analytics():
         ]
         locales = [fp['locale'] for fp in fingerprints]
         
+        # Calculate how many unique combos of TZ, Viewport, and Locale exist
         unique_combinations = len(set(
             (fp['timezone_id'], 
              f"{fp['viewport']['width']}x{fp['viewport']['height']}", 
@@ -1138,6 +1267,7 @@ async def get_fingerprint_analytics():
 
 @app.get("/api/analytics/geolocation")
 async def get_geolocation_analytics():
+    """Maps scraped page fingerprints to rough geographic locations."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1151,6 +1281,7 @@ async def get_geolocation_analytics():
         
         fingerprints = [json.loads(row['fingerprint']) for row in rows]
         
+        # Simple coordinate-to-city mapping
         city_map = {
             (40.7128, -74.0060): "New York",
             (34.0522, -118.2437): "Los Angeles",
@@ -1169,6 +1300,7 @@ async def get_geolocation_analytics():
             lat = fp['geolocation']['latitude']
             lon = fp['geolocation']['longitude']
             
+            # Simple distance check to match coordinates to known cities
             for coords, city in city_map.items():
                 if abs(coords[0] - lat) < 0.1 and abs(coords[1] - lon) < 0.1:
                     locations.append(city)
@@ -1195,6 +1327,7 @@ async def get_geolocation_analytics():
 
 @app.post("/api/data/search/content")
 async def search_content(request: SearchRequest):
+    """Full-text search through scraped page content."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1222,6 +1355,7 @@ async def search_content(request: SearchRequest):
 
 @app.post("/api/data/search/files")
 async def search_files(request: SearchRequest):
+    """Search through downloaded files by filename."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1251,6 +1385,7 @@ async def search_files(request: SearchRequest):
 
 @app.get("/api/data/export")
 async def export_data():
+    """Exports entire database content as a structured JSON."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1292,6 +1427,7 @@ async def export_data():
 
 @app.get("/api/data/files-by-extension")
 async def get_files_by_extension():
+    """Returns download stats grouped by file extension."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1316,6 +1452,7 @@ async def get_files_by_extension():
 
 @app.get("/api/data/largest-downloads")
 async def get_largest_downloads(limit: int = 10):
+    """Returns the largest files downloaded."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1340,6 +1477,7 @@ async def get_largest_downloads(limit: int = 10):
 
 @app.get("/api/data/top-links")
 async def get_top_links(link_type: str = 'internal', limit: int = 20):
+    """Returns the most frequently found links."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1363,6 +1501,7 @@ async def get_top_links(link_type: str = 'internal', limit: int = 20):
 
 @app.get("/api/data/analytics/timeline")
 async def get_scraping_timeline():
+    """Returns daily scraping activity stats."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1388,6 +1527,7 @@ async def get_scraping_timeline():
 
 @app.get("/api/data/analytics/domains")
 async def get_domain_statistics():
+    """Aggregates scraping stats by root domain."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1414,6 +1554,7 @@ async def get_domain_statistics():
 
 @app.get("/api/data/analytics/depth-distribution")
 async def get_depth_distribution():
+    """Shows how many pages were found at each crawl depth."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1438,6 +1579,7 @@ async def get_depth_distribution():
 
 @app.get("/api/data/analytics/file-types")
 async def get_file_type_analytics():
+    """Detailed analytics on downloaded files (success rates, sizes)."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1467,11 +1609,13 @@ async def get_file_type_analytics():
 
 @app.get("/api/data/analytics/link-analysis")
 async def get_link_analysis():
+    """Identifies broken links and most referenced pages."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
+        # Find broken links (internal links that point to pages we haven't successfully scraped)
         cursor.execute('''
             SELECT 
                 l.url,
@@ -1487,6 +1631,7 @@ async def get_link_analysis():
         
         broken_links = [dict(row) for row in cursor.fetchall()]
         
+        # Find most referenced pages
         cursor.execute('''
             SELECT 
                 p.url,
@@ -1512,6 +1657,7 @@ async def get_link_analysis():
 
 @app.post("/api/data/bulk/delete-pages")
 async def bulk_delete_pages(page_ids: List[int]):
+    """Bulk deletion of pages and associated data."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         cursor = conn.cursor()
@@ -1534,6 +1680,7 @@ async def bulk_delete_pages(page_ids: List[int]):
 
 @app.post("/api/data/bulk/delete-files")
 async def bulk_delete_files(file_ids: List[int]):
+    """Bulk deletion of file asset records."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         cursor = conn.cursor()
@@ -1558,6 +1705,7 @@ async def filter_pages(
     end_date: Optional[str] = None,
     limit: int = 50
 ):
+    """Advanced filtering endpoint for pages based on multiple criteria."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1603,6 +1751,7 @@ async def filter_pages(
 
 @app.get("/api/data/compare/domains")
 async def compare_domains(domains: str):
+    """Compares metrics between multiple domains (passed as comma-separated string)."""
     try:
         domain_list = domains.split(',')
         conn = sqlite3.connect(config.get_db_path())
@@ -1632,6 +1781,10 @@ async def compare_domains(domains: str):
 
 @app.post("/api/selector-finder/analyze")
 async def analyze_login_page(request: SelectorFinderRequest):
+    """
+    Analyzes a given URL to intelligently suggest CSS selectors for login forms.
+    Uses heuristics to identify username/password fields and submit buttons.
+    """
     try:
         from playwright.async_api import async_playwright
         
@@ -1654,6 +1807,7 @@ async def analyze_login_page(request: SelectorFinderRequest):
                 await page.goto(request.login_url, wait_until="networkidle", timeout=30000)
                 await asyncio.sleep(2)
                 
+                # Analyze inputs
                 inputs = await page.query_selector_all("input")
                 
                 for i, input_elem in enumerate(inputs, 1):
@@ -1684,6 +1838,7 @@ async def analyze_login_page(request: SelectorFinderRequest):
                         "likely_field": field_type
                     })
                 
+                # Analyze buttons
                 buttons = await page.query_selector_all("button, input[type='submit']")
                 
                 for i, button in enumerate(buttons, 1):
@@ -1711,6 +1866,7 @@ async def analyze_login_page(request: SelectorFinderRequest):
                         "likely_submit": is_submit
                     })
                 
+                # Find forms
                 forms = await page.query_selector_all("form")
                 for i, form in enumerate(forms, 1):
                     form_id = await form.get_attribute("id") or ""
@@ -1722,6 +1878,7 @@ async def analyze_login_page(request: SelectorFinderRequest):
                         "action": form_action
                     })
                 
+                # Determine best suggestions
                 username_field = next((inp for inp in results["inputs"] if inp["likely_field"] == "username"), None)
                 password_field = next((inp for inp in results["inputs"] if inp["likely_field"] == "password"), None)
                 submit_button = next((btn for btn in results["buttons"] if btn["likely_submit"]), None)
@@ -1747,6 +1904,10 @@ async def analyze_login_page(request: SelectorFinderRequest):
 
 @app.post("/api/selector-finder/test-login")
 async def test_login_selectors(request: TestLoginRequest):
+    """
+    Tests provided login credentials and selectors in a real browser instance.
+    Checks for success via URL change or success indicator presence.
+    """
     try:
         from playwright.async_api import async_playwright
         
@@ -1802,6 +1963,7 @@ async def test_login_selectors(request: TestLoginRequest):
                     except:
                         result["success_indicator_found"] = False
                 
+                # Success criteria logic
                 if result["url_changed"]:
                     result["success"] = True
                     result["message"] = "Login appears successful - URL changed"
@@ -1827,6 +1989,10 @@ async def test_login_selectors(request: TestLoginRequest):
 
 @app.post("/api/selector-finder/find-element")
 async def find_element_by_content(request: FindElementRequest):
+    """
+    Advanced tool to find elements by their text content or image URL.
+    Generates CSS selectors and XPath for matching elements.
+    """
     try:
         from playwright.async_api import async_playwright
         
@@ -1848,6 +2014,7 @@ async def find_element_by_content(request: FindElementRequest):
                 await page.goto(request.url, wait_until="networkidle", timeout=30000)
                 await asyncio.sleep(2)
                 
+                # Text-based search
                 for search_text in request.search_queries:
                     query_results = {
                         "search_text": search_text,
@@ -1857,6 +2024,7 @@ async def find_element_by_content(request: FindElementRequest):
                     
                     all_elements = []
                     
+                    # Search strategy based on request type
                     if request.search_type == "text":
                         elements = await page.query_selector_all(f"text={search_text}")
                         all_elements = [(elem, "exact") for elem in elements]
@@ -1864,6 +2032,7 @@ async def find_element_by_content(request: FindElementRequest):
                         elements = await page.query_selector_all(f"text=/{search_text}/i")
                         all_elements = [(elem, "partial") for elem in elements]
                     else:
+                        # Fallback generic search
                         elements = await page.query_selector_all("*")
                         for elem in elements:
                             try:
@@ -1876,8 +2045,10 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                     
+                    # Prioritize exact matches
                     all_elements.sort(key=lambda x: 0 if x[1] == "exact" else 1)
                     
+                    # Process matches to extract metadata and selectors
                     for i, (elem, match_type) in enumerate(all_elements[:50]):
                         try:
                             tag_name = await elem.evaluate("el => el.tagName.toLowerCase()")
@@ -1934,6 +2105,7 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
+                            # Parent info
                             parent_tag = ""
                             parent_class = ""
                             parent_id = ""
@@ -1980,6 +2152,7 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
+                            # Build suggested selectors
                             selectors = []
                             
                             if elem_id:
@@ -2103,6 +2276,7 @@ async def find_element_by_content(request: FindElementRequest):
                     
                     results["results_by_query"][search_text] = query_results
                 
+                # Image-based search
                 if request.image_urls:
                     for image_url in request.image_urls:
                         query_results = {
@@ -2324,42 +2498,12 @@ async def find_element_by_content(request: FindElementRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/screenshot/{page_id}")
-async def get_screenshot(page_id: int):
-    from fastapi.responses import FileResponse
-    try:
-        conn = sqlite3.connect(config.get_db_path())
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT folder_path FROM pages WHERE id = ?', (page_id,))
-        page = cursor.fetchone()
-        conn.close()
-        
-        if not page or not page['folder_path']:
-            print(f"Page {page_id} not found in database")
-            raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
-        
-        server_dir = os.path.dirname(os.path.abspath(__file__))
-        screenshot_path = os.path.join(server_dir, page['folder_path'], 'screenshot.png')
-        screenshot_path = os.path.normpath(screenshot_path)
-        
-        print(f"Looking for screenshot at: {screenshot_path}")
-        print(f"Path exists: {os.path.exists(screenshot_path)}")
-        
-        if not os.path.exists(screenshot_path):
-            print(f"Screenshot file not found at {screenshot_path}")
-            raise HTTPException(status_code=404, detail=f"Screenshot file not found")
-        
-        return FileResponse(screenshot_path, media_type="image/png")
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error getting screenshot: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.get("/api/file/{filename}")
 async def get_downloaded_file(filename: str):
+    """
+    Serves a specific downloaded file.
+    Resolves the file location from the database.
+    """
     from fastapi.responses import FileResponse
     import mimetypes
     
@@ -2405,6 +2549,7 @@ async def get_downloaded_file(filename: str):
 
 @app.get("/api/metadata/{page_id}")
 async def get_metadata(page_id: int):
+    """Retrieves the JSON metadata file for a specific page."""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -2435,6 +2580,10 @@ async def get_metadata(page_id: int):
 
 @app.websocket("/ws/scraper")
 async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for streaming scraper status to the frontend.
+    Updates every 2 seconds.
+    """
     await websocket.accept()
     websocket_connections.append(websocket)
     
