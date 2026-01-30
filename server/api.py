@@ -50,6 +50,7 @@ class ScraperConfig(BaseModel):
     password_selector: Optional[str] = None
     submit_selector: Optional[str] = None
     success_indicator: Optional[str] = None
+    extraction_rules: Optional[List[dict]] = []
 
 class ProxyTestRequest(BaseModel):
     test_url: Optional[str] = "https://httpbin.org/ip"
@@ -756,6 +757,13 @@ async def get_page_details(page_id: int):
         cursor.execute('SELECT * FROM file_assets WHERE page_id = ?', (page_id,))
         page_dict['file_assets'] = [dict(row) for row in cursor.fetchall()]
         
+        # Get HTML structure
+        try:
+            cursor.execute('SELECT * FROM html_structure WHERE page_id = ? LIMIT 500', (page_id,))
+            page_dict['html_structure'] = [dict(row) for row in cursor.fetchall()]
+        except:
+            page_dict['html_structure'] = []
+        
         conn.close()
         
         return page_dict
@@ -794,6 +802,66 @@ async def get_file_assets(limit: int = 50, status: Optional[str] = None):
         conn.close()
         
         return {"files": files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/proxy/image")
+async def proxy_image(url: str):
+    """Proxy images to avoid CORS issues"""
+    try:
+        import aiohttp
+        from fastapi.responses import Response
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    content_type = response.headers.get('Content-Type', 'image/jpeg')
+                    
+                    return Response(
+                        content=content, 
+                        media_type=content_type,
+                        headers={
+                            "Cache-Control": "public, max-age=86400",
+                            "Access-Control-Allow-Origin": "*"
+                        }
+                    )
+                else:
+                    raise HTTPException(status_code=response.status, detail="Failed to fetch image")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/screenshot/{page_id}")
+async def get_screenshot(page_id: int):
+    """Get screenshot for a specific page"""
+    try:
+        from fastapi.responses import FileResponse
+        
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT folder_path FROM pages WHERE id = ?', (page_id,))
+        page = cursor.fetchone()
+        conn.close()
+        
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        
+        screenshot_path = os.path.join(page['folder_path'], 'screenshot.png')
+        
+        if not os.path.exists(screenshot_path):
+            raise HTTPException(status_code=404, detail="Screenshot not found")
+        
+        return FileResponse(
+            screenshot_path,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "public, max-age=86400"
+            }
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

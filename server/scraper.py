@@ -13,24 +13,24 @@ from playwright.async_api import async_playwright
 import config
 
 class Scraper:
-    def __init__(self, start_url, 
-                 max_pages=None, 
-                 max_depth=None, 
-                 base_dir=None, 
-                 headless=None, 
-                 concurrent_limit=None, 
-                 proxy_file=None,
-                 login_url=None, 
-                 username=None, 
-                 password=None, 
-                 username_selector=None, 
-                 password_selector=None,
-                 submit_selector=None,
-                 success_indicator=None,
-                 auth_state_file=None,
-                 download_file_assets=None,
-                 max_file_size_mb=None):
-        
+    def __init__(
+        self, start_url, 
+        max_pages=None, 
+        max_depth=None, 
+        base_dir=None, 
+        headless=None, 
+        concurrent_limit=None, 
+        proxy_file=None,
+        login_url=None, 
+        username=None, 
+        password=None, 
+        username_selector=None, 
+        password_selector=None,
+        submit_selector=None,
+        success_indicator=None,
+        auth_state_file=None,
+        download_file_assets=None,
+    ):
         self.start_url = self._normalize_url(start_url)
         self.should_stop = False
         self.domain = urlparse(self.start_url).netloc
@@ -63,6 +63,9 @@ class Scraper:
         auth_state_filename = auth_state_file if auth_state_file is not None else config.AUTH['auth_state_file']
         self.auth_state_file = os.path.join(self.base_dir, auth_state_filename)
         self.storage_state = None
+        
+        # Custom extraction rules
+        self.extraction_rules = extraction_rules or []
         
         # Load proxies
         self.proxies = self._load_proxies()
@@ -416,6 +419,20 @@ class Scraper:
             )
         ''')
         
+        # NEW: HTML structure table with selectors
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS html_structure (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                page_id INTEGER,
+                tag_name TEXT,
+                selector TEXT,
+                text_content TEXT,
+                attributes TEXT,
+                parent_selector TEXT,
+                FOREIGN KEY (page_id) REFERENCES pages(id)
+            )
+        ''')
+        
         # NEW: File assets table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS file_assets (
@@ -626,6 +643,122 @@ class Scraper:
         except Exception:
             pass
 
+    async def extract_html_structure(self, page):
+        """Extract HTML structure with CSS selectors and content."""
+        try:
+            # JavaScript to extract HTML structure with selectors
+            structure = await page.evaluate("""
+                () => {
+                    const elements = [];
+                    const processedElements = new Set();
+                    
+                    // Function to generate CSS selector for an element
+                    function getSelector(element) {
+                        if (element.id) {
+                            return '#' + element.id;
+                        }
+                        
+                        let path = [];
+                        while (element && element.nodeType === Node.ELEMENT_NODE) {
+                            let selector = element.nodeName.toLowerCase();
+                            
+                            if (element.className && typeof element.className === 'string') {
+                                const classes = element.className.trim().split(/\\s+/).filter(c => c);
+                                if (classes.length > 0) {
+                                    selector += '.' + classes.slice(0, 3).join('.');
+                                }
+                            }
+                            
+                            // Add nth-child if needed for uniqueness
+                            if (element.parentNode) {
+                                const siblings = Array.from(element.parentNode.children);
+                                const index = siblings.indexOf(element) + 1;
+                                if (siblings.length > 1) {
+                                    selector += `:nth-child(${index})`;
+                                }
+                            }
+                            
+                            path.unshift(selector);
+                            element = element.parentElement;
+                            
+                            // Limit depth to avoid very long selectors
+                            if (path.length >= 5) break;
+                        }
+                        
+                        return path.join(' > ');
+                    }
+                    
+                    // Function to get parent selector
+                    function getParentSelector(element) {
+                        if (element.parentElement) {
+                            return getSelector(element.parentElement);
+                        }
+                        return null;
+                    }
+                    
+                    // Function to get element attributes
+                    function getAttributes(element) {
+                        const attrs = {};
+                        for (let attr of element.attributes) {
+                            attrs[attr.name] = attr.value;
+                        }
+                        return attrs;
+                    }
+                    
+                    // Extract important elements
+                    const selectors = [
+                        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                        'p', 'a', 'button', 'input', 'textarea', 'select',
+                        'div[class]', 'section', 'article', 'nav', 'header', 'footer',
+                        'ul', 'ol', 'li', 'table', 'form', 'img'
+                    ];
+                    
+                    selectors.forEach(sel => {
+                        const elems = document.querySelectorAll(sel);
+                        elems.forEach((elem, idx) => {
+                            // Skip if already processed or hidden
+                            if (processedElements.has(elem)) return;
+                            
+                            const style = window.getComputedStyle(elem);
+                            if (style.display === 'none' || style.visibility === 'hidden') return;
+                            
+                            // Get text content (limit to 200 chars)
+                            let textContent = elem.textContent?.trim() || '';
+                            if (textContent.length > 200) {
+                                textContent = textContent.substring(0, 200) + '...';
+                            }
+                            
+                            // Skip elements with no meaningful content
+                            if (!textContent && !elem.src && !elem.href) return;
+                            
+                            const selector = getSelector(elem);
+                            const parentSelector = getParentSelector(elem);
+                            const attributes = getAttributes(elem);
+                            
+                            elements.push({
+                                tag: elem.tagName.toLowerCase(),
+                                selector: selector,
+                                text: textContent,
+                                attributes: attributes,
+                                parent: parentSelector
+                            });
+                            
+                            processedElements.add(elem);
+                            
+                            // Limit total elements to avoid huge data
+                            if (elements.length >= 500) return;
+                        });
+                    });
+                    
+                    return elements;
+                }
+            """)
+            
+            return structure
+        except Exception as e:
+            print(f"Error extracting HTML structure: {e}")
+            return []
+
     async def extract_and_save_data(self, page, depth, proxy_used, fingerprint):
         """Extracts all data types and saves to database and files."""
         url = page.url
@@ -663,8 +796,23 @@ class Scraper:
             try:
                 src = await img.get_attribute("src") or await img.get_attribute("data-src")
                 alt = await img.get_attribute("alt") or ""
-                if src and src.startswith("http"):
-                    media.append({"src": src, "alt": alt})
+                
+                if src:
+                    # Handle relative URLs
+                    if not src.startswith("http"):
+                        # Handle protocol-relative URLs (//example.com/image.jpg)
+                        if src.startswith("//"):
+                            src = "https:" + src
+                        # Handle absolute paths (/images/photo.jpg)
+                        elif src.startswith("/"):
+                            src = urljoin(url, src)
+                        # Handle relative paths (images/photo.jpg)
+                        else:
+                            src = urljoin(url, src)
+                    
+                    # Only add if it's a valid HTTP(S) URL
+                    if src.startswith("http"):
+                        media.append({"src": src, "alt": alt})
             except:
                 continue
 
@@ -691,6 +839,9 @@ class Scraper:
 
         folder_path = self._create_folder_path(url)
         
+        # Extract HTML structure with selectors
+        html_structure = await self.extract_html_structure(page)
+
         # NEW: Extract and download file assets
         file_assets = []
         if self.download_file_assets:
@@ -812,6 +963,14 @@ class Scraper:
                     INSERT INTO structured_data (page_id, json_data)
                     VALUES (?, ?)
                 ''', (page_id, json.dumps(data)))
+            
+            # Save HTML structure
+            for elem in html_structure:
+                cursor.execute('''
+                    INSERT INTO html_structure (page_id, tag_name, selector, text_content, attributes, parent_selector)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (page_id, elem['tag'], elem['selector'], elem['text'], 
+                     json.dumps(elem['attributes']), elem['parent']))
             
             # NEW: Save file assets to database
             for file_asset in file_assets:
@@ -1069,45 +1228,3 @@ class Scraper:
                 print(f"Total Downloaded: {total_mb:.2f} MB")
             
             print("=" * 70)
-
-
-# --- EXECUTION EXAMPLES ---
-if __name__ == "__main__":
-    
-    # Example 1: Crawl WITHOUT authentication, WITH file downloads
-    crawler = Scraper(
-        start_url="https://nostarch.com/",
-        max_pages=20,
-        max_depth=2,
-        headless=False,
-        concurrent_limit=3,
-        proxy_file="proxies.txt",
-        download_file_assets=True,  # Enable file downloads
-        max_file_size_mb=50  # Max 50MB per file
-    )
-    
-    # Example 2: Crawl WITH authentication AND file downloads
-    # crawler = Scraper(
-    #     start_url="https://example.com/dashboard",
-    #     max_pages=50,
-    #     max_depth=2,
-    #     headless=False,
-    #     concurrent_limit=5,
-    #     proxy_file="proxies.txt",
-    #     
-    #     # File download settings
-    #     download_file_assets=True,
-    #     max_file_size_mb=100,
-    #     
-    #     # Authentication settings
-    #     login_url="https://example.com/login",
-    #     username="your_username",
-    #     password="your_password",
-    #     username_selector="input[name='username']",
-    #     password_selector="input[name='password']",
-    #     submit_selector="button[type='submit']",
-    #     success_indicator=".user-profile",
-    #     auth_state_file="auth_state.json"
-    # )
-    
-    asyncio.run(crawler.run())
