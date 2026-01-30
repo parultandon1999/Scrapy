@@ -33,7 +33,6 @@ function Database({ darkMode, toggleDarkMode }) {
   const [totalPages, setTotalPages] = useState(0)
   const [selectedPageId, setSelectedPageId] = useState(null)
   
-  // New state for advanced features
   const [timeline, setTimeline] = useState([])
   const [domains, setDomains] = useState([])
   const [depthDistribution, setDepthDistribution] = useState([])
@@ -204,7 +203,6 @@ function Database({ darkMode, toggleDarkMode }) {
     }
   }
 
-  // New analytics functions
   const fetchTimeline = async () => {
     try {
       setLoading(true)

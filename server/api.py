@@ -9,7 +9,6 @@ import os
 import uuid
 from datetime import datetime
 
-# Import your existing modules
 import config
 from scraper import Scraper
 from proxy_tester import ProxyTester
@@ -19,7 +18,6 @@ from selector_finder import SelectorFinder
 
 app = FastAPI(title="Web Scraper API", version="1.0.0")
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
@@ -28,13 +26,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global state
 scraper_instance = None
 scraper_task = None
 websocket_connections = []
-current_session_id = None  # Unique session identifier
+current_session_id = None
 
-# Pydantic models
 class ScraperConfig(BaseModel):
     start_url: str
     max_pages: Optional[int] = 50
@@ -75,31 +71,27 @@ class TestLoginRequest(BaseModel):
 
 class FindElementRequest(BaseModel):
     url: str
-    search_queries: List[str]  # Multiple search texts
-    search_type: str = "partial"  # text, partial, attribute, image
-    image_urls: Optional[List[str]] = []  # Image URLs to search for
+    search_queries: List[str]
+    search_type: str = "partial"
+    image_urls: Optional[List[str]] = []
 
 class SearchRequest(BaseModel):
     keyword: str
     limit: Optional[int] = 20
 
-# WebSocket manager
 async def broadcast_message(message: dict):
-    """Send message to all connected WebSocket clients"""
     for connection in websocket_connections:
         try:
             await connection.send_json(message)
         except:
             websocket_connections.remove(connection)
 
-# Routes
 @app.get("/")
 async def root():
     return {"message": "Web Scraper API", "status": "running"}
 
 @app.get("/api/config")
 async def get_config():
-    """Get current configuration"""
     return {
         "features": config.FEATURES,
         "scraper": config.SCRAPER,
@@ -112,7 +104,6 @@ async def get_config():
 
 @app.put("/api/config")
 async def update_config(update: ConfigUpdate):
-    """Update configuration"""
     try:
         section = getattr(config, update.section.upper())
         if update.key in section:
@@ -125,14 +116,12 @@ async def update_config(update: ConfigUpdate):
 
 @app.post("/api/scraper/start")
 async def start_scraper(config_data: ScraperConfig):
-    """Start a new scraping job"""
     global scraper_instance, scraper_task, current_session_id
     
     if scraper_task and not scraper_task.done():
         raise HTTPException(status_code=400, detail="Scraper is already running")
     
     try:
-        # Generate unique session ID
         current_session_id = str(uuid.uuid4())
         
         scraper_instance = Scraper(
@@ -152,11 +141,9 @@ async def start_scraper(config_data: ScraperConfig):
             success_indicator=config_data.success_indicator,
         )
         
-        # Reset the stopped flag for new scraping session
         scraper_instance.was_stopped_manually = False
         scraper_instance.session_id = current_session_id
         
-        # Start scraper in background
         scraper_task = asyncio.create_task(run_scraper())
         
         await broadcast_message({
@@ -172,7 +159,6 @@ async def start_scraper(config_data: ScraperConfig):
         raise HTTPException(status_code=500, detail=str(e))
 
 async def run_scraper():
-    """Background task to run the scraper"""
     global scraper_instance
     try:
         await scraper_instance.run()
@@ -188,7 +174,6 @@ async def run_scraper():
 
 @app.get("/api/scraper/status")
 async def get_scraper_status():
-    """Get current scraper status with recent pages"""
     global current_session_id
     
     if not scraper_instance:
@@ -203,13 +188,11 @@ async def get_scraper_status():
             "session_id": None
         }
     
-    # Get recent pages from database
     recent_pages = []
     recent_files = []
     file_types = {}
     total_pages_in_db = 0
     
-    # Get the current session ID
     session_id = getattr(scraper_instance, 'session_id', current_session_id)
     
     try:
@@ -217,13 +200,9 @@ async def get_scraper_status():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Check if database has any data
         cursor.execute('SELECT COUNT(*) as count FROM pages')
         total_pages_in_db = cursor.fetchone()['count']
         
-        # Get pages from current session only (filter by session_id in fingerprint or use all if no session tracking)
-        # Since the database doesn't have session_id column, we'll use the scraper's in-memory data
-        # and only show pages that match the current scraping instance
         cursor.execute('''
             SELECT id, url, title, depth, datetime(timestamp, 'unixepoch') as scraped_at
             FROM pages
@@ -231,13 +210,11 @@ async def get_scraper_status():
         ''')
         all_pages = [dict(row) for row in cursor.fetchall()]
         
-        # Filter to only show pages from current session by checking if URL is in visited set
         if hasattr(scraper_instance, 'visited'):
             recent_pages = [p for p in all_pages if p['url'] in scraper_instance.visited]
         else:
             recent_pages = all_pages
         
-        # Get files from current session
         try:
             cursor.execute('''
                 SELECT fa.file_name, fa.file_extension, fa.file_size_bytes,
@@ -249,13 +226,11 @@ async def get_scraper_status():
             ''')
             all_files = [dict(row) for row in cursor.fetchall()]
             
-            # Filter files to current session
             if hasattr(scraper_instance, 'visited'):
                 recent_files = [f for f in all_files if f['page_url'] in scraper_instance.visited]
             else:
                 recent_files = all_files
             
-            # Get file type counts from current session files
             file_type_counts = {}
             for f in recent_files:
                 if f['download_status'] == 'success':
@@ -269,7 +244,6 @@ async def get_scraper_status():
     except Exception as e:
         print(f"Error fetching recent data: {e}")
     
-    # If database is empty, reset stats
     is_running = scraper_task and not scraper_task.done()
     if total_pages_in_db == 0 and not is_running:
         return {
@@ -313,7 +287,6 @@ async def get_scraper_status():
 
 @app.post("/api/scraper/stop")
 async def stop_scraper():
-    """Stop the running scraper"""
     global scraper_task, scraper_instance
     
     if not scraper_task or scraper_task.done():
@@ -340,7 +313,6 @@ async def stop_scraper():
 
 @app.get("/api/data/stats")
 async def get_stats():
-    """Get scraping statistics"""
     try:
         analyzer = CrawlDataAnalyzer()
         stats = analyzer.get_stats()
@@ -351,7 +323,6 @@ async def get_stats():
 
 @app.get("/api/data/pages")
 async def get_pages(limit: int = 20, offset: int = 0):
-    """Get scraped pages"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -382,13 +353,11 @@ async def get_pages(limit: int = 20, offset: int = 0):
 
 @app.get("/api/data/scraped-urls")
 async def get_scraped_urls():
-    """Get list of all scraped domains with their page counts"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Get all pages and group by domain
         cursor.execute('''
             SELECT url, timestamp FROM pages ORDER BY timestamp DESC
         ''')
@@ -396,7 +365,6 @@ async def get_scraped_urls():
         pages = cursor.fetchall()
         conn.close()
         
-        # Group by domain in Python
         from urllib.parse import urlparse
         domains = {}
         
@@ -430,18 +398,15 @@ async def get_scraped_urls():
 
 @app.get("/api/history/sessions")
 async def get_scraping_sessions():
-    """Get detailed scraping sessions with statistics"""
     try:
         from urllib.parse import urlparse
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Get all pages
         cursor.execute('SELECT url, timestamp, depth FROM pages ORDER BY timestamp DESC')
         pages = cursor.fetchall()
         
-        # Group by domain
         domains = {}
         for page in pages:
             try:
@@ -467,20 +432,16 @@ async def get_scraping_sessions():
             except:
                 continue
         
-        # Calculate additional stats for each domain
         sessions = []
         for domain, data in domains.items():
-            # Get page IDs for this domain
             cursor.execute('SELECT id FROM pages WHERE url LIKE ?', (f'{domain}%',))
             page_ids = [row['id'] for row in cursor.fetchall()]
             
-            # Count links
             if page_ids:
                 placeholders = ','.join('?' * len(page_ids))
                 cursor.execute(f'SELECT COUNT(*) as count FROM links WHERE page_id IN ({placeholders})', page_ids)
                 total_links = cursor.fetchone()['count']
                 
-                # Count files
                 cursor.execute(f'SELECT COUNT(*) as count, SUM(file_size_bytes) as total_size FROM file_assets WHERE page_id IN ({placeholders})', page_ids)
                 file_data = cursor.fetchone()
                 total_files = file_data['count']
@@ -511,13 +472,11 @@ async def get_scraping_sessions():
 
 @app.get("/api/history/session/{domain:path}")
 async def get_session_details(domain: str):
-    """Get detailed information about a specific scraping session"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Get session overview
         cursor.execute('''
             SELECT 
                 COUNT(*) as total_pages,
@@ -531,7 +490,6 @@ async def get_session_details(domain: str):
         
         overview = dict(cursor.fetchone())
         
-        # Get pages by depth
         cursor.execute('''
             SELECT depth, COUNT(*) as count
             FROM pages
@@ -542,7 +500,6 @@ async def get_session_details(domain: str):
         
         depth_distribution = [dict(row) for row in cursor.fetchall()]
         
-        # Get file statistics
         cursor.execute('''
             SELECT 
                 fa.file_extension,
@@ -557,7 +514,6 @@ async def get_session_details(domain: str):
         
         file_stats = [dict(row) for row in cursor.fetchall()]
         
-        # Get recent pages
         cursor.execute('''
             SELECT id, url, title, depth, timestamp
             FROM pages
@@ -582,19 +538,16 @@ async def get_session_details(domain: str):
 
 @app.delete("/api/history/session/{domain:path}")
 async def delete_session(domain: str):
-    """Delete all data for a specific scraping session"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         cursor = conn.cursor()
         
-        # Get page IDs for this domain
         cursor.execute('SELECT id FROM pages WHERE url LIKE ?', (f'{domain}%',))
         page_ids = [row[0] for row in cursor.fetchall()]
         
         if page_ids:
             placeholders = ','.join('?' * len(page_ids))
             
-            # Delete related data
             cursor.execute(f'DELETE FROM headers WHERE page_id IN ({placeholders})', page_ids)
             cursor.execute(f'DELETE FROM links WHERE page_id IN ({placeholders})', page_ids)
             cursor.execute(f'DELETE FROM media WHERE page_id IN ({placeholders})', page_ids)
@@ -611,14 +564,12 @@ async def delete_session(domain: str):
 
 @app.get("/api/history/statistics")
 async def get_history_statistics():
-    """Get overall scraping history statistics"""
     try:
         from urllib.parse import urlparse
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Total sessions (unique domains)
         cursor.execute('SELECT url FROM pages')
         pages = cursor.fetchall()
         unique_domains = set()
@@ -631,19 +582,15 @@ async def get_history_statistics():
                 continue
         total_sessions = len(unique_domains)
         
-        # Total pages scraped
         cursor.execute('SELECT COUNT(*) as total_pages FROM pages')
         total_pages = cursor.fetchone()['total_pages']
         
-        # Total files downloaded
         cursor.execute('SELECT COUNT(*) as total_files FROM file_assets WHERE download_status = "success"')
         total_files = cursor.fetchone()['total_files']
         
-        # Total data size
         cursor.execute('SELECT SUM(file_size_bytes) as total_size FROM file_assets WHERE download_status = "success"')
         total_size = cursor.fetchone()['total_size'] or 0
         
-        # Most active day
         cursor.execute('''
             SELECT date(timestamp, 'unixepoch') as date, COUNT(*) as count
             FROM pages
@@ -653,7 +600,6 @@ async def get_history_statistics():
         ''')
         most_active = cursor.fetchone()
         
-        # Average session duration
         cursor.execute('''
             SELECT url, MIN(timestamp) as min_time, MAX(timestamp) as max_time
             FROM pages
@@ -678,7 +624,6 @@ async def get_history_statistics():
 
 @app.get("/api/data/pages-by-url")
 async def get_pages_by_url(start_url: str):
-    """Get all pages and files for a specific domain"""
     try:
         from urllib.parse import urlparse
         
@@ -686,14 +631,12 @@ async def get_pages_by_url(start_url: str):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Parse the domain from start_url
         try:
             parsed = urlparse(start_url)
             domain_pattern = f"{parsed.scheme}://{parsed.netloc}%"
         except:
             domain_pattern = f"{start_url}%"
         
-        # Get all pages that match the domain
         cursor.execute('''
             SELECT id, url, title, depth, datetime(timestamp, 'unixepoch') as scraped_at
             FROM pages
@@ -703,7 +646,6 @@ async def get_pages_by_url(start_url: str):
         
         pages = [dict(row) for row in cursor.fetchall()]
         
-        # Get files for these pages
         page_ids = [p['id'] for p in pages]
         files = []
         if page_ids:
@@ -730,7 +672,6 @@ async def get_pages_by_url(start_url: str):
 
 @app.get("/api/data/page/{page_id}")
 async def get_page_details(page_id: int):
-    """Get detailed information about a specific page"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -744,7 +685,6 @@ async def get_page_details(page_id: int):
         
         page_dict = dict(page)
         
-        # Get related data
         cursor.execute('SELECT * FROM headers WHERE page_id = ?', (page_id,))
         page_dict['headers'] = [dict(row) for row in cursor.fetchall()]
         
@@ -757,7 +697,6 @@ async def get_page_details(page_id: int):
         cursor.execute('SELECT * FROM file_assets WHERE page_id = ?', (page_id,))
         page_dict['file_assets'] = [dict(row) for row in cursor.fetchall()]
         
-        # Get HTML structure
         try:
             cursor.execute('SELECT * FROM html_structure WHERE page_id = ? LIMIT 500', (page_id,))
             page_dict['html_structure'] = [dict(row) for row in cursor.fetchall()]
@@ -774,7 +713,6 @@ async def get_page_details(page_id: int):
 
 @app.get("/api/data/files")
 async def get_file_assets(limit: int = 50, status: Optional[str] = None):
-    """Get downloaded file assets"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -807,7 +745,6 @@ async def get_file_assets(limit: int = 50, status: Optional[str] = None):
 
 @app.get("/api/proxy/image")
 async def proxy_image(url: str):
-    """Proxy images to avoid CORS issues"""
     try:
         import aiohttp
         from fastapi.responses import Response
@@ -833,7 +770,6 @@ async def proxy_image(url: str):
 
 @app.get("/api/screenshot/{page_id}")
 async def get_screenshot(page_id: int):
-    """Get screenshot for a specific page"""
     try:
         from fastapi.responses import FileResponse
         
@@ -867,7 +803,6 @@ async def get_screenshot(page_id: int):
 
 @app.post("/api/proxies/test")
 async def test_proxies(request: ProxyTestRequest):
-    """Test all proxies"""
     try:
         tester = ProxyTester()
         results = await tester.test_all_proxies(
@@ -885,7 +820,6 @@ async def test_proxies(request: ProxyTestRequest):
 
 @app.get("/api/proxies/list")
 async def list_proxies():
-    """List all proxies from file"""
     try:
         proxies = []
         if os.path.exists(config.PROXY['proxy_file']):
@@ -900,15 +834,12 @@ async def list_proxies():
 
 @app.get("/api/analytics/performance")
 async def get_performance_analytics():
-    """Get performance analytics"""
     try:
         analyzer = CrawlAnalyzer()
         
-        # Get various analytics
         conn = analyzer.conn
         cursor = conn.cursor()
         
-        # Proxy stats
         cursor.execute("""
             SELECT proxy_used, COUNT(*) as page_count
             FROM pages
@@ -917,7 +848,6 @@ async def get_performance_analytics():
         """)
         proxy_stats = [dict(row) for row in cursor.fetchall()]
         
-        # Depth distribution
         cursor.execute("""
             SELECT depth, COUNT(*) as page_count
             FROM pages
@@ -926,7 +856,6 @@ async def get_performance_analytics():
         """)
         depth_stats = [dict(row) for row in cursor.fetchall()]
         
-        # Timeline
         cursor.execute("""
             SELECT 
                 MIN(timestamp) as start_time,
@@ -948,7 +877,6 @@ async def get_performance_analytics():
 
 @app.post("/api/data/search/content")
 async def search_content(request: SearchRequest):
-    """Search for keyword in page content"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -976,7 +904,6 @@ async def search_content(request: SearchRequest):
 
 @app.post("/api/data/search/files")
 async def search_files(request: SearchRequest):
-    """Search for files by name"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1006,14 +933,12 @@ async def search_files(request: SearchRequest):
 
 @app.get("/api/data/export")
 async def export_data():
-    """Export all scraped data to JSON"""
     try:
         analyzer = CrawlDataAnalyzer()
         
         conn = analyzer.conn
         cursor = conn.cursor()
         
-        # Get all pages with related data
         cursor.execute('SELECT * FROM pages')
         pages = []
         
@@ -1021,19 +946,15 @@ async def export_data():
             page = dict(page_row)
             page_id = page['id']
             
-            # Get headers
             cursor.execute('SELECT * FROM headers WHERE page_id = ?', (page_id,))
             page['headers'] = [dict(row) for row in cursor.fetchall()]
             
-            # Get links
             cursor.execute('SELECT * FROM links WHERE page_id = ?', (page_id,))
             page['links'] = [dict(row) for row in cursor.fetchall()]
             
-            # Get media
             cursor.execute('SELECT * FROM media WHERE page_id = ?', (page_id,))
             page['media'] = [dict(row) for row in cursor.fetchall()]
             
-            # Get file assets
             try:
                 cursor.execute('SELECT * FROM file_assets WHERE page_id = ?', (page_id,))
                 page['file_assets'] = [dict(row) for row in cursor.fetchall()]
@@ -1054,7 +975,6 @@ async def export_data():
 
 @app.get("/api/data/files-by-extension")
 async def get_files_by_extension():
-    """Get file assets grouped by extension"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1079,7 +999,6 @@ async def get_files_by_extension():
 
 @app.get("/api/data/largest-downloads")
 async def get_largest_downloads(limit: int = 10):
-    """Get the largest downloaded files"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1104,7 +1023,6 @@ async def get_largest_downloads(limit: int = 10):
 
 @app.get("/api/data/top-links")
 async def get_top_links(link_type: str = 'internal', limit: int = 20):
-    """Get top links by frequency"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1128,7 +1046,6 @@ async def get_top_links(link_type: str = 'internal', limit: int = 20):
 
 @app.get("/api/data/analytics/timeline")
 async def get_scraping_timeline():
-    """Get scraping activity timeline"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1154,7 +1071,6 @@ async def get_scraping_timeline():
 
 @app.get("/api/data/analytics/domains")
 async def get_domain_statistics():
-    """Get statistics grouped by domain"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1181,7 +1097,6 @@ async def get_domain_statistics():
 
 @app.get("/api/data/analytics/depth-distribution")
 async def get_depth_distribution():
-    """Get page count distribution by depth"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1206,7 +1121,6 @@ async def get_depth_distribution():
 
 @app.get("/api/data/analytics/file-types")
 async def get_file_type_analytics():
-    """Get detailed file type analytics"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1236,13 +1150,11 @@ async def get_file_type_analytics():
 
 @app.get("/api/data/analytics/link-analysis")
 async def get_link_analysis():
-    """Get comprehensive link analysis"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Get broken links (links that appear but weren't scraped)
         cursor.execute('''
             SELECT 
                 l.url,
@@ -1258,7 +1170,6 @@ async def get_link_analysis():
         
         broken_links = [dict(row) for row in cursor.fetchall()]
         
-        # Get most referenced pages
         cursor.execute('''
             SELECT 
                 p.url,
@@ -1284,14 +1195,12 @@ async def get_link_analysis():
 
 @app.post("/api/data/bulk/delete-pages")
 async def bulk_delete_pages(page_ids: List[int]):
-    """Delete multiple pages and their related data"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         cursor = conn.cursor()
         
         placeholders = ','.join('?' * len(page_ids))
         
-        # Delete related data
         cursor.execute(f'DELETE FROM headers WHERE page_id IN ({placeholders})', page_ids)
         cursor.execute(f'DELETE FROM links WHERE page_id IN ({placeholders})', page_ids)
         cursor.execute(f'DELETE FROM media WHERE page_id IN ({placeholders})', page_ids)
@@ -1308,7 +1217,6 @@ async def bulk_delete_pages(page_ids: List[int]):
 
 @app.post("/api/data/bulk/delete-files")
 async def bulk_delete_files(file_ids: List[int]):
-    """Delete multiple file assets"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         cursor = conn.cursor()
@@ -1333,7 +1241,6 @@ async def filter_pages(
     end_date: Optional[str] = None,
     limit: int = 50
 ):
-    """Advanced page filtering"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -1379,7 +1286,6 @@ async def filter_pages(
 
 @app.get("/api/data/compare/domains")
 async def compare_domains(domains: str):
-    """Compare statistics between multiple domains"""
     try:
         domain_list = domains.split(',')
         conn = sqlite3.connect(config.get_db_path())
@@ -1409,7 +1315,6 @@ async def compare_domains(domains: str):
 
 @app.post("/api/selector-finder/analyze")
 async def analyze_login_page(request: SelectorFinderRequest):
-    """Analyze a login page and suggest CSS selectors"""
     try:
         from playwright.async_api import async_playwright
         
@@ -1432,7 +1337,6 @@ async def analyze_login_page(request: SelectorFinderRequest):
                 await page.goto(request.login_url, wait_until="networkidle", timeout=30000)
                 await asyncio.sleep(2)
                 
-                # Find all input fields
                 inputs = await page.query_selector_all("input")
                 
                 for i, input_elem in enumerate(inputs, 1):
@@ -1463,7 +1367,6 @@ async def analyze_login_page(request: SelectorFinderRequest):
                         "likely_field": field_type
                     })
                 
-                # Find buttons
                 buttons = await page.query_selector_all("button, input[type='submit']")
                 
                 for i, button in enumerate(buttons, 1):
@@ -1491,7 +1394,6 @@ async def analyze_login_page(request: SelectorFinderRequest):
                         "likely_submit": is_submit
                     })
                 
-                # Find forms
                 forms = await page.query_selector_all("form")
                 for i, form in enumerate(forms, 1):
                     form_id = await form.get_attribute("id") or ""
@@ -1503,7 +1405,6 @@ async def analyze_login_page(request: SelectorFinderRequest):
                         "action": form_action
                     })
                 
-                # Auto-detect and suggest configuration
                 username_field = next((inp for inp in results["inputs"] if inp["likely_field"] == "username"), None)
                 password_field = next((inp for inp in results["inputs"] if inp["likely_field"] == "password"), None)
                 submit_button = next((btn for btn in results["buttons"] if btn["likely_submit"]), None)
@@ -1529,7 +1430,6 @@ async def analyze_login_page(request: SelectorFinderRequest):
 
 @app.post("/api/selector-finder/test-login")
 async def test_login_selectors(request: TestLoginRequest):
-    """Test login with provided selectors"""
     try:
         from playwright.async_api import async_playwright
         
@@ -1551,11 +1451,9 @@ async def test_login_selectors(request: TestLoginRequest):
             page = await context.new_page()
             
             try:
-                # Load login page
                 await page.goto(request.login_url, wait_until="networkidle", timeout=30000)
                 await asyncio.sleep(2)
                 
-                # Try to fill username
                 try:
                     await page.fill(request.username_selector, request.username)
                     await asyncio.sleep(0.5)
@@ -1563,7 +1461,6 @@ async def test_login_selectors(request: TestLoginRequest):
                     result["errors"].append(f"Username selector failed: {str(e)}")
                     raise
                 
-                # Try to fill password
                 try:
                     await page.fill(request.password_selector, request.password)
                     await asyncio.sleep(0.5)
@@ -1571,7 +1468,6 @@ async def test_login_selectors(request: TestLoginRequest):
                     result["errors"].append(f"Password selector failed: {str(e)}")
                     raise
                 
-                # Try to click submit
                 try:
                     await page.click(request.submit_selector)
                     await asyncio.sleep(5)
@@ -1579,11 +1475,9 @@ async def test_login_selectors(request: TestLoginRequest):
                     result["errors"].append(f"Submit selector failed: {str(e)}")
                     raise
                 
-                # Check results
                 result["final_url"] = page.url
                 result["url_changed"] = result["final_url"] != request.login_url
                 
-                # Check for success indicator if provided
                 if request.success_indicator:
                     try:
                         element = await page.query_selector(request.success_indicator)
@@ -1591,7 +1485,6 @@ async def test_login_selectors(request: TestLoginRequest):
                     except:
                         result["success_indicator_found"] = False
                 
-                # Determine success
                 if result["url_changed"]:
                     result["success"] = True
                     result["message"] = "Login appears successful - URL changed"
@@ -1617,7 +1510,6 @@ async def test_login_selectors(request: TestLoginRequest):
 
 @app.post("/api/selector-finder/find-element")
 async def find_element_by_content(request: FindElementRequest):
-    """Find HTML elements by text content or attributes"""
     try:
         from playwright.async_api import async_playwright
         
@@ -1639,7 +1531,6 @@ async def find_element_by_content(request: FindElementRequest):
                 await page.goto(request.url, wait_until="networkidle", timeout=30000)
                 await asyncio.sleep(2)
                 
-                # Process text search queries
                 for search_text in request.search_queries:
                     query_results = {
                         "search_text": search_text,
@@ -1647,25 +1538,20 @@ async def find_element_by_content(request: FindElementRequest):
                         "elements": []
                     }
                     
-                    # Find elements based on search type
                     all_elements = []
                     
                     if request.search_type == "text":
-                        # Exact text match
                         elements = await page.query_selector_all(f"text={search_text}")
                         all_elements = [(elem, "exact") for elem in elements]
                     elif request.search_type == "partial":
-                        # Partial text match (case insensitive)
                         elements = await page.query_selector_all(f"text=/{search_text}/i")
                         all_elements = [(elem, "partial") for elem in elements]
                     else:
-                        # Search in all text content
                         elements = await page.query_selector_all("*")
                         for elem in elements:
                             try:
                                 text = await elem.inner_text()
                                 if search_text.lower() in text.lower():
-                                    # Check if exact match
                                     if text.strip().lower() == search_text.lower():
                                         all_elements.append((elem, "exact"))
                                     else:
@@ -1673,11 +1559,9 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                     
-                    # Sort: exact matches first, then partial
                     all_elements.sort(key=lambda x: 0 if x[1] == "exact" else 1)
                     
-                    # Extract details for each matching element
-                    for i, (elem, match_type) in enumerate(all_elements[:50]):  # Limit to 50 results per query
+                    for i, (elem, match_type) in enumerate(all_elements[:50]):
                         try:
                             tag_name = await elem.evaluate("el => el.tagName.toLowerCase()")
                             elem_id = await elem.get_attribute("id") or ""
@@ -1695,7 +1579,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get all text content (including hidden)
                             elem_text_content = ""
                             try:
                                 elem_text_content = await elem.text_content()
@@ -1704,7 +1587,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get inner HTML
                             elem_inner_html = ""
                             try:
                                 elem_inner_html = await elem.inner_html()
@@ -1713,7 +1595,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get outer HTML
                             elem_outer_html = ""
                             try:
                                 elem_outer_html = await elem.evaluate("el => el.outerHTML")
@@ -1722,7 +1603,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get all attributes
                             all_attributes = {}
                             try:
                                 all_attributes = await elem.evaluate("""
@@ -1737,7 +1617,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get parent info
                             parent_tag = ""
                             parent_class = ""
                             parent_id = ""
@@ -1750,7 +1629,6 @@ async def find_element_by_content(request: FindElementRequest):
                                     parent_class = await page.evaluate("el => el.className", parent) or ""
                                     parent_id = await page.evaluate("el => el.id", parent) or ""
                                     
-                                    # Generate parent selectors
                                     if parent_id:
                                         parent_selectors.append(f"#{parent_id}")
                                     if parent_class:
@@ -1761,7 +1639,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get all ancestors (up to 3 levels)
                             ancestors = []
                             try:
                                 ancestors_data = await elem.evaluate("""
@@ -1786,14 +1663,11 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Generate suggested selectors
                             selectors = []
                             
-                            # ID selector (most specific)
                             if elem_id:
                                 selectors.append(f"#{elem_id}")
                             
-                            # Class selector
                             if elem_class:
                                 classes = elem_class.strip().split()
                                 if classes:
@@ -1801,42 +1675,34 @@ async def find_element_by_content(request: FindElementRequest):
                                     selectors.append(f".{first_class}")
                                     selectors.append(f"{tag_name}.{first_class}")
                                     
-                                    # With parent context
                                     if parent_tag and parent_class:
                                         parent_first_class = parent_class.strip().split()[0]
                                         selectors.append(f"{parent_tag}.{parent_first_class} > {tag_name}.{first_class}")
                                     elif parent_tag:
                                         selectors.append(f"{parent_tag} > {tag_name}.{first_class}")
                             
-                            # Name attribute
                             if elem_name:
                                 selectors.append(f"{tag_name}[name='{elem_name}']")
                                 if parent_tag:
                                     selectors.append(f"{parent_tag} > {tag_name}[name='{elem_name}']")
                             
-                            # Type attribute
                             if elem_type:
                                 selectors.append(f"{tag_name}[type='{elem_type}']")
                             
-                            # Href attribute
                             if elem_href:
                                 selectors.append(f"{tag_name}[href='{elem_href}']")
                             
-                            # Text selector
                             if elem_text and len(elem_text) < 50:
                                 selectors.append(f"{tag_name}:has-text('{elem_text.strip()}')")
                                 if parent_tag:
                                     selectors.append(f"{parent_tag} > {tag_name}:has-text('{elem_text.strip()}')")
                             
-                            # Tag with parent
                             if parent_tag and not selectors:
                                 selectors.append(f"{parent_tag} > {tag_name}")
                             
-                            # Tag only (least specific)
                             if not selectors:
                                 selectors.append(tag_name)
                             
-                            # Get XPath
                             xpath = ""
                             try:
                                 xpath = await elem.evaluate("""
@@ -1863,7 +1729,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get computed styles
                             styles = {}
                             try:
                                 styles = await elem.evaluate("""
@@ -1882,7 +1747,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except:
                                 pass
                             
-                            # Get bounding box
                             bounding_box = None
                             try:
                                 bounding_box = await elem.bounding_box()
@@ -1920,10 +1784,8 @@ async def find_element_by_content(request: FindElementRequest):
                         except Exception as e:
                             continue
                     
-                    # Add query results to main results
                     results["results_by_query"][search_text] = query_results
                 
-                # Process image search queries
                 if request.image_urls:
                     for image_url in request.image_urls:
                         query_results = {
@@ -1932,7 +1794,6 @@ async def find_element_by_content(request: FindElementRequest):
                             "elements": []
                         }
                         
-                        # Find all images on the page
                         all_images = await page.query_selector_all("img")
                         
                         for i, img_elem in enumerate(all_images):
@@ -1941,19 +1802,15 @@ async def find_element_by_content(request: FindElementRequest):
                                 img_alt = await img_elem.get_attribute("alt") or ""
                                 img_title = await img_elem.get_attribute("title") or ""
                                 
-                                # Check if image matches
                                 is_match = False
                                 match_type = "none"
                                 
-                                # Exact URL match
                                 if img_src == image_url:
                                     is_match = True
                                     match_type = "exact"
-                                # Partial URL match
                                 elif image_url.lower() in img_src.lower():
                                     is_match = True
                                     match_type = "partial"
-                                # Match by alt text
                                 elif image_url.lower() in img_alt.lower():
                                     is_match = True
                                     match_type = "alt_text"
@@ -1961,13 +1818,11 @@ async def find_element_by_content(request: FindElementRequest):
                                 if not is_match:
                                     continue
                                 
-                                # Get image details
                                 tag_name = "img"
                                 elem_id = await img_elem.get_attribute("id") or ""
                                 elem_class = await img_elem.get_attribute("class") or ""
                                 elem_name = await img_elem.get_attribute("name") or ""
                                 
-                                # Get all attributes
                                 all_attributes = {}
                                 try:
                                     all_attributes = await img_elem.evaluate("""
@@ -1982,7 +1837,6 @@ async def find_element_by_content(request: FindElementRequest):
                                 except:
                                     pass
                                 
-                                # Get parent info
                                 parent_tag = ""
                                 parent_class = ""
                                 parent_id = ""
@@ -2005,7 +1859,6 @@ async def find_element_by_content(request: FindElementRequest):
                                 except:
                                     pass
                                 
-                                # Get ancestors
                                 ancestors = []
                                 try:
                                     ancestors_data = await img_elem.evaluate("""
@@ -2030,7 +1883,6 @@ async def find_element_by_content(request: FindElementRequest):
                                 except:
                                     pass
                                 
-                                # Generate selectors
                                 selectors = []
                                 
                                 if elem_id:
@@ -2055,7 +1907,6 @@ async def find_element_by_content(request: FindElementRequest):
                                 if not selectors:
                                     selectors.append("img")
                                 
-                                # Get XPath
                                 xpath = ""
                                 try:
                                     xpath = await img_elem.evaluate("""
@@ -2082,7 +1933,6 @@ async def find_element_by_content(request: FindElementRequest):
                                 except:
                                     pass
                                 
-                                # Get computed styles
                                 styles = {}
                                 try:
                                     styles = await img_elem.evaluate("""
@@ -2100,14 +1950,12 @@ async def find_element_by_content(request: FindElementRequest):
                                 except:
                                     pass
                                 
-                                # Get bounding box
                                 bounding_box = None
                                 try:
                                     bounding_box = await img_elem.bounding_box()
                                 except:
                                     pass
                                 
-                                # Get natural dimensions
                                 natural_dimensions = {}
                                 try:
                                     natural_dimensions = await img_elem.evaluate("""
@@ -2147,7 +1995,6 @@ async def find_element_by_content(request: FindElementRequest):
                             except Exception as e:
                                 continue
                         
-                        # Add image query results
                         results["results_by_query"][f"image:{image_url}"] = query_results
                 
             except Exception as e:
@@ -2162,7 +2009,6 @@ async def find_element_by_content(request: FindElementRequest):
 
 @app.get("/api/screenshot/{page_id}")
 async def get_screenshot(page_id: int):
-    """Get screenshot for a specific page"""
     from fastapi.responses import FileResponse
     try:
         conn = sqlite3.connect(config.get_db_path())
@@ -2177,11 +2023,9 @@ async def get_screenshot(page_id: int):
             print(f"Page {page_id} not found in database")
             raise HTTPException(status_code=404, detail=f"Page {page_id} not found")
         
-        # folder_path is relative to server directory (e.g., "scraped_data\nostarch_com\home")
-        # __file__ is server/api.py, so dirname(__file__) gives us the server directory
         server_dir = os.path.dirname(os.path.abspath(__file__))
         screenshot_path = os.path.join(server_dir, page['folder_path'], 'screenshot.png')
-        screenshot_path = os.path.normpath(screenshot_path)  # Normalize path for Windows
+        screenshot_path = os.path.normpath(screenshot_path)
         
         print(f"Looking for screenshot at: {screenshot_path}")
         print(f"Path exists: {os.path.exists(screenshot_path)}")
@@ -2199,7 +2043,6 @@ async def get_screenshot(page_id: int):
 
 @app.get("/api/file/{filename}")
 async def get_downloaded_file(filename: str):
-    """Get a downloaded file by filename"""
     from fastapi.responses import FileResponse
     import mimetypes
     
@@ -2208,7 +2051,6 @@ async def get_downloaded_file(filename: str):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # Find the file in file_assets table
         cursor.execute('''
             SELECT fa.local_path, fa.file_extension, p.folder_path
             FROM file_assets fa
@@ -2223,19 +2065,17 @@ async def get_downloaded_file(filename: str):
         if not file_record:
             raise HTTPException(status_code=404, detail="File not found")
         
-        # Construct full file path - folder_path is relative to server directory
         server_dir = os.path.dirname(os.path.abspath(__file__))
         if file_record['local_path']:
             file_path = os.path.join(server_dir, file_record['folder_path'], file_record['local_path'])
         else:
             file_path = os.path.join(server_dir, file_record['folder_path'], 'downloads', filename)
         
-        file_path = os.path.normpath(file_path)  # Normalize path for Windows
+        file_path = os.path.normpath(file_path)
         
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail=f"File not found at {file_path}")
         
-        # Determine mime type
         mime_type, _ = mimetypes.guess_type(file_path)
         if not mime_type:
             mime_type = "application/octet-stream"
@@ -2248,7 +2088,6 @@ async def get_downloaded_file(filename: str):
 
 @app.get("/api/metadata/{page_id}")
 async def get_metadata(page_id: int):
-    """Get full metadata JSON for a specific page"""
     try:
         conn = sqlite3.connect(config.get_db_path())
         conn.row_factory = sqlite3.Row
@@ -2261,10 +2100,9 @@ async def get_metadata(page_id: int):
         if not page or not page['folder_path']:
             raise HTTPException(status_code=404, detail="Metadata not found")
         
-        # folder_path is relative to server directory
         server_dir = os.path.dirname(os.path.abspath(__file__))
         metadata_path = os.path.join(server_dir, page['folder_path'], 'metadata.json')
-        metadata_path = os.path.normpath(metadata_path)  # Normalize path for Windows
+        metadata_path = os.path.normpath(metadata_path)
         
         if not os.path.exists(metadata_path):
             raise HTTPException(status_code=404, detail="Metadata file not found")
@@ -2280,13 +2118,11 @@ async def get_metadata(page_id: int):
 
 @app.websocket("/ws/scraper")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time updates"""
     await websocket.accept()
     websocket_connections.append(websocket)
     
     try:
         while True:
-            # Keep connection alive and send periodic updates
             if scraper_instance:
                 await websocket.send_json({
                     "type": "status_update",

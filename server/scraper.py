@@ -17,7 +17,7 @@ class Scraper:
         self, start_url, 
         max_pages=None, 
         max_depth=None, 
-        base_dir=None, 
+        base_dir=None,
         headless=None, 
         concurrent_limit=None, 
         proxy_file=None,
@@ -35,7 +35,6 @@ class Scraper:
         self.should_stop = False
         self.domain = urlparse(self.start_url).netloc
         
-        # Use config values as defaults
         self.max_pages = max_pages if max_pages is not None else config.SCRAPER['max_pages']
         self.max_depth = max_depth if max_depth is not None else config.SCRAPER['max_depth']
         self.base_dir = base_dir if base_dir is not None else config.SCRAPER['base_dir']
@@ -43,15 +42,12 @@ class Scraper:
         self.concurrent_limit = concurrent_limit if concurrent_limit is not None else config.SCRAPER['concurrent_limit']
         self.proxy_file = proxy_file if proxy_file is not None else config.PROXY['proxy_file']
         
-        # File download settings from config
         self.download_file_assets = download_file_assets if download_file_assets is not None else config.FEATURES['download_file_assets']
-        self.max_file_size_mb = max_file_size_mb if max_file_size_mb is not None else config.FILE_DOWNLOAD['max_file_size_mb']
+        self.max_file_size_mb = config.FILE_DOWNLOAD['max_file_size_mb']
         self.max_file_size_bytes = self.max_file_size_mb * 1024 * 1024
         
-        # Supported file extensions from config
         self.downloadable_extensions = config.FILE_DOWNLOAD['downloadable_extensions']
         
-        # Authentication settings from config
         self.login_url = login_url if login_url is not None else config.AUTH['login_url']
         self.username = username if username is not None else config.AUTH['username']
         self.password = password if password is not None else config.AUTH['password']
@@ -64,28 +60,20 @@ class Scraper:
         self.auth_state_file = os.path.join(self.base_dir, auth_state_filename)
         self.storage_state = None
         
-        # Custom extraction rules
-        self.extraction_rules = extraction_rules or []
-        
-        # Load proxies
         self.proxies = self._load_proxies()
         self.proxy_index = 0
         self.proxy_lock = asyncio.Lock()
         
-        # Database setup
         self.db_path = os.path.join(self.base_dir, "scraped_data.db")
         self._init_database()
         
-        # Crawler State
         self.queue = deque([(self.start_url, 0)])
         self.visited = set([self.start_url])
         self.pages_scraped = 0
         self.lock = asyncio.Lock()
         
-        # Failed proxies tracking
         self.failed_proxies = set()
         
-        # Download statistics
         self.downloads_stats = {
             'total_attempted': 0,
             'successful': 0,
@@ -93,15 +81,12 @@ class Scraper:
             'total_bytes': 0
         }
         
-        # Create base directory
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)
 
     def _load_proxies(self):
-        """Load proxies from file. Supports HTTP, HTTPS, and SOCKS5 proxies."""
         proxies = []
         
-        # Check if proxy feature is enabled
         if not config.FEATURES['use_proxies']:
             print("Proxy feature is disabled in config. Running without proxies.")
             return []
@@ -120,7 +105,6 @@ class Scraper:
         return proxies
 
     async def _get_next_proxy(self):
-        """Get next proxy from the list (round-robin with failed proxy skipping)."""
         if not self.proxies:
             return None
         
@@ -141,15 +125,11 @@ class Scraper:
             return None
 
     async def _mark_proxy_failed(self, proxy):
-        """Mark a proxy as failed."""
         async with self.proxy_lock:
             self.failed_proxies.add(proxy)
             print(f"Marked proxy as failed: {proxy}")
 
     def _generate_fingerprint(self):
-        """Generate randomized browser fingerprint to avoid detection."""
-        
-        # Use fingerprints from config
         fingerprint = {
             "viewport": random.choice(config.FINGERPRINTS['viewports']),
             "user_agent": random.choice(config.FINGERPRINTS['user_agents']),
@@ -165,10 +145,6 @@ class Scraper:
         return fingerprint
 
     async def perform_login(self, browser):
-        """
-        Perform login and save authentication state (cookies/storage).
-        Returns True if login successful, False otherwise.
-        """
         if not self.login_url or not self.username or not self.password:
             print("No login credentials provided. Skipping authentication.")
             return False
@@ -181,7 +157,6 @@ class Scraper:
         print(f"State File: {self.auth_state_file}")
         print()
         
-        # Check if we have saved auth state
         if os.path.exists(self.auth_state_file):
             print("Found saved authentication state. Testing validity...")
             
@@ -189,20 +164,16 @@ class Scraper:
                 with open(self.auth_state_file, 'r') as f:
                     self.storage_state = json.load(f)
                 
-                # Test if stored session is still valid
                 test_context = await browser.new_context(storage_state=self.storage_state)
                 test_page = await test_context.new_page()
                 
                 try:
-                    # Try to navigate to a protected page (could be start_url or custom test page)
                     test_url = self.start_url if self.start_url != self.login_url else self.login_url
                     await test_page.goto(test_url, timeout=15000)
                     await asyncio.sleep(2)
                     
-                    # Check if we're still logged in
                     current_url = test_page.url
                     
-                    # If we got redirected to login, session expired
                     if self.login_url in current_url:
                         print("Saved session expired. Need fresh login.")
                         self.storage_state = None
@@ -221,50 +192,40 @@ class Scraper:
             except Exception as e:
                 print(f"Could not load saved auth state: {e}")
         
-        # Need to perform fresh login
         print("Performing fresh login...\n")
         
         try:
-            # Create a context for login
             fingerprint = self._generate_fingerprint()
             context, _ = await self.create_context(browser)
             page = await context.new_page()
             
-            # Navigate to login page
             print(f"Navigating to {self.login_url}")
             await page.goto(self.login_url, wait_until="networkidle", timeout=30000)
-            await asyncio.sleep(2)  # Wait for page to fully load
+            await asyncio.sleep(2)
             
-            # Fill in username
             print(f"Entering username: {self.username}")
             await page.fill(self.username_selector, self.username)
             await asyncio.sleep(0.5)
             
-            # Fill in password
             print(f"Entering password")
             await page.fill(self.password_selector, self.password)
             await asyncio.sleep(0.5)
             
-            # Click submit button
             print(f"Clicking submit button")
             await page.click(self.submit_selector)
             
-            # Wait for navigation/redirect
             print(f"Waiting for login to complete...")
             try:
                 await page.wait_for_load_state("networkidle", timeout=15000)
             except:
-                await asyncio.sleep(3)  # Fallback wait
+                await asyncio.sleep(3)
             
-            # Check for successful login
             current_url = page.url
             print(f"Current URL after login: {current_url}")
             
-            # Verify login success
             login_successful = False
             
             if self.success_indicator:
-                # Wait for success indicator element
                 try:
                     await page.wait_for_selector(self.success_indicator, timeout=10000)
                     print(f"Success indicator found: {self.success_indicator}")
@@ -272,12 +233,10 @@ class Scraper:
                 except:
                     print(f"Success indicator not found: {self.success_indicator}")
             else:
-                # Check if URL changed from login page
                 if current_url != self.login_url:
                     print(f"URL changed from login page (assumed successful)")
                     login_successful = True
                 else:
-                    # Check for error messages
                     error_selectors = [
                         ".error", ".alert-error", ".login-error",
                         "[class*='error']", "[class*='invalid']"
@@ -300,7 +259,6 @@ class Scraper:
                         login_successful = True
             
             if login_successful:
-                # Save storage state (cookies, localStorage, sessionStorage)
                 print(f"\nLogin successful!")
                 print(f"Saving authentication state to: {self.auth_state_file}")
                 
@@ -309,7 +267,6 @@ class Scraper:
                 with open(self.auth_state_file, 'w') as f:
                     json.dump(self.storage_state, f, indent=2)
                 
-                # Show saved cookies info
                 if 'cookies' in self.storage_state:
                     print(f"Saved {len(self.storage_state['cookies'])} cookies")
                     for cookie in self.storage_state['cookies'][:3]:
@@ -332,7 +289,6 @@ class Scraper:
                 print("• success_indicator selector is correct")
                 print("="*70 + "\n")
                 
-                # Take screenshot of login page for debugging
                 try:
                     screenshot_path = os.path.join(self.base_dir, "login_error.png")
                     await page.screenshot(path=screenshot_path)
@@ -348,7 +304,6 @@ class Scraper:
             print(f"\nLogin error: {e}")
             print("="*70 + "\n")
             
-            # Take screenshot on error
             try:
                 screenshot_path = os.path.join(self.base_dir, "login_error.png")
                 await page.screenshot(path=screenshot_path)
@@ -358,7 +313,6 @@ class Scraper:
             return False
 
     def _init_database(self):
-        """Initialize SQLite database with required tables."""
         os.makedirs(os.path.dirname(self.db_path) if os.path.dirname(self.db_path) else '.', exist_ok=True)
         
         conn = sqlite3.connect(self.db_path)
@@ -419,7 +373,6 @@ class Scraper:
             )
         ''')
         
-        # NEW: HTML structure table with selectors
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS html_structure (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -433,7 +386,6 @@ class Scraper:
             )
         ''')
         
-        # NEW: File assets table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS file_assets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -454,13 +406,11 @@ class Scraper:
         conn.close()
 
     def _normalize_url(self, url):
-        """Strips query parameters and fragments to ensure unique page visits."""
         parsed = urlparse(url)
         clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
         return clean_url.rstrip('/')
 
     def _create_folder_path(self, url):
-        """Creates a directory structure that mirrors the URL path for media storage."""
         parsed = urlparse(url)
         
         domain_clean = re.sub(r'[^a-zA-Z0-9]', '_', parsed.netloc)
@@ -479,17 +429,13 @@ class Scraper:
         return full_path
 
     def _is_downloadable_file(self, url):
-        """Check if URL points to a downloadable file based on extension."""
         parsed = urlparse(url)
         path = parsed.path.lower()
         
-        # Check file extension
         ext = os.path.splitext(path)[1]
         return ext in self.downloadable_extensions
 
     def _get_file_extension(self, url, content_type=None):
-        """Extract file extension from URL or content type."""
-        # Try from URL first
         parsed = urlparse(url)
         path = parsed.path
         ext = os.path.splitext(path)[1].lower()
@@ -497,19 +443,14 @@ class Scraper:
         if ext and ext in self.downloadable_extensions:
             return ext
         
-        # Try from content-type
         if content_type:
             extension = mimetypes.guess_extension(content_type.split(';')[0].strip())
             if extension:
                 return extension.lower()
         
-        return '.bin'  # Default
+        return '.bin'
 
     async def _download_file(self, file_url, save_path, session, max_retries=3):
-        """
-        Download a file from URL to save_path using aiohttp.
-        Returns dict with download status.
-        """
         result = {
             'success': False,
             'file_size': 0,
@@ -521,7 +462,6 @@ class Scraper:
             try:
                 async with session.get(file_url, timeout=aiohttp.ClientTimeout(total=60)) as response:
                     if response.status == 200:
-                        # Check file size from headers
                         content_length = response.headers.get('Content-Length')
                         if content_length:
                             file_size = int(content_length)
@@ -529,20 +469,17 @@ class Scraper:
                                 result['error'] = f"File too large: {file_size / (1024*1024):.1f}MB"
                                 return result
                         
-                        # Get mime type
                         result['mime_type'] = response.headers.get('Content-Type', 'application/octet-stream')
                         
-                        # Download file
                         with open(save_path, 'wb') as f:
                             total_downloaded = 0
                             async for chunk in response.content.iter_chunked(8192):
                                 f.write(chunk)
                                 total_downloaded += len(chunk)
                                 
-                                # Check size limit during download
                                 if total_downloaded > self.max_file_size_bytes:
                                     result['error'] = "File exceeded size limit during download"
-                                    os.remove(save_path)  # Clean up partial file
+                                    os.remove(save_path)
                                     return result
                         
                         result['success'] = True
@@ -557,19 +494,14 @@ class Scraper:
                 result['error'] = str(e)
             
             if attempt < max_retries - 1:
-                await asyncio.sleep(1)  # Wait before retry
+                await asyncio.sleep(1)
         
         return result
 
     async def _extract_file_links(self, page, base_url):
-        """
-        Extract all downloadable file links from page.
-        Returns list of dicts with file info.
-        """
         file_links = []
         
         try:
-            # Get all links from the page
             links = await page.locator("a").all()
             
             for link in links:
@@ -578,12 +510,9 @@ class Scraper:
                     if not href:
                         continue
                     
-                    # Convert to absolute URL
                     full_url = urljoin(base_url, href)
                     
-                    # Check if it's a downloadable file
                     if self._is_downloadable_file(full_url):
-                        # Try to get link text for better naming
                         link_text = ""
                         try:
                             link_text = await link.inner_text()
@@ -599,8 +528,6 @@ class Scraper:
                 except Exception as e:
                     continue
             
-            # Also check for file links in specific attributes
-            # Common patterns: data-download, data-file, etc.
             for selector in ['[data-download]', '[data-file]', '[href$=".pdf"]', 
                            '[href$=".docx"]', '[href$=".zip"]', '[href$=".csv"]']:
                 try:
@@ -620,7 +547,6 @@ class Scraper:
         except Exception as e:
             print(f"Warning: Error extracting file links: {e}")
         
-        # Remove duplicates
         unique_files = {}
         for file_info in file_links:
             url = file_info['url']
@@ -630,7 +556,6 @@ class Scraper:
         return list(unique_files.values())
 
     async def smart_scroll(self, page):
-        """Scrolls to trigger lazy loading."""
         try:
             last_height = await page.evaluate("document.body.scrollHeight")
             for i in range(5):
@@ -644,9 +569,7 @@ class Scraper:
             pass
 
     async def extract_html_structure(self, page):
-        """Extract HTML structure with CSS selectors and content."""
         try:
-            # JavaScript to extract HTML structure with selectors
             structure = await page.evaluate("""
                 () => {
                     const elements = [];
@@ -760,7 +683,6 @@ class Scraper:
             return []
 
     async def extract_and_save_data(self, page, depth, proxy_used, fingerprint):
-        """Extracts all data types and saves to database and files."""
         url = page.url
         
         title = await page.title()
@@ -798,19 +720,14 @@ class Scraper:
                 alt = await img.get_attribute("alt") or ""
                 
                 if src:
-                    # Handle relative URLs
                     if not src.startswith("http"):
-                        # Handle protocol-relative URLs (//example.com/image.jpg)
                         if src.startswith("//"):
                             src = "https:" + src
-                        # Handle absolute paths (/images/photo.jpg)
                         elif src.startswith("/"):
                             src = urljoin(url, src)
-                        # Handle relative paths (images/photo.jpg)
                         else:
                             src = urljoin(url, src)
                     
-                    # Only add if it's a valid HTTP(S) URL
                     if src.startswith("http"):
                         media.append({"src": src, "alt": alt})
             except:
@@ -839,10 +756,8 @@ class Scraper:
 
         folder_path = self._create_folder_path(url)
         
-        # Extract HTML structure with selectors
         html_structure = await self.extract_html_structure(page)
 
-        # NEW: Extract and download file assets
         file_assets = []
         if self.download_file_assets:
             print("Searching for downloadable files...")
@@ -851,30 +766,24 @@ class Scraper:
             if file_links:
                 print(f"Found {len(file_links)} file(s) to download")
                 
-                # Create downloads subfolder
                 downloads_folder = os.path.join(folder_path, "downloads")
                 if not os.path.exists(downloads_folder):
                     os.makedirs(downloads_folder)
                 
-                # Download files
                 async with aiohttp.ClientSession() as session:
                     for idx, file_info in enumerate(file_links):
                         file_url = file_info['url']
                         link_text = file_info['link_text']
                         
-                        # Generate filename
                         parsed_file_url = urlparse(file_url)
                         original_filename = os.path.basename(parsed_file_url.path)
                         
-                        # Clean filename
                         safe_filename = re.sub(r'[^a-zA-Z0-9\-_\.]', '_', original_filename)
                         if not safe_filename or safe_filename == '_':
-                            # Use link text or generic name
                             base_name = link_text if link_text else f"file_{idx+1}"
                             ext = self._get_file_extension(file_url)
                             safe_filename = f"{base_name}{ext}"
                         
-                        # Ensure unique filename
                         save_path = os.path.join(downloads_folder, safe_filename)
                         counter = 1
                         while os.path.exists(save_path):
@@ -882,7 +791,6 @@ class Scraper:
                             save_path = os.path.join(downloads_folder, f"{name}_{counter}{ext}")
                             counter += 1
                         
-                        # Download file
                         print(f"Downloading: {safe_filename}")
                         self.downloads_stats['total_attempted'] += 1
                         
@@ -964,7 +872,6 @@ class Scraper:
                     VALUES (?, ?)
                 ''', (page_id, json.dumps(data)))
             
-            # Save HTML structure
             for elem in html_structure:
                 cursor.execute('''
                     INSERT INTO html_structure (page_id, tag_name, selector, text_content, attributes, parent_selector)
@@ -972,7 +879,6 @@ class Scraper:
                 ''', (page_id, elem['tag'], elem['selector'], elem['text'], 
                      json.dumps(elem['attributes']), elem['parent']))
             
-            # NEW: Save file assets to database
             for file_asset in file_assets:
                 cursor.execute('''
                     INSERT INTO file_assets (page_id, file_url, file_name, file_extension, 
@@ -990,7 +896,6 @@ class Scraper:
         finally:
             conn.close()
 
-        # Save JSON metadata file (including file assets)
         metadata = {
             'url': url,
             'title': title,
@@ -1003,7 +908,7 @@ class Scraper:
             'media_count': len(media),
             'internal_links_count': len(set(internal_links)),
             'external_links_count': len(set(external_links)),
-            'file_assets': file_assets  # NEW: Include file assets in JSON
+            'file_assets': file_assets
         }
         
         with open(os.path.join(folder_path, 'metadata.json'), 'w', encoding='utf-8') as f:
@@ -1027,7 +932,6 @@ class Scraper:
         return internal_links, depth
 
     async def discover_and_queue_links(self, internal_links, current_depth):
-        """Adds new links to queue in a thread-safe manner."""
         new_links_found = 0
         
         async with self.lock:
@@ -1044,7 +948,6 @@ class Scraper:
         return new_links_found
 
     async def create_context(self, browser, proxy=None, storage_state=None):
-        """Create a new browser context with randomized fingerprint, optional proxy, and auth state."""
         fingerprint = self._generate_fingerprint()
         
         context_options = {
@@ -1059,11 +962,9 @@ class Scraper:
             "has_touch": fingerprint["has_touch"],
         }
         
-        # Add storage state if provided (for authentication)
         if storage_state:
             context_options["storage_state"] = storage_state
         
-        # Add proxy if provided
         if proxy:
             parsed_proxy = urlparse(proxy)
             proxy_config = {
@@ -1090,7 +991,6 @@ class Scraper:
         return context, fingerprint
 
     async def process_page(self, browser, url, depth):
-        """Process a single page: visit, extract, save."""
         page = None
         context = None
         proxy = await self._get_next_proxy()
@@ -1101,7 +1001,6 @@ class Scraper:
         
         while retry_count < max_retries:
             try:
-                # Create new context with fingerprint, proxy, and auth state
                 context, fingerprint = await self.create_context(
                     browser, 
                     proxy, 
@@ -1149,7 +1048,6 @@ class Scraper:
                     await context.close()
 
     async def worker(self, browser, worker_id):
-        """Worker coroutine that processes pages from the queue."""
         while True:
             if self.should_stop:
                 print(f"[Worker {worker_id}] Stopping...")
@@ -1170,7 +1068,6 @@ class Scraper:
             await self.process_page(browser, url, depth)
 
     async def run(self):
-        """Main async run method with parallel workers."""
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=self.headless,
@@ -1181,12 +1078,10 @@ class Scraper:
                 ]
             )
             
-            # Perform login if credentials provided
             if self.login_url:
                 login_success = await self.perform_login(browser)
                 if not login_success:
                     print("\nLogin failed. Continuing without authentication...")
-                    # Auto-continue without user input for API compatibility
             
             print(f"Starting Authenticated Async Crawl on: {self.start_url}")
             print(f"Max Pages: {self.max_pages}")
@@ -1218,7 +1113,6 @@ class Scraper:
             if self.storage_state:
                 print(f"Auth State Saved: {self.auth_state_file}")
             
-            # Show download statistics
             if self.download_file_assets and self.downloads_stats['total_attempted'] > 0:
                 print("\nDownload Statistics:")
                 print(f"Total Attempted: {self.downloads_stats['total_attempted']}")

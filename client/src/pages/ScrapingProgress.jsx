@@ -51,10 +51,8 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
   const fetchHistoryData = async (startUrl) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/data/pages-by-url?start_url=${encodeURIComponent(startUrl)}`)
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      const data = await api.getHistoryByUrl(startUrl)
       
-      const data = await response.json()
       setAllPages(data.pages || [])
       setAllFiles(data.files || [])
       
@@ -152,8 +150,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       
       if (!metadataContent[pageId]) {
         try {
-          const response = await fetch(`http://localhost:8000/api/metadata/${pageId}`)
-          const data = await response.json()
+          const data = await api.getPageMetadata(pageId)
           setMetadataContent(prev => ({ ...prev, [pageId]: data }))
         } catch (err) {
           console.error('Failed to fetch metadata:', err)
@@ -178,16 +175,14 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
   const handleViewDetails = async (page) => {
     setDetailedViewPage(page)
-    setDetailedViewData(null) // Reset data
+    setDetailedViewData(null)
     
     try {
-      const response = await fetch(`http://localhost:8000/api/data/page/${page.id}`)
-      const data = await response.json()
+      const data = await api.getPageDetails(page.id)
       setDetailedViewData(data)
     } catch (err) {
       console.error('Failed to fetch detailed page data:', err)
       setError('Failed to load detailed page data')
-      // Use basic data if API fails
       setDetailedViewData(metadataContent[page.id] || null)
     }
   }
@@ -208,7 +203,6 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     setCurrentImage(null)
   }
 
-  // Keyboard support for image viewer
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && imageViewerOpen) {
@@ -218,7 +212,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
     if (imageViewerOpen) {
       window.addEventListener('keydown', handleKeyDown)
-      document.body.style.overflow = 'hidden' // Prevent background scrolling
+      document.body.style.overflow = 'hidden'
     }
 
     return () => {
@@ -327,9 +321,10 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             </button>
             <div className="image-viewer-content" onClick={(e) => e.stopPropagation()}>
               <img 
+                /* REFACTORED: Use helper functions for dynamic image URLs */
                 src={currentImage.src.includes('/api/screenshot/') 
                   ? currentImage.src 
-                  : `http://localhost:8000/api/proxy/image?url=${encodeURIComponent(currentImage.src)}`
+                  : api.getProxyImageUrl(currentImage.src)
                 }
                 alt={currentImage.alt || 'Image'}
               />
@@ -532,11 +527,13 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                     <h4>Page Screenshot</h4>
                     <div className="detail-screenshot-container">
                       <img 
-                        src={`http://localhost:8000/api/screenshot/${detailedViewPage.id}`}
+                        /* REFACTORED: Use helper function */
+                        src={api.getScreenshotUrl(detailedViewPage.id)}
                         alt="Page Screenshot"
                         className="detail-screenshot"
                         onClick={() => openImageViewer({
-                          src: `http://localhost:8000/api/screenshot/${detailedViewPage.id}`,
+                          /* REFACTORED: Use helper function */
+                          src: api.getScreenshotUrl(detailedViewPage.id),
                           alt: `Screenshot of ${detailedViewPage.title || detailedViewPage.url}`
                         })}
                         onError={(e) => {
@@ -618,7 +615,8 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                               style={{ cursor: 'pointer' }}
                             >
                               <img 
-                                src={`http://localhost:8000/api/proxy/image?url=${encodeURIComponent(img.src)}`}
+                                /* REFACTORED: Use helper function */
+                                src={api.getProxyImageUrl(img.src)}
                                 alt={img.alt || 'No alt text'} 
                                 loading="lazy"
                                 onError={(e) => {

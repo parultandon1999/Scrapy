@@ -15,7 +15,6 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
   const [error, setError] = useState(null)
   const [results, setResults] = useState(null)
   
-  // Test login state
   const [testLoading, setTestLoading] = useState(false)
   const [testResults, setTestResults] = useState(null)
   const [testData, setTestData] = useState({
@@ -27,7 +26,6 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
     successIndicator: ''
   })
 
-  // Element finder state
   const [findUrl, setFindUrl] = useState('')
   const [searchQueries, setSearchQueries] = useState([''])
   const [imageUrls, setImageUrls] = useState([''])
@@ -45,7 +43,6 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
       const data = await api.analyzeLoginPage(loginUrl)
       setResults(data)
       
-      // Auto-fill test form with suggested selectors
       if (data.suggested_config) {
         setTestData(prev => ({
           ...prev,
@@ -87,7 +84,6 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
     setFindResults(null)
 
     try {
-      // Filter out empty queries
       const validQueries = searchQueries.filter(q => q.trim() !== '')
       const validImageUrls = imageUrls.filter(url => url.trim() !== '')
       

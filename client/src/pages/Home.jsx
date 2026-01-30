@@ -24,7 +24,6 @@ function Home({ darkMode, toggleDarkMode }) {
         start_url: url
       }
 
-      // Add advanced options if they're set
       if (advancedOptions.max_pages) payload.max_pages = parseInt(advancedOptions.max_pages)
       if (advancedOptions.max_depth) payload.max_depth = parseInt(advancedOptions.max_depth)
       if (advancedOptions.concurrent_limit) payload.concurrent_limit = parseInt(advancedOptions.concurrent_limit)
@@ -33,7 +32,6 @@ function Home({ darkMode, toggleDarkMode }) {
       payload.headless = advancedOptions.headless !== undefined ? advancedOptions.headless : true
       payload.download_file_assets = advancedOptions.download_file_assets !== undefined ? advancedOptions.download_file_assets : true
 
-      // Add auth options if provided
       if (advancedOptions.login_url) payload.login_url = advancedOptions.login_url
       if (advancedOptions.username) payload.username = advancedOptions.username
       if (advancedOptions.password) payload.password = advancedOptions.password
@@ -45,11 +43,9 @@ function Home({ darkMode, toggleDarkMode }) {
       const response = await startScraper(payload)
       
       if (response.success) {
-        // Generate unique session ID for this scraping session
         const timestamp = Date.now()
         const sessionId = btoa(`${url}-${timestamp}`).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16)
         
-        // Navigate to progress page with unique session ID
         navigate(`/progress/${sessionId}`, { state: { url, isLiveScraping: true } })
       }
     } catch (err) {
@@ -66,7 +62,7 @@ function Home({ darkMode, toggleDarkMode }) {
   const hasAdvancedOptions = () => {
     return Object.entries(advancedOptions).some(([key, value]) => {
       if (key === 'headless' || key === 'download_file_assets') {
-        return false // Don't count default boolean values
+        return false
       }
       return value !== '' && value !== undefined && value !== null
     })

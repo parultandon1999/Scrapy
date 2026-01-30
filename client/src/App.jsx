@@ -13,7 +13,6 @@ function App() {
   const [darkMode, setDarkMode] = useState(false)
 
   useEffect(() => {
-    // Check localStorage for saved theme preference
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme === 'dark') {
       setDarkMode(true)

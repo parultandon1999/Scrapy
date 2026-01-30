@@ -3,13 +3,11 @@ from playwright.async_api import async_playwright
 import config
 
 class SelectorFinder:
-    """Interactive tool to help find CSS selectors for login forms."""
     
     def __init__(self, login_url):
         self.login_url = login_url
     
     async def analyze_login_page(self):
-        """Analyze a login page and suggest selectors."""
         print("\n" + "="*70)
         print("LOGIN FORM ANALYZER")
         print("="*70)
@@ -29,7 +27,6 @@ class SelectorFinder:
                 
                 print("[Success] Page loaded\n")
                 
-                # Find all input fields
                 print("="*70)
                 print("INPUT FIELDS FOUND:")
                 print("="*70)
@@ -45,7 +42,6 @@ class SelectorFinder:
                     
                     print(f"\nInput #{i} - Type: {input_type}")
                     
-                    # Suggest best selector
                     selectors = []
                     
                     if input_name:
@@ -71,13 +67,11 @@ class SelectorFinder:
                     if selectors:
                         print(f"  Best Selector: {selectors[0]}")
                     
-                    # Suggest based on type
                     if input_type == "email" or "email" in input_name.lower() or "email" in input_id.lower():
                         print(f"  Tip: Likely USERNAME field")
                     elif input_type == "password":
                         print(f"  Tip: Likely PASSWORD field")
                 
-                # Find buttons
                 print("\n" + "="*70)
                 print("BUTTONS FOUND:")
                 print("="*70)
@@ -104,7 +98,6 @@ class SelectorFinder:
                     if button_class:
                         print(f"  Class: {button_class}")
                     
-                    # Suggest selector
                     selectors = []
                     
                     if button_type == "submit":
@@ -123,12 +116,10 @@ class SelectorFinder:
                     if selectors:
                         print(f"  Best Selector: {selectors[0]}")
                     
-                    # Check if it's likely the submit button
                     if (button_type == "submit" or 
                         any(word in button_text.lower() for word in ["login", "sign in", "submit", "enter"])):
                         print(f"  Tip: Likely SUBMIT button")
                 
-                # Find forms
                 print("\n" + "="*70)
                 print("FORMS FOUND:")
                 print("="*70)
@@ -152,12 +143,10 @@ class SelectorFinder:
                     if form_action:
                         print(f"  Action: {form_action}")
                 
-                # Generate suggested configuration
                 print("\n" + "="*70)
                 print("SUGGESTED CONFIGURATION:")
                 print("="*70 + "\n")
                 
-                # Try to auto-detect username field
                 username_candidates = await page.query_selector_all(
                     "input[type='text'], input[type='email'], input[name*='user'], input[name*='email'], input[id*='user'], input[id*='email']"
                 )
@@ -175,7 +164,6 @@ class SelectorFinder:
                     else:
                         username_selector = "input[type='email']"
                 
-                # Try to auto-detect password field
                 password_candidates = await page.query_selector_all("input[type='password']")
                 
                 password_selector = None
@@ -191,7 +179,6 @@ class SelectorFinder:
                     else:
                         password_selector = "input[type='password']"
                 
-                # Try to auto-detect submit button
                 submit_candidates = await page.query_selector_all(
                     "button[type='submit'], input[type='submit']"
                 )
@@ -210,7 +197,6 @@ class SelectorFinder:
                     else:
                         submit_selector = "button[type='submit']"
                 
-                # Print Python code snippet
                 print("```python")
                 print("from scraper import Scraper")
                 print("import asyncio")
@@ -244,7 +230,6 @@ class SelectorFinder:
                 print("asyncio.run(crawler.run())")
                 print("```\n")
                 
-                # Interactive testing
                 print("="*70)
                 print("INTERACTIVE TESTING")
                 print("="*70)
@@ -271,7 +256,6 @@ class SelectorFinder:
     
     async def test_login(self, username, password, username_selector, 
                         password_selector, submit_selector):
-        """Test login with provided selectors."""
         print("\n" + "="*70)
         print("TESTING LOGIN")
         print("="*70 + "\n")
@@ -323,7 +307,6 @@ class SelectorFinder:
 
 
 async def main():
-    """Main function with interactive menu."""
     print("|Login Form Selector Finder|")
     
     login_url = input("Enter login page URL: ").strip()

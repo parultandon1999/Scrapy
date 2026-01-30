@@ -5,18 +5,16 @@ import os
 import config
 
 class CrawlDataAnalyzer:
-    """Utility to query and analyze the scraped data from SQLite database."""
     
     def __init__(self, db_path=None):
         self.db_path = db_path if db_path is not None else config.get_db_path()
         self.conn = sqlite3.connect(self.db_path)
-        self.conn.row_factory = sqlite3.Row  # Access columns by name
+        self.conn.row_factory = sqlite3.Row
     
     def close(self):
         self.conn.close()
     
     def get_stats(self):
-        """Get overall crawl statistics."""
         cursor = self.conn.cursor()
         
         stats = {}
@@ -31,7 +29,6 @@ class CrawlDataAnalyzer:
         stats['total_media'] = cursor.execute('SELECT COUNT(*) FROM media').fetchone()[0]
         stats['total_headers'] = cursor.execute('SELECT COUNT(*) FROM headers').fetchone()[0]
         
-        # File assets statistics
         try:
             stats['total_file_assets'] = cursor.execute('SELECT COUNT(*) FROM file_assets').fetchone()[0]
             stats['successful_downloads'] = cursor.execute(
@@ -41,13 +38,11 @@ class CrawlDataAnalyzer:
                 'SELECT COUNT(*) FROM file_assets WHERE download_status = "failed"'
             ).fetchone()[0]
             
-            # Total size of downloaded files
             total_bytes = cursor.execute(
                 'SELECT SUM(file_size_bytes) FROM file_assets WHERE download_status = "success"'
             ).fetchone()[0] or 0
             stats['total_download_size_mb'] = total_bytes / (1024 * 1024)
         except sqlite3.OperationalError:
-            # file_assets table doesn't exist (old database)
             stats['total_file_assets'] = 0
             stats['successful_downloads'] = 0
             stats['failed_downloads'] = 0
@@ -64,7 +59,6 @@ class CrawlDataAnalyzer:
         return stats
     
     def list_pages(self, limit=None):
-        """List all scraped pages."""
         limit = limit if limit is not None else config.QUERY['default_page_limit']
         cursor = self.conn.cursor()
         cursor.execute('''
@@ -82,7 +76,6 @@ class CrawlDataAnalyzer:
         print(tabulate(data, headers=['URL', 'Title', 'Depth', 'Scraped At'], tablefmt='grid'))
     
     def list_file_assets(self, limit=None, status=None):
-        """List all downloaded file assets."""
         limit = limit if limit is not None else config.QUERY['default_file_limit']
         cursor = self.conn.cursor()
         
@@ -134,7 +127,6 @@ class CrawlDataAnalyzer:
             print("\nFile assets table not found. This database was created with an older version.")
     
     def get_file_assets_by_extension(self):
-        """Show file assets grouped by extension."""
         cursor = self.conn.cursor()
         
         try:
@@ -171,7 +163,6 @@ class CrawlDataAnalyzer:
             print("\nFile assets table not found.")
     
     def get_largest_downloads(self, limit=None):
-        """Show the largest downloaded files."""
         limit = limit if limit is not None else config.QUERY['default_largest_downloads']
         cursor = self.conn.cursor()
         
@@ -209,7 +200,6 @@ class CrawlDataAnalyzer:
             print("\nFile assets table not found.")
     
     def search_file_assets(self, keyword):
-        """Search for files by name."""
         cursor = self.conn.cursor()
         
         try:
@@ -244,7 +234,6 @@ class CrawlDataAnalyzer:
             print("\nFile assets table not found.")
     
     def search_content(self, keyword):
-        """Search for keyword in page content."""
         cursor = self.conn.cursor()
         cursor.execute('''
             SELECT url, title, 
@@ -263,10 +252,8 @@ class CrawlDataAnalyzer:
             print(f"  Preview: {row['preview']}...")
     
     def get_page_details(self, page_id):
-        """Get full details for a specific page."""
         cursor = self.conn.cursor()
         
-        # Get page info
         cursor.execute('SELECT * FROM pages WHERE id = ?', (page_id,))
         page = cursor.fetchone()
         
@@ -283,7 +270,6 @@ class CrawlDataAnalyzer:
         print(f"Depth: {page['depth']}")
         print(f"Folder: {page['folder_path']}")
         
-        # Get headers
         cursor.execute('SELECT * FROM headers WHERE page_id = ?', (page_id,))
         headers = cursor.fetchall()
         if headers:
@@ -291,19 +277,16 @@ class CrawlDataAnalyzer:
             for h in headers[:10]:
                 print(f"  {h['header_type']}: {h['header_text']}")
         
-        # Get links
         cursor.execute('SELECT link_type, COUNT(*) as count FROM links WHERE page_id = ? GROUP BY link_type', (page_id,))
         link_counts = cursor.fetchall()
         print(f"\nLinks:")
         for lc in link_counts:
             print(f"  {lc['link_type']}: {lc['count']}")
         
-        # Get media
         cursor.execute('SELECT COUNT(*) as count FROM media WHERE page_id = ?', (page_id,))
         media_count = cursor.fetchone()['count']
         print(f"\nMedia: {media_count} images")
         
-        # Get file assets
         try:
             cursor.execute('''
                 SELECT file_name, file_extension, file_size_bytes, download_status
@@ -326,7 +309,6 @@ class CrawlDataAnalyzer:
         print("...")
     
     def get_links_by_type(self, link_type='internal', limit=20):
-        """Get links of a specific type."""
         cursor = self.conn.cursor()
         cursor.execute('''
             SELECT l.url, COUNT(*) as frequency
@@ -344,11 +326,9 @@ class CrawlDataAnalyzer:
         print(tabulate(data, headers=['URL', 'Frequency'], tablefmt='grid'))
     
     def export_to_json(self, output_file=None):
-        """Export all data to a JSON file."""
         output_file = output_file if output_file is not None else config.OUTPUT['export_filename']
         cursor = self.conn.cursor()
         
-        # Get all pages with related data
         cursor.execute('SELECT * FROM pages')
         pages = []
         
@@ -356,19 +336,15 @@ class CrawlDataAnalyzer:
             page = dict(page_row)
             page_id = page['id']
             
-            # Get headers
             cursor.execute('SELECT * FROM headers WHERE page_id = ?', (page_id,))
             page['headers'] = [dict(row) for row in cursor.fetchall()]
             
-            # Get links
             cursor.execute('SELECT * FROM links WHERE page_id = ?', (page_id,))
             page['links'] = [dict(row) for row in cursor.fetchall()]
             
-            # Get media
             cursor.execute('SELECT * FROM media WHERE page_id = ?', (page_id,))
             page['media'] = [dict(row) for row in cursor.fetchall()]
             
-            # Get file assets
             try:
                 cursor.execute('SELECT * FROM file_assets WHERE page_id = ?', (page_id,))
                 page['file_assets'] = [dict(row) for row in cursor.fetchall()]
@@ -384,7 +360,6 @@ class CrawlDataAnalyzer:
 
 
 def main():
-    """Main menu interface."""
     import sys
     
     db_path = config.get_db_path()

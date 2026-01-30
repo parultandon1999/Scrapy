@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 import config
 
 class ProxyTester:
-    """Utility to test and validate proxy servers before crawling."""
     
     def __init__(self, proxy_file=None):
         self.proxy_file = proxy_file if proxy_file is not None else config.PROXY['proxy_file']
@@ -13,7 +12,6 @@ class ProxyTester:
         self.failed_proxies = []
     
     def load_proxies(self):
-        """Load proxies from file."""
         proxies = []
         try:
             with open(self.proxy_file, 'r') as f:
@@ -28,7 +26,6 @@ class ProxyTester:
         return proxies
     
     async def test_proxy(self, proxy, test_url=None, timeout=None):
-        """Test a single proxy by attempting to fetch a test URL."""
         test_url = test_url if test_url is not None else config.PROXY['test_url']
         timeout = timeout if timeout is not None else config.PROXY['test_timeout']
         parsed_proxy = urlparse(proxy)
@@ -37,7 +34,6 @@ class ProxyTester:
             "server": f"{parsed_proxy.scheme}://{parsed_proxy.hostname}:{parsed_proxy.port}"
         }
         
-        # Add authentication if present
         if parsed_proxy.username and parsed_proxy.password:
             proxy_config["username"] = parsed_proxy.username
             proxy_config["password"] = parsed_proxy.password
@@ -54,14 +50,11 @@ class ProxyTester:
                 )
                 page = await context.new_page()
                 
-                # Try to load test page
                 response = await page.goto(test_url, wait_until="domcontentloaded", timeout=timeout)
                 
                 if response and response.status < 400:
-                    # Get response time
                     elapsed = time.time() - start_time
                     
-                    # Try to get IP from response (if using httpbin)
                     try:
                         content = await page.content()
                         if 'httpbin' in test_url:
@@ -111,7 +104,6 @@ class ProxyTester:
                     await browser.close()
     
     async def test_all_proxies(self, concurrent_tests=None, test_url=None):
-        """Test all proxies concurrently."""
         concurrent_tests = concurrent_tests if concurrent_tests is not None else config.PROXY['concurrent_tests']
         test_url = test_url if test_url is not None else config.PROXY['test_url']
         proxies = self.load_proxies()
@@ -125,7 +117,6 @@ class ProxyTester:
         print(f"Test URL: {test_url}")
         print(f"{'='*80}\n")
         
-        # Test proxies in batches
         results = []
         for i in range(0, len(proxies), concurrent_tests):
             batch = proxies[i:i+concurrent_tests]
@@ -134,14 +125,11 @@ class ProxyTester:
             ])
             results.extend(batch_results)
             
-            # Print progress
             print(f"Progress: {min(i+concurrent_tests, len(proxies))}/{len(proxies)} tested")
         
-        # Categorize results
         self.working_proxies = [r for r in results if r["status"] == "Working"]
         self.failed_proxies = [r for r in results if r["status"] != "Working"]
         
-        # Print results
         print(f"\n{'='*80}")
         print("TEST RESULTS")
         print(f"{'='*80}\n")
@@ -170,7 +158,6 @@ class ProxyTester:
         return results
     
     def save_working_proxies(self, output_file="working_proxies.txt"):
-        """Save only the working proxies to a new file."""
         if not self.working_proxies:
             print("No working proxies to save!")
             return
@@ -185,7 +172,6 @@ class ProxyTester:
         print(f"Saved {len(self.working_proxies)} working proxies to {output_file}")
     
     async def test_proxy_speed(self, proxy, num_requests=5):
-        """Test proxy speed by making multiple requests."""
         print(f"\nTesting speed of: {proxy}")
         print(f"Making {num_requests} requests...\n")
         
@@ -214,7 +200,6 @@ class ProxyTester:
 
 
 async def main():
-    """Main function with menu-driven interface."""
     tester = ProxyTester("proxies.txt")
     
     print("=" * 63)

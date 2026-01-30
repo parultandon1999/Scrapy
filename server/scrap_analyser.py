@@ -5,7 +5,6 @@ from datetime import datetime
 import config
 
 class CrawlAnalyzer:
-    """Analyze crawler performance, proxy usage, and fingerprinting patterns."""
     
     def __init__(self, db_path=None):
         self.db_path = db_path if db_path is not None else config.get_db_path()
@@ -16,14 +15,12 @@ class CrawlAnalyzer:
         self.conn.close()
     
     def proxy_statistics(self):
-        """Analyze proxy usage and success rates."""
         cursor = self.conn.cursor()
         
         print("\n" + "="*70)
         print("PROXY USAGE STATISTICS")
         print("="*70 + "\n")
         
-        # Count pages per proxy
         cursor.execute("""
             SELECT proxy_used, COUNT(*) as page_count
             FROM pages
@@ -43,8 +40,7 @@ class CrawlAnalyzer:
             count = row['page_count']
             percentage = (count / total_pages * 100) if total_pages > 0 else 0
             
-            # Create bar chart
-            bar_length = int(percentage / 2)  # Scale for display
+            bar_length = int(percentage / 2)
             bar = "█" * bar_length
             
             print(f"  {proxy[:40]:<40} | {count:>4} pages | {percentage:>5.1f}% {bar}")
@@ -53,7 +49,6 @@ class CrawlAnalyzer:
         print(f"Total: {total_pages} pages across {len(proxy_data)} proxies/connections\n")
     
     def fingerprint_analysis(self):
-        """Analyze fingerprint diversity."""
         cursor = self.conn.cursor()
         
         print("\n" + "="*70)
@@ -67,10 +62,8 @@ class CrawlAnalyzer:
             print("No fingerprint data found.")
             return
         
-        # Parse all fingerprints
         fingerprints = [json.loads(row['fingerprint']) for row in rows]
         
-        # Analyze each component
         timezones = [fp['timezone_id'] for fp in fingerprints]
         viewports = [f"{fp['viewport']['width']}x{fp['viewport']['height']}" for fp in fingerprints]
         user_agents = [fp['user_agent'].split('Chrome/')[1].split()[0] if 'Chrome/' in fp['user_agent'] else 'Unknown' for fp in fingerprints]
@@ -96,7 +89,6 @@ class CrawlAnalyzer:
         for locale, count in Counter(locales).most_common():
             print(f"  {locale:<30} | {count:>3} pages")
         
-        # Uniqueness score
         unique_combinations = len(set(
             (fp['timezone_id'], 
              f"{fp['viewport']['width']}x{fp['viewport']['height']}", 
@@ -110,7 +102,6 @@ class CrawlAnalyzer:
         print()
     
     def geographical_distribution(self):
-        """Show geographical distribution from fingerprints."""
         cursor = self.conn.cursor()
         
         print("\n" + "="*70)
@@ -124,10 +115,8 @@ class CrawlAnalyzer:
             print("No data found.")
             return
         
-        # Parse geolocations
         fingerprints = [json.loads(row['fingerprint']) for row in rows]
         
-        # Map coordinates to cities (approximate)
         city_map = {
             (40.7128, -74.0060): "New York",
             (34.0522, -118.2437): "Los Angeles",
@@ -146,7 +135,6 @@ class CrawlAnalyzer:
             lat = fp['geolocation']['latitude']
             lon = fp['geolocation']['longitude']
             
-            # Find closest city
             for coords, city in city_map.items():
                 if abs(coords[0] - lat) < 0.1 and abs(coords[1] - lon) < 0.1:
                     locations.append(city)
@@ -164,7 +152,6 @@ class CrawlAnalyzer:
         print()
     
     def crawl_timeline(self):
-        """Show crawl timeline and speed."""
         cursor = self.conn.cursor()
         
         print("\n" + "="*70)
@@ -202,7 +189,6 @@ class CrawlAnalyzer:
             print(f"  {pages_per_second:.2f} pages/second")
             print(f"  {pages_per_minute:.1f} pages/minute")
         
-        # Show pages over time (bucketed)
         cursor.execute("""
             SELECT 
                 CAST((timestamp - ?) / 60 AS INTEGER) as minute_bucket,
@@ -228,7 +214,6 @@ class CrawlAnalyzer:
         print()
     
     def depth_distribution(self):
-        """Show how pages are distributed by depth."""
         cursor = self.conn.cursor()
         
         print("\n" + "="*70)
@@ -262,7 +247,6 @@ class CrawlAnalyzer:
         print(f"Total: {total} pages\n")
     
     def generate_full_report(self):
-        """Generate a comprehensive report."""
         print("\n" + "+" + "="*68 + "+")
         print("|" + " "*18 + "CRAWLER PERFORMANCE REPORT" + " "*24 + "|")
         print("+" + "="*68 + "+")
@@ -279,7 +263,6 @@ class CrawlAnalyzer:
 
 
 def main():
-    """Main function."""
     import sys
     
     db_path = config.get_db_path()
