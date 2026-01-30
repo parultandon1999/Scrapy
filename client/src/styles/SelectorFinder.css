@@ -35,7 +35,7 @@ body.dark-mode .sidebar-label {
   padding: 10px 12px;
   background: #fff;
   border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border-radius: 20px;
   font-size: 13px;
   color: #202124;
   margin-bottom: 12px;
@@ -65,7 +65,7 @@ body.dark-mode .sidebar-input:focus {
   background: #1a73e8;
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
