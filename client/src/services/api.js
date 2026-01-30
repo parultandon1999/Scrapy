@@ -230,6 +230,16 @@ export const getPerformanceAnalytics = async () => {
   return response.data
 }
 
+export const getFingerprintAnalytics = async () => {
+  const response = await apiClient.get('/api/analytics/fingerprints')
+  return response.data
+}
+
+export const getGeolocationAnalytics = async () => {
+  const response = await apiClient.get('/api/analytics/geolocation')
+  return response.data
+}
+
 export const analyzeLoginPage = async (loginUrl) => {
   const response = await apiClient.post('/api/selector-finder/analyze', {
     login_url: loginUrl

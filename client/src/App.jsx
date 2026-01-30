@@ -8,6 +8,7 @@ import Database from './pages/Database'
 import History from './pages/History'
 import Config from './pages/Config'
 import SelectorFinder from './pages/SelectorFinder'
+import ProxyTester from './pages/ProxyTester'
 
 function App() {
   const [darkMode, setDarkMode] = useState(false)
@@ -41,6 +42,7 @@ function App() {
           <Route path="/history" element={<History darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
           <Route path="/config" element={<Config darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
           <Route path="/selector-finder" element={<SelectorFinder darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+          <Route path="/proxy-tester" element={<ProxyTester darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
         </Routes>
     </Router>
   )

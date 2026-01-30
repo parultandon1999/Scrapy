@@ -7,14 +7,15 @@ import json
 import sqlite3
 import os
 import uuid
+import time
 from datetime import datetime
+from urllib.parse import urlparse
+from playwright.async_api import async_playwright
 
 import config
 from scraper import Scraper
-from proxy_tester import ProxyTester
-from query_db import CrawlDataAnalyzer
-from scrap_analyser import CrawlAnalyzer
 from selector_finder import SelectorFinder
+from collections import Counter
 
 app = FastAPI(title="Web Scraper API", version="1.0.0")
 
@@ -30,6 +31,143 @@ scraper_instance = None
 scraper_task = None
 websocket_connections = []
 current_session_id = None
+
+# ============================================================================
+# PROXY TESTER CLASS (Moved from proxy_tester.py)
+# ============================================================================
+
+class ProxyTester:
+    """Test and validate proxy servers for web scraping"""
+    
+    def __init__(self, proxy_file=None):
+        self.proxy_file = proxy_file if proxy_file is not None else config.PROXY['proxy_file']
+        self.working_proxies = []
+        self.failed_proxies = []
+    
+    def load_proxies(self):
+        """Load proxies from file"""
+        proxies = []
+        try:
+            with open(self.proxy_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        proxies.append(line)
+            print(f"Loaded {len(proxies)} proxies from {self.proxy_file}")
+        except FileNotFoundError:
+            print(f"File not found: {self.proxy_file}")
+        
+        return proxies
+    
+    async def test_proxy(self, proxy, test_url=None, timeout=None):
+        """Test a single proxy"""
+        test_url = test_url if test_url is not None else config.PROXY['test_url']
+        timeout = timeout if timeout is not None else config.PROXY['test_timeout']
+        parsed_proxy = urlparse(proxy)
+        
+        proxy_config = {
+            "server": f"{parsed_proxy.scheme}://{parsed_proxy.hostname}:{parsed_proxy.port}"
+        }
+        
+        if parsed_proxy.username and parsed_proxy.password:
+            proxy_config["username"] = parsed_proxy.username
+            proxy_config["password"] = parsed_proxy.password
+        
+        start_time = time.time()
+        
+        async with async_playwright() as p:
+            browser = None
+            try:
+                browser = await p.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    proxy=proxy_config,
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                )
+                page = await context.new_page()
+                
+                response = await page.goto(test_url, wait_until="domcontentloaded", timeout=timeout)
+                
+                if response and response.status < 400:
+                    elapsed = time.time() - start_time
+                    
+                    try:
+                        content = await page.content()
+                        if 'httpbin' in test_url:
+                            ip_data = await page.inner_text('body')
+                            return {
+                                "proxy": proxy,
+                                "status": "Working",
+                                "response_time": f"{elapsed:.2f}s",
+                                "response": ip_data[:100]
+                            }
+                    except:
+                        pass
+                    
+                    return {
+                        "proxy": proxy,
+                        "status": "Working",
+                        "response_time": f"{elapsed:.2f}s",
+                        "response": f"Status: {response.status}"
+                    }
+                else:
+                    return {
+                        "proxy": proxy,
+                        "status": f"Failed (HTTP {response.status})",
+                        "response_time": f"{elapsed:.2f}s",
+                        "response": ""
+                    }
+                    
+            except asyncio.TimeoutError:
+                elapsed = time.time() - start_time
+                return {
+                    "proxy": proxy,
+                    "status": "Timeout",
+                    "response_time": f"{elapsed:.2f}s",
+                    "response": ""
+                }
+            except Exception as e:
+                elapsed = time.time() - start_time
+                error_msg = str(e)[:50]
+                return {
+                    "proxy": proxy,
+                    "status": "Error",
+                    "response_time": f"{elapsed:.2f}s",
+                    "response": error_msg
+                }
+            finally:
+                if browser:
+                    await browser.close()
+    
+    async def test_all_proxies(self, concurrent_tests=None, test_url=None):
+        """Test all proxies concurrently"""
+        concurrent_tests = concurrent_tests if concurrent_tests is not None else config.PROXY['concurrent_tests']
+        test_url = test_url if test_url is not None else config.PROXY['test_url']
+        proxies = self.load_proxies()
+        
+        if not proxies:
+            print("No proxies to test!")
+            return []
+        
+        print(f"Testing {len(proxies)} proxies with {concurrent_tests} concurrent tests...")
+        
+        results = []
+        for i in range(0, len(proxies), concurrent_tests):
+            batch = proxies[i:i+concurrent_tests]
+            batch_results = await asyncio.gather(*[
+                self.test_proxy(proxy, test_url) for proxy in batch
+            ])
+            results.extend(batch_results)
+            
+            print(f"Progress: {min(i+concurrent_tests, len(proxies))}/{len(proxies)} tested")
+        
+        self.working_proxies = [r for r in results if r["status"] == "Working"]
+        self.failed_proxies = [r for r in results if r["status"] != "Working"]
+        
+        return results
+
+# ============================================================================
+# PYDANTIC MODELS
+# ============================================================================
 
 class ScraperConfig(BaseModel):
     start_url: str
@@ -314,9 +452,42 @@ async def stop_scraper():
 @app.get("/api/data/stats")
 async def get_stats():
     try:
-        analyzer = CrawlDataAnalyzer()
-        stats = analyzer.get_stats()
-        analyzer.close()
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        stats = {}
+        stats['total_pages'] = cursor.execute('SELECT COUNT(*) FROM pages').fetchone()[0]
+        stats['total_links'] = cursor.execute('SELECT COUNT(*) FROM links').fetchone()[0]
+        stats['internal_links'] = cursor.execute(
+            'SELECT COUNT(*) FROM links WHERE link_type = "internal"'
+        ).fetchone()[0]
+        stats['external_links'] = cursor.execute(
+            'SELECT COUNT(*) FROM links WHERE link_type = "external"'
+        ).fetchone()[0]
+        stats['total_media'] = cursor.execute('SELECT COUNT(*) FROM media').fetchone()[0]
+        stats['total_headers'] = cursor.execute('SELECT COUNT(*) FROM headers').fetchone()[0]
+        
+        try:
+            stats['total_file_assets'] = cursor.execute('SELECT COUNT(*) FROM file_assets').fetchone()[0]
+            stats['successful_downloads'] = cursor.execute(
+                'SELECT COUNT(*) FROM file_assets WHERE download_status = "success"'
+            ).fetchone()[0]
+            stats['failed_downloads'] = cursor.execute(
+                'SELECT COUNT(*) FROM file_assets WHERE download_status = "failed"'
+            ).fetchone()[0]
+            
+            total_bytes = cursor.execute(
+                'SELECT SUM(file_size_bytes) FROM file_assets WHERE download_status = "success"'
+            ).fetchone()[0] or 0
+            stats['total_download_size_mb'] = total_bytes / (1024 * 1024)
+        except sqlite3.OperationalError:
+            stats['total_file_assets'] = 0
+            stats['successful_downloads'] = 0
+            stats['failed_downloads'] = 0
+            stats['total_download_size_mb'] = 0
+        
+        conn.close()
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -834,28 +1005,49 @@ async def list_proxies():
 
 @app.get("/api/analytics/performance")
 async def get_performance_analytics():
+    """Get comprehensive performance analytics including proxy, depth, and timeline stats"""
     try:
-        analyzer = CrawlAnalyzer()
-        
-        conn = analyzer.conn
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
+        # Proxy statistics
         cursor.execute("""
             SELECT proxy_used, COUNT(*) as page_count
             FROM pages
             GROUP BY proxy_used
             ORDER BY page_count DESC
         """)
-        proxy_stats = [dict(row) for row in cursor.fetchall()]
+        proxy_data = cursor.fetchall()
+        total_pages = sum(row['page_count'] for row in proxy_data)
         
+        proxy_stats = []
+        for row in proxy_data:
+            proxy_stats.append({
+                'proxy': row['proxy_used'],
+                'page_count': row['page_count'],
+                'percentage': (row['page_count'] / total_pages * 100) if total_pages > 0 else 0
+            })
+        
+        # Depth statistics
         cursor.execute("""
             SELECT depth, COUNT(*) as page_count
             FROM pages
             GROUP BY depth
             ORDER BY depth
         """)
-        depth_stats = [dict(row) for row in cursor.fetchall()]
+        depth_data = cursor.fetchall()
+        total_depth_pages = sum(row['page_count'] for row in depth_data)
         
+        depth_stats = []
+        for row in depth_data:
+            depth_stats.append({
+                'depth': row['depth'],
+                'page_count': row['page_count'],
+                'percentage': (row['page_count'] / total_depth_pages * 100) if total_depth_pages > 0 else 0
+            })
+        
+        # Timeline statistics
         cursor.execute("""
             SELECT 
                 MIN(timestamp) as start_time,
@@ -863,14 +1055,163 @@ async def get_performance_analytics():
                 COUNT(*) as total_pages
             FROM pages
         """)
-        timeline = dict(cursor.fetchone())
+        timeline_row = cursor.fetchone()
         
-        analyzer.close()
+        timeline = {
+            'start_time': timeline_row['start_time'],
+            'end_time': timeline_row['end_time'],
+            'total_pages': timeline_row['total_pages'],
+            'duration': 0,
+            'pages_per_second': 0,
+            'pages_per_minute': 0
+        }
+        
+        if timeline_row['start_time'] and timeline_row['end_time']:
+            duration = timeline_row['end_time'] - timeline_row['start_time']
+            timeline['duration'] = duration
+            if duration > 0:
+                timeline['pages_per_second'] = timeline_row['total_pages'] / duration
+                timeline['pages_per_minute'] = (timeline_row['total_pages'] / duration) * 60
+        
+        # Pages per minute breakdown
+        if timeline_row['start_time']:
+            cursor.execute("""
+                SELECT 
+                    CAST((timestamp - ?) / 60 AS INTEGER) as minute_bucket,
+                    COUNT(*) as page_count
+                FROM pages
+                GROUP BY minute_bucket
+                ORDER BY minute_bucket
+            """, (timeline_row['start_time'],))
+            
+            timeline['pages_per_minute_breakdown'] = [
+                {'minute': row['minute_bucket'], 'count': row['page_count']}
+                for row in cursor.fetchall()
+            ]
+        else:
+            timeline['pages_per_minute_breakdown'] = []
+        
+        conn.close()
         
         return {
             "proxy_stats": proxy_stats,
             "depth_stats": depth_stats,
             "timeline": timeline
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/analytics/fingerprints")
+async def get_fingerprint_analytics():
+    """Get fingerprint diversity analysis"""
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT fingerprint FROM pages WHERE fingerprint IS NOT NULL")
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return {
+                "timezones": [],
+                "viewports": [],
+                "user_agents": [],
+                "locales": [],
+                "diversity_score": 0,
+                "total_pages": 0
+            }
+        
+        fingerprints = [json.loads(row['fingerprint']) for row in rows]
+        
+        # Extract data
+        timezones = [fp['timezone_id'] for fp in fingerprints]
+        viewports = [f"{fp['viewport']['width']}x{fp['viewport']['height']}" for fp in fingerprints]
+        user_agents = [
+            fp['user_agent'].split('Chrome/')[1].split()[0] if 'Chrome/' in fp['user_agent'] else 'Unknown'
+            for fp in fingerprints
+        ]
+        locales = [fp['locale'] for fp in fingerprints]
+        
+        # Calculate diversity
+        unique_combinations = len(set(
+            (fp['timezone_id'], 
+             f"{fp['viewport']['width']}x{fp['viewport']['height']}", 
+             fp['locale'])
+            for fp in fingerprints
+        ))
+        
+        diversity_score = (unique_combinations / len(fingerprints) * 100) if fingerprints else 0
+        
+        conn.close()
+        
+        return {
+            "timezones": [{'name': tz, 'count': count} for tz, count in Counter(timezones).most_common()],
+            "viewports": [{'name': vp, 'count': count} for vp, count in Counter(viewports).most_common()],
+            "user_agents": [{'name': f"Chrome {ua}", 'count': count} for ua, count in Counter(user_agents).most_common()],
+            "locales": [{'name': locale, 'count': count} for locale, count in Counter(locales).most_common()],
+            "diversity_score": round(diversity_score, 1),
+            "total_pages": len(fingerprints),
+            "unique_combinations": unique_combinations
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/analytics/geolocation")
+async def get_geolocation_analytics():
+    """Get geographical distribution from fingerprints"""
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT fingerprint FROM pages WHERE fingerprint IS NOT NULL")
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return {"locations": [], "total_pages": 0}
+        
+        fingerprints = [json.loads(row['fingerprint']) for row in rows]
+        
+        # City mapping
+        city_map = {
+            (40.7128, -74.0060): "New York",
+            (34.0522, -118.2437): "Los Angeles",
+            (51.5074, -0.1278): "London",
+            (48.8566, 2.3522): "Paris",
+            (35.6762, 139.6503): "Tokyo",
+            (52.5200, 13.4050): "Berlin",
+            (37.7749, -122.4194): "San Francisco",
+            (41.8781, -87.6298): "Chicago",
+            (43.6532, -79.3832): "Toronto",
+            (-33.8688, 151.2093): "Sydney",
+        }
+        
+        locations = []
+        for fp in fingerprints:
+            lat = fp['geolocation']['latitude']
+            lon = fp['geolocation']['longitude']
+            
+            for coords, city in city_map.items():
+                if abs(coords[0] - lat) < 0.1 and abs(coords[1] - lon) < 0.1:
+                    locations.append(city)
+                    break
+        
+        location_counts = Counter(locations)
+        total = len(locations)
+        
+        conn.close()
+        
+        return {
+            "locations": [
+                {
+                    'city': city,
+                    'count': count,
+                    'percentage': (count / total * 100) if total > 0 else 0
+                }
+                for city, count in location_counts.most_common()
+            ],
+            "total_pages": total
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -934,9 +1275,8 @@ async def search_files(request: SearchRequest):
 @app.get("/api/data/export")
 async def export_data():
     try:
-        analyzer = CrawlDataAnalyzer()
-        
-        conn = analyzer.conn
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         cursor.execute('SELECT * FROM pages')
@@ -963,7 +1303,7 @@ async def export_data():
             
             pages.append(page)
         
-        analyzer.close()
+        conn.close()
         
         return {
             "total_pages": len(pages),

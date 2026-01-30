@@ -41,6 +41,9 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
         <a href="/selector-finder" className={currentPage === 'selector-finder' ? 'active' : ''}>
           Selector Finder
         </a>
+        <a href="/proxy-tester" className={currentPage === 'proxy-tester' ? 'active' : ''}>
+          Proxy Tester
+        </a>
       </nav>
     </header>
   )

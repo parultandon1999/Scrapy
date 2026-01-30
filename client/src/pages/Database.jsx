@@ -6,8 +6,8 @@ import {
   HardDrive, Link2, Search, Download, ChevronLeft, 
   ChevronRight, X, ExternalLink, File, CheckCircle, 
   XCircle, Database as DatabaseIcon, TrendingUp, Hash,
-  BarChart3, PieChart, Activity, Filter, Trash2, GitCompare,
-  Calendar, Layers, AlertCircle
+  BarChart3, PieChart, Activity, GitCompare,
+  Calendar, Layers, AlertCircle, Clock
 } from 'lucide-react'
 import * as api from '../services/api'
 import '../styles/Database.css'
@@ -39,6 +39,9 @@ function Database({ darkMode, toggleDarkMode }) {
   const [fileAnalytics, setFileAnalytics] = useState([])
   const [linkAnalysis, setLinkAnalysis] = useState(null)
   const [selectedPages, setSelectedPages] = useState([])
+  const [performanceAnalytics, setPerformanceAnalytics] = useState(null)
+  const [fingerprintAnalytics, setFingerprintAnalytics] = useState(null)
+  const [geolocationAnalytics, setGeolocationAnalytics] = useState(null)
   const [filterOptions, setFilterOptions] = useState({
     minDepth: '',
     maxDepth: '',
@@ -68,6 +71,12 @@ function Database({ darkMode, toggleDarkMode }) {
       fetchDomains()
     } else if (activeView === 'link-analysis') {
       fetchLinkAnalysis()
+    } else if (activeView === 'performance') {
+      fetchPerformanceAnalytics()
+    } else if (activeView === 'fingerprints') {
+      fetchFingerprintAnalytics()
+    } else if (activeView === 'geolocation') {
+      fetchGeolocationAnalytics()
     }
   }, [activeView, pageLimit, pageOffset, linkType, fileStatus])
 
@@ -255,6 +264,42 @@ function Database({ darkMode, toggleDarkMode }) {
     }
   }
 
+  const fetchPerformanceAnalytics = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getPerformanceAnalytics()
+      setPerformanceAnalytics(data)
+    } catch (err) {
+      setError('Failed to load performance analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchFingerprintAnalytics = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getFingerprintAnalytics()
+      setFingerprintAnalytics(data)
+    } catch (err) {
+      setError('Failed to load fingerprint analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchGeolocationAnalytics = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getGeolocationAnalytics()
+      setGeolocationAnalytics(data)
+    } catch (err) {
+      setError('Failed to load geolocation analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBulkDelete = async () => {
     if (selectedPages.length === 0) return
     if (!confirm(`Delete ${selectedPages.length} selected pages?`)) return
@@ -383,6 +428,27 @@ function Database({ darkMode, toggleDarkMode }) {
           >
             <AlertCircle size={18} />
             Link Analysis
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'performance' ? 'active' : ''}`}
+            onClick={() => setActiveView('performance')}
+          >
+            <TrendingUp size={18} />
+            Performance
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'fingerprints' ? 'active' : ''}`}
+            onClick={() => setActiveView('fingerprints')}
+          >
+            <Hash size={18} />
+            Fingerprints
+          </button>
+          <button 
+            className={`db-nav-item ${activeView === 'geolocation' ? 'active' : ''}`}
+            onClick={() => setActiveView('geolocation')}
+          >
+            <GitCompare size={18} />
+            Geolocation
           </button>
         </nav>
         
@@ -1054,6 +1120,257 @@ function Database({ darkMode, toggleDarkMode }) {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Performance Analytics View */}
+        {activeView === 'performance' && !loading && (
+          <div className="analytics-view">
+            <div className="view-header-compact">
+              <h1><TrendingUp size={24} /> Performance Analytics</h1>
+            </div>
+
+            {performanceAnalytics ? (
+              <>
+                {/* Timeline Stats */}
+                <div className="analytics-cards">
+                  <div className="analytics-card">
+                    <h3><Clock size={18} /> Crawl Timeline</h3>
+                    <div className="timeline-stats">
+                      <div className="stat-row">
+                        <span>Duration:</span>
+                        <strong>{(performanceAnalytics.timeline.duration / 60).toFixed(1)} minutes</strong>
+                      </div>
+                      <div className="stat-row">
+                        <span>Total Pages:</span>
+                        <strong>{performanceAnalytics.timeline.total_pages}</strong>
+                      </div>
+                      <div className="stat-row">
+                        <span>Speed:</span>
+                        <strong>{performanceAnalytics.timeline.pages_per_second.toFixed(2)} pages/sec</strong>
+                      </div>
+                      <div className="stat-row">
+                        <span>Rate:</span>
+                        <strong>{performanceAnalytics.timeline.pages_per_minute.toFixed(1)} pages/min</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Proxy Statistics */}
+                {performanceAnalytics.proxy_stats.length > 0 && (
+                  <div className="analytics-section">
+                    <h3><Activity size={18} /> Proxy Usage</h3>
+                    <div className="chart-container">
+                      {performanceAnalytics.proxy_stats.map((proxy, idx) => (
+                        <div key={idx} className="chart-bar-item">
+                          <span className="chart-label">{proxy.proxy}</span>
+                          <div className="chart-bar-bg">
+                            <div
+                              className="chart-bar-fill"
+                              style={{ width: `${proxy.percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="chart-value">{proxy.page_count} ({proxy.percentage.toFixed(1)}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Depth Distribution */}
+                {performanceAnalytics.depth_stats.length > 0 && (
+                  <div className="analytics-section">
+                    <h3><Layers size={18} /> Depth Distribution</h3>
+                    <div className="chart-container">
+                      {performanceAnalytics.depth_stats.map((depth, idx) => (
+                        <div key={idx} className="chart-bar-item">
+                          <span className="chart-label">Depth {depth.depth}</span>
+                          <div className="chart-bar-bg">
+                            <div
+                              className="chart-bar-fill"
+                              style={{ width: `${depth.percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="chart-value">{depth.page_count} ({depth.percentage.toFixed(1)}%)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pages Per Minute */}
+                {performanceAnalytics.timeline.pages_per_minute_breakdown?.length > 0 && (
+                  <div className="analytics-section">
+                    <h3><Activity size={18} /> Pages Per Minute</h3>
+                    <div className="chart-container">
+                      {performanceAnalytics.timeline.pages_per_minute_breakdown.map((bucket, idx) => (
+                        <div key={idx} className="chart-bar-item">
+                          <span className="chart-label">Min {bucket.minute}</span>
+                          <div className="chart-bar-bg">
+                            <div
+                              className="chart-bar-fill"
+                              style={{ 
+                                width: `${(bucket.count / Math.max(...performanceAnalytics.timeline.pages_per_minute_breakdown.map(b => b.count))) * 100}%` 
+                              }}
+                            ></div>
+                          </div>
+                          <span className="chart-value">{bucket.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="no-data-card">
+                <TrendingUp size={48} />
+                <h3>No performance data available</h3>
+                <p>Performance analytics will appear here after scraping pages</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Fingerprint Analytics View */}
+        {activeView === 'fingerprints' && !loading && (
+          <div className="analytics-view">
+            <div className="view-header-compact">
+              <h1><Hash size={24} /> Fingerprint Analysis</h1>
+              <p className="section-description">
+                Browser fingerprint diversity helps avoid detection
+              </p>
+            </div>
+
+            {fingerprintAnalytics ? (
+              <>
+                {/* Diversity Score */}
+                <div className="analytics-cards">
+                  <div className="analytics-card highlight">
+                    <h3>Fingerprint Diversity</h3>
+                    <div className="diversity-score">
+                      <div className="score-circle">
+                        <span className="score-value">{fingerprintAnalytics.diversity_score}%</span>
+                      </div>
+                      <div className="score-details">
+                        <div className="stat-row">
+                          <span>Total Pages:</span>
+                          <strong>{fingerprintAnalytics.total_pages}</strong>
+                        </div>
+                        <div className="stat-row">
+                          <span>Unique Combinations:</span>
+                          <strong>{fingerprintAnalytics.unique_combinations}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Timezones */}
+                {fingerprintAnalytics.timezones.length > 0 && (
+                  <div className="analytics-section">
+                    <h3><Calendar size={18} /> Timezone Distribution</h3>
+                    <div className="fingerprint-grid">
+                      {fingerprintAnalytics.timezones.map((tz, idx) => (
+                        <div key={idx} className="fingerprint-item">
+                          <span className="fp-name">{tz.name}</span>
+                          <span className="fp-count">{tz.count} pages</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Viewports */}
+                {fingerprintAnalytics.viewports.length > 0 && (
+                  <div className="analytics-section">
+                    <h3><LayoutDashboard size={18} /> Viewport Distribution</h3>
+                    <div className="fingerprint-grid">
+                      {fingerprintAnalytics.viewports.map((vp, idx) => (
+                        <div key={idx} className="fingerprint-item">
+                          <span className="fp-name">{vp.name}</span>
+                          <span className="fp-count">{vp.count} pages</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* User Agents */}
+                {fingerprintAnalytics.user_agents.length > 0 && (
+                  <div className="analytics-section">
+                    <h3><Activity size={18} /> User Agent Distribution</h3>
+                    <div className="fingerprint-grid">
+                      {fingerprintAnalytics.user_agents.map((ua, idx) => (
+                        <div key={idx} className="fingerprint-item">
+                          <span className="fp-name">{ua.name}</span>
+                          <span className="fp-count">{ua.count} pages</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Locales */}
+                {fingerprintAnalytics.locales.length > 0 && (
+                  <div className="analytics-section">
+                    <h3><GitCompare size={18} /> Locale Distribution</h3>
+                    <div className="fingerprint-grid">
+                      {fingerprintAnalytics.locales.map((locale, idx) => (
+                        <div key={idx} className="fingerprint-item">
+                          <span className="fp-name">{locale.name}</span>
+                          <span className="fp-count">{locale.count} pages</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="no-data-card">
+                <Hash size={48} />
+                <h3>No fingerprint data available</h3>
+                <p>Fingerprint analytics will appear here after scraping with fingerprints enabled</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Geolocation Analytics View */}
+        {activeView === 'geolocation' && !loading && (
+          <div className="analytics-view">
+            <div className="view-header-compact">
+              <h1><GitCompare size={24} /> Geographical Distribution</h1>
+              <p className="section-description">
+                Apparent locations from geolocation fingerprints
+              </p>
+            </div>
+
+            {geolocationAnalytics && geolocationAnalytics.locations.length > 0 ? (
+              <div className="analytics-section">
+                <h3>Location Distribution ({geolocationAnalytics.total_pages} pages)</h3>
+                <div className="chart-container">
+                  {geolocationAnalytics.locations.map((location, idx) => (
+                    <div key={idx} className="chart-bar-item">
+                      <span className="chart-label">{location.city}</span>
+                      <div className="chart-bar-bg">
+                        <div
+                          className="chart-bar-fill"
+                          style={{ width: `${location.percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="chart-value">{location.count} ({location.percentage.toFixed(1)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="no-data-card">
+                <GitCompare size={48} />
+                <h3>No geolocation data</h3>
+                <p>Geolocation data will appear here after scraping with fingerprints enabled</p>
+              </div>
+            )}
           </div>
         )}
       </main>
