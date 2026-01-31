@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import {
   Activity, Globe, FileText, Download, Layers, Clock,
   ExternalLink, File, CheckCircle, XCircle, ChevronDown,
@@ -32,11 +32,10 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
   const [imageViewerOpen, setImageViewerOpen] = useState(false)
   const [currentImage, setCurrentImage] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
-  const [pendingUpdates, setPendingUpdates] = useState({ pages: [], files: [] })
+  const [_pendingUpdates, setPendingUpdates] = useState({ pages: [], files: [] })
   const updateTimeoutRef = useRef(null)
   const lastUpdateRef = useRef(Date.now())
   const [visiblePageCount, setVisiblePageCount] = useState(20)
-  const [visibleFileCount, setVisibleFileCount] = useState(20)
   const [isExporting, setIsExporting] = useState(false)
   const [startTime, setStartTime] = useState(null)
   const [eta, setEta] = useState(null)
@@ -73,6 +72,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
         clearInterval(intervalRef.current)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, location.state])
 
   const fetchHistoryData = async (startUrl) => {
@@ -286,7 +286,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     try {
       await api.stopScraper()
       fetchStatus()
-    } catch (err) {
+    } catch {
       setError('Failed to stop scraper')
     }
   }
@@ -295,7 +295,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     try {
       await api.pauseScraper()
       fetchStatus()
-    } catch (err) {
+    } catch {
       setError('Failed to pause scraper')
     }
   }
@@ -304,7 +304,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     try {
       await api.resumeScraper()
       fetchStatus()
-    } catch (err) {
+    } catch {
       setError('Failed to resume scraper')
     }
   }

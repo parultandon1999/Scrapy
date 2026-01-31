@@ -1,54 +1,13 @@
-import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
-import Button from '../components/Button'
-import { useSession } from '../contexts/SecurityContext'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import { 
-  Shield, Clock, Key, Lock, Eye, EyeOff, 
-  RefreshCw, AlertTriangle, CheckCircle, Info
+  Shield, Lock, EyeOff, 
+  AlertTriangle, CheckCircle, Info
 } from 'lucide-react'
 import '../styles/SecuritySettings.css'
 
 function SecuritySettings({ darkMode, toggleDarkMode }) {
-  const { getSessionInfo, csrfToken, refreshCSRFToken, logout } = useSession()
-  const [sessionInfo, setSessionInfo] = useState(null)
-  const [showCSRFToken, setShowCSRFToken] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    // Update session info every second
-    const interval = setInterval(() => {
-      setSessionInfo(getSessionInfo())
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [getSessionInfo])
-
-  const formatDuration = (ms) => {
-    const seconds = Math.floor(ms / 1000)
-    const minutes = Math.floor(seconds / 60)
-    const hours = Math.floor(minutes / 60)
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`
-    } else {
-      return `${seconds}s`
-    }
-  }
-
-  const copyCSRFToken = () => {
-    navigator.clipboard.writeText(csrfToken)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleRefreshCSRF = () => {
-    refreshCSRFToken()
-    setCopied(false)
-  }
 
   return (
     <>
@@ -65,137 +24,9 @@ function SecuritySettings({ darkMode, toggleDarkMode }) {
           <div className="security-header">
             <h1><Shield size={32} /> Security & Privacy</h1>
             <p className="security-description">
-              Manage session timeout, CSRF protection, and security settings
+              Security features and best practices for web scraping
             </p>
           </div>
-
-          {/* Session Status */}
-          <section className="security-section">
-            <div className="section-header">
-              <h2><Clock size={20} /> Session Status</h2>
-              <div className="session-status-badge">
-                {sessionInfo?.isActive ? (
-                  <span className="status-active">
-                    <CheckCircle size={16} /> Active
-                  </span>
-                ) : (
-                  <span className="status-inactive">
-                    <AlertTriangle size={16} /> Inactive
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {sessionInfo && (
-              <div className="security-card">
-                <div className="security-stats">
-                  <div className="security-stat">
-                    <div className="stat-icon">
-                      <Clock size={24} />
-                    </div>
-                    <div className="stat-content">
-                      <div className="stat-label">Session Duration</div>
-                      <div className="stat-value">{formatDuration(sessionInfo.sessionDuration)}</div>
-                    </div>
-                  </div>
-
-                  <div className="security-stat">
-                    <div className="stat-icon">
-                      <Clock size={24} />
-                    </div>
-                    <div className="stat-content">
-                      <div className="stat-label">Last Activity</div>
-                      <div className="stat-value">{formatDuration(sessionInfo.lastActivity)} ago</div>
-                    </div>
-                  </div>
-
-                  <div className="security-stat">
-                    <div className="stat-icon">
-                      <Clock size={24} />
-                    </div>
-                    <div className="stat-content">
-                      <div className="stat-label">Time Until Timeout</div>
-                      <div className="stat-value">
-                        {sessionInfo.isActive ? formatDuration(sessionInfo.timeRemaining) : 'Expired'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="security-info">
-                  <Info size={16} />
-                  <p>
-                    Your session will automatically expire after 30 minutes of inactivity. 
-                    You'll receive a warning 2 minutes before timeout.
-                  </p>
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* CSRF Protection */}
-          <section className="security-section">
-            <div className="section-header">
-              <h2><Shield size={20} /> CSRF Protection</h2>
-              <span className="security-badge enabled">
-                <CheckCircle size={14} /> Enabled
-              </span>
-            </div>
-
-            <div className="security-card">
-              <p className="security-description">
-                Cross-Site Request Forgery (CSRF) protection is enabled. All API requests that modify data 
-                include a CSRF token for verification.
-              </p>
-
-              <div className="csrf-token-section">
-                <div className="csrf-token-header">
-                  <h3><Key size={18} /> Current CSRF Token</h3>
-                  <div className="csrf-actions">
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      icon={showCSRFToken ? EyeOff : Eye}
-                      onClick={() => setShowCSRFToken(!showCSRFToken)}
-                    >
-                      {showCSRFToken ? 'Hide' : 'Show'}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="small"
-                      icon={RefreshCw}
-                      onClick={handleRefreshCSRF}
-                    >
-                      Refresh
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="csrf-token-display">
-                  {showCSRFToken ? (
-                    <code className="csrf-token">{csrfToken}</code>
-                  ) : (
-                    <code className="csrf-token-hidden">••••••••••••••••••••••••••••••••</code>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    onClick={copyCSRFToken}
-                  >
-                    {copied ? 'Copied!' : 'Copy'}
-                  </Button>
-                </div>
-
-                <div className="security-info">
-                  <Info size={16} />
-                  <p>
-                    The CSRF token is automatically included in all POST, PUT, DELETE, and PATCH requests.
-                    Refresh the token if you suspect it has been compromised.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
 
           {/* Password Security */}
           <section className="security-section">
@@ -260,16 +91,16 @@ function SecuritySettings({ darkMode, toggleDarkMode }) {
                 <div className="practice-item">
                   <CheckCircle size={18} className="practice-icon" />
                   <div>
-                    <h4>Regular Logouts</h4>
-                    <p>Logout when finished, especially on shared devices</p>
+                    <h4>Secure Proxies</h4>
+                    <p>Only use trusted proxy servers for scraping</p>
                   </div>
                 </div>
 
                 <div className="practice-item">
                   <CheckCircle size={18} className="practice-icon" />
                   <div>
-                    <h4>Monitor Activity</h4>
-                    <p>Review session duration and last activity regularly</p>
+                    <h4>Data Privacy</h4>
+                    <p>Don't scrape sensitive or personal information</p>
                   </div>
                 </div>
 
@@ -293,37 +124,38 @@ function SecuritySettings({ darkMode, toggleDarkMode }) {
                   <CheckCircle size={18} className="practice-icon" />
                   <div>
                     <h4>Limit Exposure</h4>
-                    <p>Don't share CSRF tokens or session information</p>
+                    <p>Don't share authentication credentials or session data</p>
                   </div>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Actions */}
+          {/* Data Storage Warning */}
           <section className="security-section">
             <div className="section-header">
-              <h2>Security Actions</h2>
+              <h2><Info size={20} /> Data Storage</h2>
             </div>
 
             <div className="security-card">
-              <div className="security-actions">
-                <Button
-                  variant="danger"
-                  icon={Lock}
-                  onClick={logout}
-                  size="large"
-                >
-                  Logout Now
-                </Button>
-                <Button
-                  variant="secondary"
-                  icon={RefreshCw}
-                  onClick={handleRefreshCSRF}
-                  size="large"
-                >
-                  Refresh CSRF Token
-                </Button>
+              <div className="security-info warning">
+                <AlertTriangle size={20} />
+                <div>
+                  <h3>Unencrypted Local Storage</h3>
+                  <p>
+                    Scraped data is stored locally without encryption. Anyone with access to your device 
+                    can view this data. Avoid scraping sensitive information like passwords, credit cards, 
+                    or personal data.
+                  </p>
+                </div>
+              </div>
+
+              <div className="security-info">
+                <Info size={16} />
+                <p>
+                  For production use with sensitive data, consider implementing encryption at rest 
+                  and using secure database solutions.
+                </p>
               </div>
             </div>
           </section>

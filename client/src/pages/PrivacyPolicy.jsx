@@ -1,6 +1,6 @@
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import { Shield, Lock, Eye, Database, AlertTriangle, CheckCircle, Info } from 'lucide-react'
 import '../styles/LegalPages.css'
 

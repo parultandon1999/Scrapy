@@ -341,7 +341,7 @@ export const checkApiHealth = async () => {
   try {
     const response = await apiClient.get('/')
     return response.status === 200
-  } catch (error) {
+  } catch {
     return false
   }
 }

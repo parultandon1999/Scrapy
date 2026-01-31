@@ -13,7 +13,7 @@ class ErrorBoundary extends React.Component {
     }
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError() {
     // Update state so the next render will show the fallback UI
     return { hasError: true }
   }
@@ -77,7 +77,11 @@ Timestamp: ${new Date().toISOString()}
           <div class="toast-message">Error details copied to clipboard</div>
         `
         document.body.appendChild(toast)
-        setTimeout(() => document.body.removeChild(toast), 3000)
+        setTimeout(() => {
+          if (document.body.contains(toast)) {
+            document.body.removeChild(toast)
+          }
+        }, 3000)
       })
       .catch(() => {
         const toast = document.createElement('div')
@@ -94,7 +98,11 @@ Timestamp: ${new Date().toISOString()}
           <div class="toast-message">Failed to copy error details</div>
         `
         document.body.appendChild(toast)
-        setTimeout(() => document.body.removeChild(toast), 3000)
+        setTimeout(() => {
+          if (document.body.contains(toast)) {
+            document.body.removeChild(toast)
+          }
+        }, 3000)
       })
   }
 

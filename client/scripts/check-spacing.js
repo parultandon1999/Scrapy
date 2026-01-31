@@ -5,8 +5,12 @@
  * Scans CSS files for hardcoded values that should use design tokens
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Valid 8px grid values
 const validSpacing = [0, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 64, 80, 96];
@@ -213,8 +217,7 @@ function scanDirectory(dir, results = []) {
 }
 
 function generateReport(results) {
-  console.log('\n📊 Design Token Analysis Report\n');
-  console.log('='.repeat(80));
+  console.log('\nDesign Token Analysis Report');
 
   let totalIssues = 0;
   let totalHardcoded = 0;
@@ -228,40 +231,37 @@ function generateReport(results) {
     totalNonGrid += result.stats.nonGridValues;
   });
 
-  console.log(`\n📁 Files scanned: ${results.length}`);
-  console.log(`✅ Design tokens used: ${totalTokens}`);
-  console.log(`⚠️  Hardcoded values found: ${totalHardcoded}`);
-  console.log(`❌ Non-grid values: ${totalNonGrid}`);
-  console.log(`\n${'='.repeat(80)}\n`);
+  console.log(`Files scanned: ${results.length}`);
+  console.log(`Design tokens used: ${totalTokens}`);
+  console.log(`Hardcoded values found: ${totalHardcoded}`);
+  console.log(`Non-grid values: ${totalNonGrid}`);
 
   if (totalIssues === 0) {
-    console.log('✨ Great! All files are using design tokens correctly.\n');
+    console.log('All files are using design tokens correctly.');
     return;
   }
 
   results.forEach(result => {
     if (result.issues.length > 0) {
-      console.log(`\n📄 ${result.file}`);
-      console.log(`   Lines: ${result.stats.totalLines} | Tokens: ${result.stats.tokenUsage} | Issues: ${result.issues.length}`);
-      console.log('   ' + '-'.repeat(76));
+      console.log(`\n${result.file}`);
+      console.log(`Lines: ${result.stats.totalLines} | Tokens: ${result.stats.tokenUsage} | Issues: ${result.issues.length}`);
 
       result.issues.slice(0, 10).forEach(issue => {
-        console.log(`   Line ${issue.line}: ${issue.property}: ${issue.value}`);
-        console.log(`   → ${issue.suggestion}`);
+        console.log(`Line ${issue.line}: ${issue.property}: ${issue.value}`);
+        console.log(`Suggestion: ${issue.suggestion}`);
       });
 
       if (result.issues.length > 10) {
-        console.log(`   ... and ${result.issues.length - 10} more issues`);
+        console.log(`Additional ${result.issues.length - 10} issues not shown`);
       }
     }
   });
 
-  console.log('\n' + '='.repeat(80));
-  console.log('\n💡 Tips:');
-  console.log('   1. Replace hardcoded values with design tokens');
-  console.log('   2. Round non-grid values to nearest 8px multiple');
-  console.log('   3. See DESIGN_TOKENS_MIGRATION.md for guidance');
-  console.log('   4. Visit /design-system for visual reference\n');
+  console.log('\nRecommendations:');
+  console.log('1. Replace hardcoded values with design tokens');
+  console.log('2. Round non-grid values to nearest 8px multiple');
+  console.log('3. Refer to design-tokens.css for available tokens');
+  console.log('4. Maintain consistency across the application');
 }
 
 // Main execution
@@ -271,5 +271,6 @@ generateReport(results);
 
 // Exit with error code if issues found
 if (results.some(r => r.stats.nonGridValues > 0)) {
+  // eslint-disable-next-line no-undef
   process.exit(1);
 }

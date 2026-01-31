@@ -2,16 +2,22 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import {
   Clock, Globe, FileText, HardDrive, Link2, Calendar,
   Layers, Trash2, Eye, BarChart3, Download, ChevronRight,
   AlertCircle, CheckCircle, XCircle, X, Filter, Search
 } from 'lucide-react'
 import * as api from '../services/api'
-import { HistoryCardSkeleton, ConfigSectionSkeleton } from '../components/SkeletonLoader'
-import { useToast } from '../components/ToastContainer'
-import LoadingState from '../components/LoadingState'
+import { useToast } from '../components/mui/useToast'
+import { 
+  HistoryCardSkeleton,
+  HistorySessionsSkeleton,
+  HistoryStatisticsSkeleton,
+  HistoryTimelineSkeleton,
+  HistorySessionDetailsSkeleton,
+  ConfigSectionSkeleton 
+} from '../components/SkeletonLoader'
 import '../styles/History.css'
 
 function History({ darkMode, toggleDarkMode }) {
@@ -76,7 +82,7 @@ function History({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getScrapingSessions()
       setSessions(data.sessions || [])
-    } catch (err) {
+    } catch {
       setError('Failed to load sessions')
     } finally {
       setLoading(false)
@@ -88,7 +94,7 @@ function History({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getHistoryStatistics()
       setStatistics(data)
-    } catch (err) {
+    } catch {
       setError('Failed to load statistics')
     } finally {
       setLoading(false)
@@ -100,7 +106,7 @@ function History({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getScrapingTimeline()
       setTimelineData(data)
-    } catch (err) {
+    } catch {
       setError('Failed to load timeline')
     } finally {
       setLoading(false)
@@ -135,7 +141,7 @@ function History({ darkMode, toggleDarkMode }) {
       
       setComparisonData({ session1, session2 })
       setActiveView('comparison')
-    } catch (err) {
+    } catch {
       setError('Failed to load comparison data')
     } finally {
       setLoading(false)
@@ -149,7 +155,7 @@ function History({ darkMode, toggleDarkMode }) {
       setSessionDetails(data)
       setSelectedSession(domain)
       setActiveView('session-details')
-    } catch (err) {
+    } catch {
       setError('Failed to load session details')
     } finally {
       setLoading(false)
@@ -195,7 +201,7 @@ function History({ darkMode, toggleDarkMode }) {
       }
       setDeleteConfirmModal(null)
       setDeleteConfirmInput('')
-    } catch (err) {
+    } catch {
       setError('Failed to delete session')
     } finally {
       setLoading(false)
@@ -390,11 +396,11 @@ function History({ darkMode, toggleDarkMode }) {
           </div>
         )}
 
-        {loading && activeView === 'sessions' && <LoadingState type="fetching-sessions" size="large" />}
-        {loading && activeView === 'statistics' && <LoadingState type="fetching-stats" size="large" />}
-        {loading && activeView === 'timeline' && <LoadingState type="fetching-timeline" size="large" />}
-        {loading && activeView === 'session-details' && <LoadingState type="fetching-session-details" size="large" />}
-        {loading && activeView === 'comparison' && <LoadingState type="comparing-sessions" size="large" />}
+        {loading && activeView === 'sessions' && <HistorySessionsSkeleton />}
+        {loading && activeView === 'statistics' && <HistoryStatisticsSkeleton />}
+        {loading && activeView === 'timeline' && <HistoryTimelineSkeleton />}
+        {loading && activeView === 'session-details' && <HistorySessionDetailsSkeleton />}
+        {loading && activeView === 'comparison' && <HistorySessionDetailsSkeleton />}
 
         {/* Sessions View */}
         {activeView === 'sessions' && !loading && (

@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import NumericInput from '../components/InputValidator'
-import ToggleSwitch from './ToggleSwitch'
+import NumericInput from './InputValidator'
+import ToggleSwitch from './mui/ToggleSwitch'
 import '../styles/AdvancedOptionsHome.css'
 
 function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {

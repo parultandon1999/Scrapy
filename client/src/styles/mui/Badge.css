@@ -1,0 +1,141 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+/* Sizes */
+.badge-small {
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+}
+
+.badge-medium {
+  font-size: var(--font-size-sm);
+  padding: 4px 8px;
+}
+
+.badge-large {
+  font-size: var(--font-size-base);
+  padding: 6px 12px;
+}
+
+/* Variants */
+.badge-default {
+  background: #f8f9fa;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+}
+
+body.dark-mode .badge-default {
+  background: #2a2a2a;
+  color: #9aa0a6;
+  border-color: #444;
+}
+
+.badge-primary {
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--color-primary, #1a73e8);
+  border: 1px solid rgba(26, 115, 232, 0.2);
+}
+
+body.dark-mode .badge-primary {
+  background: rgba(138, 180, 248, 0.1);
+  color: #8ab4f8;
+  border-color: rgba(138, 180, 248, 0.2);
+}
+
+.badge-success {
+  background: rgba(52, 168, 83, 0.1);
+  color: var(--color-success, #34a853);
+  border: 1px solid rgba(52, 168, 83, 0.2);
+}
+
+body.dark-mode .badge-success {
+  background: rgba(81, 207, 102, 0.1);
+  color: #51cf66;
+  border-color: rgba(81, 207, 102, 0.2);
+}
+
+.badge-danger {
+  background: rgba(234, 67, 53, 0.1);
+  color: var(--color-danger, #ea4335);
+  border: 1px solid rgba(234, 67, 53, 0.2);
+}
+
+body.dark-mode .badge-danger {
+  background: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.2);
+}
+
+.badge-warning {
+  background: rgba(251, 188, 4, 0.1);
+  color: var(--color-warning, #fbbc04);
+  border: 1px solid rgba(251, 188, 4, 0.2);
+}
+
+body.dark-mode .badge-warning {
+  background: rgba(255, 212, 59, 0.1);
+  color: #ffd43b;
+  border-color: rgba(255, 212, 59, 0.2);
+}
+
+.badge-secondary {
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--color-secondary, #667eea);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+body.dark-mode .badge-secondary {
+  background: rgba(124, 143, 240, 0.1);
+  color: #7c8ff0;
+  border-color: rgba(124, 143, 240, 0.2);
+}
+
+.badge-info {
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
+  border: 1px solid rgba(13, 148, 136, 0.2);
+}
+
+body.dark-mode .badge-info {
+  background: rgba(20, 184, 166, 0.1);
+  color: #14b8a6;
+  border-color: rgba(20, 184, 166, 0.2);
+}
+
+/* Dot Badge */
+.badge-dot {
+  padding-left: 6px;
+}
+
+.badge-dot-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-small.badge-dot {
+  padding-left: 4px;
+}
+
+.badge-small .badge-dot-indicator {
+  width: 4px;
+  height: 4px;
+}
+
+.badge-large.badge-dot {
+  padding-left: 8px;
+}
+
+.badge-large .badge-dot-indicator {
+  width: 8px;
+  height: 8px;
+}

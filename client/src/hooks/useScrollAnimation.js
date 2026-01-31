@@ -158,7 +158,6 @@ export function useParallax(speed = 0.5) {
   useEffect(() => {
     const handleScroll = () => {
       if (elementRef.current) {
-        const rect = elementRef.current.getBoundingClientRect()
         const scrolled = window.pageYOffset
         const rate = scrolled * speed
         setOffset(rate)
@@ -186,12 +185,8 @@ export function useParallax(speed = 0.5) {
  */
 export function useCountUp(end, duration = 1000, start = 0) {
   const [count, setCount] = useState(start)
-  const [isAnimating, setIsAnimating] = useState(false)
 
   useEffect(() => {
-    if (isAnimating) return
-
-    setIsAnimating(true)
     const startTime = Date.now()
     const range = end - start
 
@@ -205,8 +200,6 @@ export function useCountUp(end, duration = 1000, start = 0) {
 
       if (progress < 1) {
         requestAnimationFrame(animate)
-      } else {
-        setIsAnimating(false)
       }
     }
 
@@ -252,16 +245,19 @@ export function useFadeTransition(show, duration = 300) {
 
   useEffect(() => {
     if (show) {
-      setShouldRender(true)
-      requestAnimationFrame(() => {
-        setOpacity(1)
-      })
+      const renderTimer = setTimeout(() => setShouldRender(true), 0)
+      const opacityTimer = setTimeout(() => setOpacity(1), 10)
+      return () => {
+        clearTimeout(renderTimer)
+        clearTimeout(opacityTimer)
+      }
     } else {
-      setOpacity(0)
-      const timeout = setTimeout(() => {
-        setShouldRender(false)
-      }, duration)
-      return () => clearTimeout(timeout)
+      const opacityTimer = setTimeout(() => setOpacity(0), 0)
+      const renderTimer = setTimeout(() => setShouldRender(false), duration)
+      return () => {
+        clearTimeout(opacityTimer)
+        clearTimeout(renderTimer)
+      }
     }
   }, [show, duration])
 

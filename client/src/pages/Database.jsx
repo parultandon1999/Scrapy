@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import { 
   LayoutDashboard, FileText, FolderOpen, Package, 
   HardDrive, Link2, Search, Download, ChevronLeft, 
@@ -11,10 +11,16 @@ import {
   Calendar, Layers, AlertCircle, Clock, Globe
 } from 'lucide-react'
 import * as api from '../services/api'
-import { DatabaseTableSkeleton, ConfigSectionSkeleton } from '../components/SkeletonLoader'
-import { useToast } from '../components/ToastContainer'
-import LoadingState from '../components/LoadingState'
+import { 
+  DatabaseTableSkeleton, 
+  DatabaseDashboardSkeleton,
+  DatabasePagesSkeleton,
+  DatabaseFilesSkeleton,
+  DatabaseAnalyticsSkeleton,
+  ConfigSectionSkeleton 
+} from '../components/SkeletonLoader'
 import '../styles/Database.css'
+import { useToast } from '../components/mui/useToast'
 
 function Database({ darkMode, toggleDarkMode }) {
   const toast = useToast()
@@ -36,7 +42,6 @@ function Database({ darkMode, toggleDarkMode }) {
   const [pageLimit, setPageLimit] = useState(20)
   const [pageOffset, setPageOffset] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [selectedPageId, setSelectedPageId] = useState(null)
   
   const [timeline, setTimeline] = useState([])
   const [domains, setDomains] = useState([])
@@ -47,15 +52,7 @@ function Database({ darkMode, toggleDarkMode }) {
   const [performanceAnalytics, setPerformanceAnalytics] = useState(null)
   const [fingerprintAnalytics, setFingerprintAnalytics] = useState(null)
   const [geolocationAnalytics, setGeolocationAnalytics] = useState(null)
-  const [filterOptions, setFilterOptions] = useState({
-    minDepth: '',
-    maxDepth: '',
-    hasFiles: null,
-    startDate: '',
-    endDate: ''
-  })
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [showBulkActions, setShowBulkActions] = useState(false)
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
@@ -94,6 +91,7 @@ function Database({ darkMode, toggleDarkMode }) {
     } else if (activeView === 'geolocation') {
       fetchGeolocationAnalytics()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView, pageLimit, pageOffset, linkType, fileStatus])
 
   const fetchDashboardData = async () => {
@@ -105,7 +103,7 @@ function Database({ darkMode, toggleDarkMode }) {
         fetchLargestDownloads(5),
         fetchTopLinks('internal', 5)
       ])
-    } catch (err) {
+    } catch {
       setError('Failed to load dashboard')
     } finally {
       setLoading(false)
@@ -116,8 +114,8 @@ function Database({ darkMode, toggleDarkMode }) {
     try {
       const data = await api.getStats()
       setStats(data)
-    } catch (err) {
-      console.error('Failed to load stats:', err)
+    } catch {
+      console.error('Failed to load stats')
     }
   }
 
@@ -127,7 +125,7 @@ function Database({ darkMode, toggleDarkMode }) {
       const data = await api.getPages(pageLimit, pageOffset)
       setPages(data.pages)
       setTotalPages(data.total)
-    } catch (err) {
+    } catch {
       setError('Failed to load pages')
     } finally {
       setLoading(false)
@@ -139,7 +137,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getFileAssets(50, fileStatus === 'all' ? null : fileStatus)
       setFiles(data.files)
-    } catch (err) {
+    } catch {
       setError('Failed to load files')
     } finally {
       setLoading(false)
@@ -150,8 +148,8 @@ function Database({ darkMode, toggleDarkMode }) {
     try {
       const data = await api.getFilesByExtension()
       setFilesByExtension(data.files_by_extension || [])
-    } catch (err) {
-      console.error('Failed to load files by extension:', err)
+    } catch {
+      console.error('Failed to load files by extension')
     }
   }
 
@@ -159,8 +157,8 @@ function Database({ darkMode, toggleDarkMode }) {
     try {
       const data = await api.getLargestDownloads(limit)
       setLargestDownloads(data.largest_downloads || [])
-    } catch (err) {
-      console.error('Failed to load largest downloads:', err)
+    } catch {
+      console.error('Failed to load largest downloads')
     }
   }
 
@@ -168,8 +166,8 @@ function Database({ darkMode, toggleDarkMode }) {
     try {
       const data = await api.getTopLinks(type, limit)
       setTopLinks(data.top_links || [])
-    } catch (err) {
-      console.error('Failed to load top links:', err)
+    } catch {
+      console.error('Failed to load top links')
     }
   }
 
@@ -178,9 +176,8 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getPageDetails(pageId)
       setPageDetails(data)
-      setSelectedPageId(pageId)
       setActiveView('page-details')
-    } catch (err) {
+    } catch {
       setError('Failed to load page details')
     } finally {
       setLoading(false)
@@ -200,7 +197,7 @@ function Database({ darkMode, toggleDarkMode }) {
       
       setSearchResults(data)
       setActiveView('search')
-    } catch (err) {
+    } catch {
       setError('Search failed')
     } finally {
       setLoading(false)
@@ -221,7 +218,7 @@ function Database({ darkMode, toggleDarkMode }) {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-    } catch (err) {
+    } catch {
       setError('Failed to export data')
     } finally {
       setLoading(false)
@@ -233,7 +230,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getScrapingTimeline()
       setTimeline(data.timeline || [])
-    } catch (err) {
+    } catch {
       setError('Failed to load timeline')
     } finally {
       setLoading(false)
@@ -245,7 +242,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getDomainStatistics()
       setDomains(data.domains || [])
-    } catch (err) {
+    } catch {
       setError('Failed to load domains')
     } finally {
       setLoading(false)
@@ -261,7 +258,7 @@ function Database({ darkMode, toggleDarkMode }) {
       ])
       setDepthDistribution(depthData.depth_distribution || [])
       setFileAnalytics(fileData.file_analytics || [])
-    } catch (err) {
+    } catch {
       setError('Failed to load analytics')
     } finally {
       setLoading(false)
@@ -273,7 +270,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getLinkAnalysis()
       setLinkAnalysis(data)
-    } catch (err) {
+    } catch {
       setError('Failed to load link analysis')
     } finally {
       setLoading(false)
@@ -285,7 +282,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getPerformanceAnalytics()
       setPerformanceAnalytics(data)
-    } catch (err) {
+    } catch {
       setError('Failed to load performance analytics')
     } finally {
       setLoading(false)
@@ -297,7 +294,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getFingerprintAnalytics()
       setFingerprintAnalytics(data)
-    } catch (err) {
+    } catch {
       setError('Failed to load fingerprint analytics')
     } finally {
       setLoading(false)
@@ -309,7 +306,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setLoading(true)
       const data = await api.getGeolocationAnalytics()
       setGeolocationAnalytics(data)
-    } catch (err) {
+    } catch {
       setError('Failed to load geolocation analytics')
     } finally {
       setLoading(false)
@@ -326,7 +323,7 @@ function Database({ darkMode, toggleDarkMode }) {
       setSelectedPages([])
       fetchPages()
       toast.success(`Deleted ${data.deleted_count} pages`)
-    } catch (err) {
+    } catch {
       setError('Failed to delete pages')
     } finally {
       setLoading(false)
@@ -355,7 +352,7 @@ function Database({ darkMode, toggleDarkMode }) {
       a.click()
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
-    } catch (err) {
+    } catch {
       setError('Failed to export selected pages')
     } finally {
       setLoading(false)
@@ -408,7 +405,7 @@ function Database({ darkMode, toggleDarkMode }) {
       } else if (activeView === 'geolocation') {
         await fetchGeolocationAnalytics()
       }
-    } catch (err) {
+    } catch {
       setError('Failed to refresh data')
     } finally {
       setIsRefreshing(false)
@@ -432,7 +429,7 @@ function Database({ darkMode, toggleDarkMode }) {
       })
       setPages(data.pages)
       setTotalPages(data.total)
-    } catch (err) {
+    } catch {
       setError('Failed to filter by date range')
     } finally {
       setLoading(false)
@@ -442,29 +439,6 @@ function Database({ darkMode, toggleDarkMode }) {
   const clearDateRange = () => {
     setDateRange({ startDate: '', endDate: '' })
     fetchPages()
-  }
-
-  const exportChartAsPNG = (chartId, filename) => {
-    const chartElement = document.getElementById(chartId)
-    if (!chartElement) return
-
-    // Use html2canvas or similar library would be ideal, but for now we'll use a simple approach
-    // Create a canvas and draw the chart
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    
-    // Set canvas size
-    canvas.width = chartElement.offsetWidth * 2
-    canvas.height = chartElement.offsetHeight * 2
-    ctx.scale(2, 2)
-    
-    // Draw white background
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
-    // For now, we'll create a simple text-based export
-    // In production, you'd want to use a library like html2canvas
-    toast.info('Chart export feature requires html2canvas library. For now, use browser screenshot.')
   }
 
   const exportChartData = (data, filename) => {
@@ -478,26 +452,6 @@ function Database({ darkMode, toggleDarkMode }) {
     a.click()
     document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
-  }
-
-  const handleFilterPages = async () => {
-    try {
-      setLoading(true)
-      const data = await api.filterPages({
-        minDepth: filterOptions.minDepth,
-        maxDepth: filterOptions.maxDepth,
-        hasFiles: filterOptions.hasFiles,
-        startDate: filterOptions.startDate,
-        endDate: filterOptions.endDate,
-        limit: pageLimit
-      })
-      setPages(data.pages)
-      setTotalPages(data.total)
-    } catch (err) {
-      setError('Failed to filter pages')
-    } finally {
-      setLoading(false)
-    }
   }
 
   const formatBytes = (bytes) => {
@@ -654,21 +608,21 @@ function Database({ darkMode, toggleDarkMode }) {
           </div>
         )}
 
-        {loading && activeView === 'dashboard' && <LoadingState type="fetching-stats" size="large" />}
-        {loading && activeView === 'pages' && <LoadingState type="fetching-pages" size="large" />}
-        {loading && activeView === 'files' && <LoadingState type="fetching-files" size="large" />}
-        {loading && activeView === 'files-by-ext' && <LoadingState type="fetching-files" size="large" />}
-        {loading && activeView === 'largest-downloads' && <LoadingState type="fetching-files" size="large" />}
-        {loading && activeView === 'top-links' && <LoadingState type="fetching-analytics" size="large" />}
-        {loading && activeView === 'analytics' && <LoadingState type="fetching-analytics" size="large" />}
-        {loading && activeView === 'timeline' && <LoadingState type="fetching-timeline" size="large" />}
-        {loading && activeView === 'domains' && <LoadingState type="fetching-domains" size="large" />}
-        {loading && activeView === 'link-analysis' && <LoadingState type="fetching-analytics" size="large" />}
-        {loading && activeView === 'performance' && <LoadingState type="fetching-analytics" size="large" />}
-        {loading && activeView === 'fingerprints' && <LoadingState type="fetching-analytics" size="large" />}
-        {loading && activeView === 'geolocation' && <LoadingState type="fetching-analytics" size="large" />}
-        {loading && activeView === 'page-details' && <LoadingState type="fetching-pages" size="large" />}
-        {loading && activeView === 'search' && <LoadingState type="searching-content" size="large" />}
+        {loading && activeView === 'dashboard' && <DatabaseDashboardSkeleton />}
+        {loading && activeView === 'pages' && <DatabasePagesSkeleton />}
+        {loading && activeView === 'files' && <DatabaseFilesSkeleton />}
+        {loading && activeView === 'files-by-ext' && <DatabaseFilesSkeleton />}
+        {loading && activeView === 'largest-downloads' && <DatabaseFilesSkeleton count={5} />}
+        {loading && activeView === 'top-links' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'analytics' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'timeline' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'domains' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'link-analysis' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'performance' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'fingerprints' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'geolocation' && <DatabaseAnalyticsSkeleton />}
+        {loading && activeView === 'page-details' && <DatabasePagesSkeleton count={1} />}
+        {loading && activeView === 'search' && <DatabasePagesSkeleton />}
 
         {/* Dashboard View */}
         {activeView === 'dashboard' && stats && (

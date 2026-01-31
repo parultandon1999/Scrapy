@@ -92,14 +92,6 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
           History
         </a>
         <a 
-          href="/scheduled-scraping" 
-          className={currentPage === 'scheduled-scraping' ? 'active' : ''}
-          aria-current={currentPage === 'scheduled-scraping' ? 'page' : undefined}
-          onClick={closeMenu}
-        >
-          Scheduled Jobs
-        </a>
-        <a 
           href="/config" 
           className={currentPage === 'config' ? 'active' : ''}
           aria-current={currentPage === 'config' ? 'page' : undefined}
@@ -122,14 +114,6 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
           onClick={closeMenu}
         >
           Proxy Tester
-        </a>
-        <a 
-          href="/preferences" 
-          className={currentPage === 'preferences' ? 'active' : ''}
-          aria-current={currentPage === 'preferences' ? 'page' : undefined}
-          onClick={closeMenu}
-        >
-          Preferences
         </a>
         <a 
           href="/security" 

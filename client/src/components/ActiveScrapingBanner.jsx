@@ -14,19 +14,18 @@ function ActiveScrapingBanner() {
   const consecutiveInactiveRef = useRef(0)
 
   useEffect(() => {
-    // Reset dismiss state when navigating to a new page
-    setIsDismissed(false)
-    consecutiveInactiveRef.current = 0
-
     // Don't show banner on progress page
     if (location.pathname.startsWith('/progress')) {
-      setIsActive(false)
+      consecutiveInactiveRef.current = 0
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
         intervalRef.current = null
       }
       return
     }
+
+    // Reset dismiss state when navigating to a new page
+    consecutiveInactiveRef.current = 0
 
     const checkScrapingStatus = async () => {
       try {
@@ -71,7 +70,7 @@ function ActiveScrapingBanner() {
             console.log('ActiveScrapingBanner: Stopped polling (no active scraping)')
           }
         }
-      } catch (err) {
+      } catch {
         setIsActive(false)
         consecutiveInactiveRef.current++
         
@@ -109,6 +108,11 @@ function ActiveScrapingBanner() {
 
   const handleDismiss = () => {
     setIsDismissed(true)
+  }
+
+  // Don't show banner on progress page
+  if (location.pathname.startsWith('/progress')) {
+    return null
   }
 
   if (!isActive || isDismissed || !scrapingData) {

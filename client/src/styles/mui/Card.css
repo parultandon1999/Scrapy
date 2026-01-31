@@ -1,0 +1,94 @@
+.card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+body.dark-mode .card {
+  background: #2a2a2a;
+}
+
+/* Variants */
+.card-default {
+  border: 1px solid #dadce0;
+}
+
+body.dark-mode .card-default {
+  border-color: #444;
+}
+
+.card-outlined {
+  border: 2px solid #dadce0;
+  box-shadow: none;
+}
+
+body.dark-mode .card-outlined {
+  border-color: #444;
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-md);
+  border: none;
+}
+
+.card-flat {
+  box-shadow: none;
+  border: none;
+}
+
+/* Padding */
+.card-padding-none {
+  padding: 0;
+}
+
+.card-padding-small {
+  padding: var(--space-3);
+}
+
+.card-padding-medium {
+  padding: var(--space-4);
+}
+
+.card-padding-large {
+  padding: var(--space-6);
+}
+
+/* States */
+.card-hoverable:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.card-clickable {
+  cursor: pointer;
+}
+
+.card-clickable:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.card-clickable:active {
+  transform: translateY(0);
+}
+
+.card-clickable:focus-visible {
+  outline: 2px solid var(--color-primary, #1a73e8);
+  outline-offset: 2px;
+}
+
+body.dark-mode .card-clickable:focus-visible {
+  outline-color: #8ab4f8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .card-padding-medium {
+    padding: var(--space-3);
+  }
+
+  .card-padding-large {
+    padding: var(--space-4);
+  }
+}

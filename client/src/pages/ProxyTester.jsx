@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import {
   Globe, CheckCircle, XCircle, Clock, AlertCircle, X,
   Play, FileText, Download, RefreshCw, Link, TrendingUp, BarChart3, Upload,
   Shuffle, ArrowRight, Zap, FileJson
 } from 'lucide-react'
 import * as api from '../services/api'
-import { ProxyResultsSkeleton } from '../components/SkeletonLoader'
-import LoadingState from '../components/LoadingState'
+import { ProxyResultsSkeleton, ProxyListSkeleton, InlineButtonSkeleton } from '../components/SkeletonLoader'
 import '../styles/ProxyTester.css'
 
 function ProxyTester({ darkMode, toggleDarkMode }) {
@@ -63,7 +62,7 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
       setLoadingProxies(true)
       const data = await api.listProxies()
       setProxies(data.proxies || [])
-    } catch (err) {
+    } catch {
       setError('Failed to load proxies list')
     } finally {
       setLoadingProxies(false)
@@ -322,7 +321,7 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
               disabled={loadingProxies}
             >
               <RefreshCw size={16} />
-              {loadingProxies ? <LoadingState type="loading-proxies" size="small" className="loading-inline" /> : 'Load Proxies'}
+              {loadingProxies ? <InlineButtonSkeleton /> : 'Load Proxies'}
             </button>
 
             <button 
@@ -419,7 +418,7 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
                         onClick={() => setRotationStrategy('random')}
                         disabled={testing}
                       >
-                        <Shuffle size={16} />
+                        {getRotationStrategyIcon('random')}
                         <div>
                           <div className="strategy-name">Random</div>
                           <div className="strategy-desc">Randomly select</div>
@@ -430,7 +429,7 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
                         onClick={() => setRotationStrategy('round-robin')}
                         disabled={testing}
                       >
-                        <ArrowRight size={16} />
+                        {getRotationStrategyIcon('round-robin')}
                         <div>
                           <div className="strategy-name">Round-robin</div>
                           <div className="strategy-desc">Sequential order</div>
@@ -441,7 +440,7 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
                         onClick={() => setRotationStrategy('fastest-first')}
                         disabled={testing}
                       >
-                        <Zap size={16} />
+                        {getRotationStrategyIcon('fastest-first')}
                         <div>
                           <div className="strategy-name">Fastest-first</div>
                           <div className="strategy-desc">Prioritize speed</div>
@@ -539,23 +538,34 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
                       Working Proxies ({results.working.length})
                     </h3>
                     <div className="proxy-list">
-                      {results.working.map((proxy, idx) => (
-                        <div key={idx} className="proxy-item working">
-                          <div className="proxy-status">
-                            <CheckCircle size={16} />
+                      {results.working.map((proxy, idx) => {
+                        const trend = getProxyPerformanceTrend(proxy.proxy)
+                        const hasTrend = trend.length > 1
+                        
+                        return (
+                          <div key={idx} className="proxy-item working">
+                            <div className="proxy-status">
+                              <CheckCircle size={16} />
+                            </div>
+                            <div className="proxy-info">
+                              <div className="proxy-address">{proxy.proxy}</div>
+                              {proxy.response && (
+                                <div className="proxy-response">{proxy.response}</div>
+                              )}
+                              {hasTrend && (
+                                <div className="proxy-trend">
+                                  <TrendingUp size={12} />
+                                  <span>{trend.length} tests in history</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="proxy-time">
+                              <Clock size={14} />
+                              {proxy.response_time}
+                            </div>
                           </div>
-                          <div className="proxy-info">
-                            <div className="proxy-address">{proxy.proxy}</div>
-                            {proxy.response && (
-                              <div className="proxy-response">{proxy.response}</div>
-                            )}
-                          </div>
-                          <div className="proxy-time">
-                            <Clock size={14} />
-                            {proxy.response_time}
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}

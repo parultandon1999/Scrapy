@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import {
   Settings, Clock, Shield, Download, Globe, Eye, EyeOff,
   AlertCircle, X, ToggleRight, Upload, Save, Zap, Target, Ghost, Info, FileDown
 } from 'lucide-react'
-import ToggleSwitch from '../components/ToggleSwitch'
+import ToggleSwitch from '../components/mui/ToggleSwitch'
 import * as api from '../services/api'
-import { ConfigSectionSkeleton } from '../components/SkeletonLoader'
-import LoadingState from '../components/LoadingState'
+import { ConfigSectionSkeleton, ConfigPageSkeleton, InlineButtonSkeleton } from '../components/SkeletonLoader'
 import '../styles/Config.css'
 
 function Config({ darkMode, toggleDarkMode }) {
@@ -245,7 +244,7 @@ function Config({ darkMode, toggleDarkMode }) {
       const data = await api.getConfig()
       setConfig(data)
       setOriginalConfig(JSON.parse(JSON.stringify(data))) // Deep clone
-    } catch (err) {
+    } catch {
       setError('Failed to load configuration')
     } finally {
       setLoading(false)
@@ -622,7 +621,7 @@ function Config({ darkMode, toggleDarkMode }) {
             <h2><Settings size={20} /> Configuration</h2>
           </aside>
           <main className="db-main">
-            <LoadingState type="loading-config" size="large" />
+            <ConfigPageSkeleton />
           </main>
         </div>
         <Footer />
@@ -745,7 +744,7 @@ function Config({ darkMode, toggleDarkMode }) {
                     onClick={() => handleSaveSection(activeSection)}
                     disabled={saving || !unsavedChanges[activeSection] || Object.keys(validationErrors).some(k => k.startsWith(`${activeSection}.`))}
                   >
-                    {saving ? <LoadingState type="saving-config" size="small" className="loading-inline" /> : 'Save Changes'}
+                    {saving ? <InlineButtonSkeleton /> : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -825,7 +824,7 @@ function Config({ darkMode, toggleDarkMode }) {
                   onClick={handleImportConfig}
                   disabled={!importText || saving}
                 >
-                  {saving ? <LoadingState type="importing-config" size="small" className="loading-inline" /> : 'Import'}
+                  {saving ? <InlineButtonSkeleton /> : 'Import'}
                 </button>
               </div>
             </div>

@@ -4,86 +4,79 @@ import '../styles/Tour.css'
 
 function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
   const [currentStep, setCurrentStep] = useState(-1) // -1 for welcome screen
-  const [isActive, setIsActive] = useState(false)
+  const [isActive, setIsActive] = useState(() => {
+    const tourCompleted = localStorage.getItem('tourCompleted')
+    return !tourCompleted && showWelcome
+  })
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
   const [spotlightRect, setSpotlightRect] = useState(null)
   const tooltipRef = useRef(null)
 
   useEffect(() => {
-    // Check if user has completed tour
-    const tourCompleted = localStorage.getItem('tourCompleted')
-    if (!tourCompleted && showWelcome) {
-      setIsActive(true)
-    }
-  }, [showWelcome])
-
-  useEffect(() => {
-    if (currentStep >= 0 && currentStep < steps.length) {
-      updatePositions()
-      window.addEventListener('resize', updatePositions)
-      window.addEventListener('scroll', updatePositions)
-      
-      return () => {
-        window.removeEventListener('resize', updatePositions)
-        window.removeEventListener('scroll', updatePositions)
-      }
-    }
-  }, [currentStep, steps])
-
-  const updatePositions = () => {
     if (currentStep < 0 || currentStep >= steps.length) return
 
-    const step = steps[currentStep]
-    const element = document.querySelector(step.target)
+    const updatePositions = () => {
+      const step = steps[currentStep]
+      const element = document.querySelector(step.target)
+      
+      if (!element) return
+
+      const rect = element.getBoundingClientRect()
+      setSpotlightRect(rect)
+
+      // Calculate tooltip position
+      const tooltipWidth = 400
+      const tooltipHeight = 200
+      const padding = 20
+
+      let top = 0
+      let left = 0
+      let position = step.placement || 'bottom'
+
+      switch (position) {
+        case 'bottom':
+          top = rect.bottom + padding
+          left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
+          break
+        case 'top':
+          top = rect.top - tooltipHeight - padding
+          left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
+          break
+        case 'left':
+          top = rect.top + (rect.height / 2) - (tooltipHeight / 2)
+          left = rect.left - tooltipWidth - padding
+          break
+        case 'right':
+          top = rect.top + (rect.height / 2) - (tooltipHeight / 2)
+          left = rect.right + padding
+          break
+        default:
+          top = rect.bottom + padding
+          left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
+      }
+
+      // Keep tooltip in viewport
+      if (left < 10) left = 10
+      if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10
+      }
+      if (top < 10) top = 10
+      if (top + tooltipHeight > window.innerHeight - 10) {
+        top = window.innerHeight - tooltipHeight - 10
+      }
+
+      setTooltipPosition({ top, left, position })
+    }
+
+    updatePositions()
+    window.addEventListener('resize', updatePositions)
+    window.addEventListener('scroll', updatePositions)
     
-    if (!element) return
-
-    const rect = element.getBoundingClientRect()
-    setSpotlightRect(rect)
-
-    // Calculate tooltip position
-    const tooltipWidth = 400
-    const tooltipHeight = 200
-    const padding = 20
-
-    let top = 0
-    let left = 0
-    let position = step.placement || 'bottom'
-
-    switch (position) {
-      case 'bottom':
-        top = rect.bottom + padding
-        left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
-        break
-      case 'top':
-        top = rect.top - tooltipHeight - padding
-        left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
-        break
-      case 'left':
-        top = rect.top + (rect.height / 2) - (tooltipHeight / 2)
-        left = rect.left - tooltipWidth - padding
-        break
-      case 'right':
-        top = rect.top + (rect.height / 2) - (tooltipHeight / 2)
-        left = rect.right + padding
-        break
-      default:
-        top = rect.bottom + padding
-        left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
+    return () => {
+      window.removeEventListener('resize', updatePositions)
+      window.removeEventListener('scroll', updatePositions)
     }
-
-    // Keep tooltip in viewport
-    if (left < 10) left = 10
-    if (left + tooltipWidth > window.innerWidth - 10) {
-      left = window.innerWidth - tooltipWidth - 10
-    }
-    if (top < 10) top = 10
-    if (top + tooltipHeight > window.innerHeight - 10) {
-      top = window.innerHeight - tooltipHeight - 10
-    }
-
-    setTooltipPosition({ top, left, position })
-  }
+  }, [currentStep, steps])
 
   const handleStart = () => {
     setCurrentStep(0)

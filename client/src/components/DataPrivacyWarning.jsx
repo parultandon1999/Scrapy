@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import Button from './Button'
+import Button from './mui/Button'
 import { AlertTriangle, X, Shield, Lock, Eye } from 'lucide-react'
 import '../styles/DataPrivacyWarning.css'
 
@@ -8,24 +8,26 @@ import '../styles/DataPrivacyWarning.css'
  * Shows on first visit and can be dismissed
  */
 function DataPrivacyWarning() {
-  const [isVisible, setIsVisible] = useState(false)
   const [isDismissed, setIsDismissed] = useState(false)
 
-  useEffect(() => {
-    // Check if user has already dismissed the warning
+  // Calculate initial visibility state
+  const getInitialVisibility = () => {
     const dismissed = localStorage.getItem('privacy_warning_dismissed')
     const dismissedDate = localStorage.getItem('privacy_warning_dismissed_date')
     
     if (!dismissed) {
-      // Show warning on first visit
-      setIsVisible(true)
+      return true
     } else if (dismissedDate) {
-      // Show warning again after 30 days
       const daysSinceDismissed = (Date.now() - parseInt(dismissedDate)) / (1000 * 60 * 60 * 24)
-      if (daysSinceDismissed > 30) {
-        setIsVisible(true)
-      }
+      return daysSinceDismissed > 30
     }
+    return false
+  }
+
+  const [isVisible, setIsVisible] = useState(getInitialVisibility)
+
+  useEffect(() => {
+    // Effect only for side effects, not for setting initial state
   }, [])
 
   const handleDismiss = () => {

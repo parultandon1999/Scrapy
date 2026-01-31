@@ -1,0 +1,128 @@
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.stat-card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--color-primary, #1a73e8);
+}
+
+body.dark-mode .stat-card-icon {
+  background: rgba(138, 180, 248, 0.1);
+  color: #8ab4f8;
+}
+
+.stat-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-card-title {
+  font-size: var(--font-size-sm);
+  color: #5f6368;
+  margin-bottom: var(--space-1);
+}
+
+body.dark-mode .stat-card-title {
+  color: #9aa0a6;
+}
+
+.stat-card-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: #202124;
+  line-height: 1.2;
+}
+
+body.dark-mode .stat-card-value {
+  color: #e8eaed;
+}
+
+.stat-card-subtitle {
+  font-size: var(--font-size-xs);
+  color: #5f6368;
+  margin-top: var(--space-1);
+}
+
+body.dark-mode .stat-card-subtitle {
+  color: #9aa0a6;
+}
+
+.stat-card-trend {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.stat-card-trend.trend-up {
+  color: var(--color-success, #34a853);
+}
+
+.stat-card-trend.trend-down {
+  color: var(--color-danger, #ea4335);
+}
+
+/* Color Variants */
+.stat-card-primary .stat-card-icon {
+  background: rgba(26, 115, 232, 0.1);
+  color: var(--color-primary, #1a73e8);
+}
+
+body.dark-mode .stat-card-primary .stat-card-icon {
+  background: rgba(138, 180, 248, 0.1);
+  color: #8ab4f8;
+}
+
+.stat-card-success .stat-card-icon {
+  background: rgba(52, 168, 83, 0.1);
+  color: var(--color-success, #34a853);
+}
+
+body.dark-mode .stat-card-success .stat-card-icon {
+  background: rgba(81, 207, 102, 0.1);
+  color: #51cf66;
+}
+
+.stat-card-danger .stat-card-icon {
+  background: rgba(234, 67, 53, 0.1);
+  color: var(--color-danger, #ea4335);
+}
+
+body.dark-mode .stat-card-danger .stat-card-icon {
+  background: rgba(255, 107, 107, 0.1);
+  color: #ff6b6b;
+}
+
+.stat-card-warning .stat-card-icon {
+  background: rgba(251, 188, 4, 0.1);
+  color: var(--color-warning, #fbbc04);
+}
+
+body.dark-mode .stat-card-warning .stat-card-icon {
+  background: rgba(255, 212, 59, 0.1);
+  color: #ffd43b;
+}
+
+.stat-card-secondary .stat-card-icon {
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--color-secondary, #667eea);
+}
+
+body.dark-mode .stat-card-secondary .stat-card-icon {
+  background: rgba(124, 143, 240, 0.1);
+  color: #7c8ff0;
+}

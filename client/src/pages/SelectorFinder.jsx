@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
-import Breadcrumb from '../components/Breadcrumb'
+import Breadcrumb from '../components/mui/Breadcrumb'
 import {
   Search, Copy, CheckCircle, XCircle, AlertCircle, X,
   FileCode, MousePointer, FormInput, TestTube, Plus, Minus, Image, Sparkles, Shield,
   BookmarkPlus, Library, Trash2, Star, Edit2, Save
 } from 'lucide-react'
 import * as api from '../services/api'
-import { SelectorResultsSkeleton } from '../components/SkeletonLoader'
-import LoadingState from '../components/LoadingState'
+import { SelectorResultsSkeleton, SelectorAnalysisSkeleton, InlineButtonSkeleton } from '../components/SkeletonLoader'
 import '../styles/SelectorFinder.css'
 
 function SelectorFinder({ darkMode, toggleDarkMode }) {
@@ -290,7 +289,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
     navigator.clipboard.writeText(text)
   }
 
-  const useSuggestedSelector = (field, selector) => {
+  const handleUseSuggestedSelector = (field, selector) => {
     setTestData(prev => ({
       ...prev,
       [field]: selector
@@ -298,7 +297,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
     setActiveSection('test')
   }
 
-  const useForSelectorTest = (selector) => {
+  const handleUseForSelectorTest = (selector) => {
     setTestSelectorInput(selector)
     setTestSelectorUrl(loginUrl || findUrl || testSelectorUrl)
     setActiveSection('selector-test')
@@ -380,7 +379,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
             onClick={handleAnalyze}
             disabled={loading || !loginUrl}
           >
-            {loading ? <LoadingState type="analyzing-login" size="small" className="loading-inline" /> : 'Analyze'}
+            {loading ? <InlineButtonSkeleton /> : 'Analyze'}
           </button>
         </div>
       </aside>
@@ -408,7 +407,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
         )}
 
         {/* Analyze Section */}
-        {activeSection === 'analyze' && loading && <LoadingState type="analyzing-login" size="large" />}
+        {activeSection === 'analyze' && loading && <SelectorAnalysisSkeleton />}
         {activeSection === 'analyze' && results && (
           <div className="selector-view">
             <div className="view-header-compact">
@@ -440,14 +439,14 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                         </button>
                         <button
                           className="icon-btn test-btn"
-                          onClick={() => useForSelectorTest(results.suggested_config.username_selector)}
+                          onClick={() => handleUseForSelectorTest(results.suggested_config.username_selector)}
                           title="Test this selector"
                         >
                           <TestTube size={14} />
                         </button>
                         <button
                           className="icon-btn"
-                          onClick={() => useSuggestedSelector('usernameSelector', results.suggested_config.username_selector)}
+                          onClick={() => handleUseSuggestedSelector('usernameSelector', results.suggested_config.username_selector)}
                           title="Use in test"
                         >
                           <MousePointer size={14} />
@@ -469,14 +468,14 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                         </button>
                         <button
                           className="icon-btn test-btn"
-                          onClick={() => useForSelectorTest(results.suggested_config.password_selector)}
+                          onClick={() => handleUseForSelectorTest(results.suggested_config.password_selector)}
                           title="Test this selector"
                         >
                           <TestTube size={14} />
                         </button>
                         <button
                           className="icon-btn"
-                          onClick={() => useSuggestedSelector('passwordSelector', results.suggested_config.password_selector)}
+                          onClick={() => handleUseSuggestedSelector('passwordSelector', results.suggested_config.password_selector)}
                           title="Use in test"
                         >
                           <MousePointer size={14} />
@@ -498,14 +497,14 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                         </button>
                         <button
                           className="icon-btn test-btn"
-                          onClick={() => useForSelectorTest(results.suggested_config.submit_selector)}
+                          onClick={() => handleUseForSelectorTest(results.suggested_config.submit_selector)}
                           title="Test this selector"
                         >
                           <TestTube size={14} />
                         </button>
                         <button
                           className="icon-btn"
-                          onClick={() => useSuggestedSelector('submitSelector', results.suggested_config.submit_selector)}
+                          onClick={() => handleUseSuggestedSelector('submitSelector', results.suggested_config.submit_selector)}
                           title="Use in test"
                         >
                           <MousePointer size={14} />
@@ -694,7 +693,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={testLoading}
               >
-                {testLoading ? <LoadingState type="testing-login" size="small" className="loading-inline" /> : 'Test Login'}
+                {testLoading ? <InlineButtonSkeleton /> : 'Test Login'}
               </button>
             </form>
 
@@ -790,7 +789,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={testSelectorLoading}
               >
-                {testSelectorLoading ? <LoadingState type="testing-selector" size="small" className="loading-inline" /> : 'Test Selector'}
+                {testSelectorLoading ? <InlineButtonSkeleton /> : 'Test Selector'}
               </button>
             </form>
 
@@ -991,7 +990,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={generateLoading}
               >
-                {generateLoading ? <LoadingState type="generating-selectors" size="small" className="loading-inline" /> : 'Generate Selectors'}
+                {generateLoading ? <InlineButtonSkeleton /> : 'Generate Selectors'}
               </button>
             </form>
 
@@ -1198,14 +1197,14 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={findLoading}
               >
-                {findLoading ? <LoadingState type="searching-elements" size="small" className="loading-inline" /> : 'Find Elements'}
+                {findLoading ? <InlineButtonSkeleton /> : 'Find Elements'}
               </button>
             </form>
 
             {/* Find Results */}
             {findResults && findResults.results_by_query && (
               <div className="queries-results">
-                {Object.entries(findResults.results_by_query).map(([searchKey, queryData], queryIdx) => (
+                {Object.entries(findResults.results_by_query).map(([, queryData], queryIdx) => (
                   <div className="result-card query-result" key={queryIdx}>
                     <div className="card-header">
                       <h3>

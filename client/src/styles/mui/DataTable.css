@@ -1,0 +1,82 @@
+.data-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid #dadce0;
+}
+
+body.dark-mode .data-table-wrapper {
+  border-color: #444;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.data-table thead {
+  background: #f8f9fa;
+  border-bottom: 2px solid #dadce0;
+}
+
+body.dark-mode .data-table thead {
+  background: #1a1a1a;
+  border-bottom-color: #444;
+}
+
+.data-table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: #202124;
+  white-space: nowrap;
+}
+
+body.dark-mode .data-table th {
+  color: #e8eaed;
+}
+
+.data-table td {
+  padding: var(--space-3) var(--space-4);
+  color: #5f6368;
+  border-bottom: 1px solid #dadce0;
+}
+
+body.dark-mode .data-table td {
+  color: #9aa0a6;
+  border-bottom-color: #444;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Striped */
+.data-table-striped tbody tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+body.dark-mode .data-table-striped tbody tr:nth-child(even) {
+  background: #1a1a1a;
+}
+
+/* Hoverable */
+.data-table-hoverable tbody tr:hover {
+  background: #f8f9fa;
+}
+
+body.dark-mode .data-table-hoverable tbody tr:hover {
+  background: #333;
+}
+
+/* Clickable */
+.data-table tbody tr.clickable {
+  cursor: pointer;
+}
+
+/* Compact */
+.data-table-compact th,
+.data-table-compact td {
+  padding: var(--space-2) var(--space-3);
+}
