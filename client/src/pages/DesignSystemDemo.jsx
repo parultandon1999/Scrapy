@@ -1,7 +1,7 @@
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import Breadcrumb from '../components/Breadcrumb'
-import { Palette, Ruler, Type, Layout } from '@phosphor-icons/react'
+import { Palette, Ruler, TextT, Layout } from '@phosphor-icons/react'
 import '../styles/DesignSystemDemo.css'
 
 function DesignSystemDemo({ darkMode, toggleDarkMode }) {
@@ -94,7 +94,7 @@ function DesignSystemDemo({ darkMode, toggleDarkMode }) {
         {/* Typography Scale */}
         <section className="design-section">
           <div className="section-header">
-            <Type size={24} weight="duotone" />
+            <TextT size={24} weight="duotone" />
             <h2>Typography Scale</h2>
           </div>
           <div className="typography-grid">
@@ -199,7 +199,7 @@ function DesignSystemDemo({ darkMode, toggleDarkMode }) {
         {/* Usage Guide */}
         <section className="design-section">
           <div className="section-header">
-            <Type size={24} weight="duotone" />
+            <TextT size={24} weight="duotone" />
             <h2>Usage Guidelines</h2>
           </div>
           <div className="usage-guide">
