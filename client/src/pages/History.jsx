@@ -21,12 +21,17 @@ function History({ darkMode, toggleDarkMode }) {
   const [error, setError] = useState(null)
   const [sortBy, setSortBy] = useState('recent')
   const [filterDomain, setFilterDomain] = useState('')
+  const [selectedForComparison, setSelectedForComparison] = useState([])
+  const [comparisonData, setComparisonData] = useState(null)
+  const [timelineData, setTimelineData] = useState(null)
 
   useEffect(() => {
     if (activeView === 'sessions') {
       fetchSessions()
     } else if (activeView === 'statistics') {
       fetchStatistics()
+    } else if (activeView === 'timeline') {
+      fetchTimeline()
     }
   }, [activeView])
 
@@ -49,6 +54,53 @@ function History({ darkMode, toggleDarkMode }) {
       setStatistics(data)
     } catch (err) {
       setError('Failed to load statistics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchTimeline = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getScrapingTimeline()
+      setTimelineData(data)
+    } catch (err) {
+      setError('Failed to load timeline')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleSessionForComparison = (domain) => {
+    setSelectedForComparison(prev => {
+      if (prev.includes(domain)) {
+        return prev.filter(d => d !== domain)
+      } else if (prev.length < 2) {
+        return [...prev, domain]
+      } else {
+        alert('You can only compare 2 sessions at a time')
+        return prev
+      }
+    })
+  }
+
+  const handleCompare = async () => {
+    if (selectedForComparison.length !== 2) {
+      alert('Please select exactly 2 sessions to compare')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const [session1, session2] = await Promise.all([
+        api.getSessionDetails(selectedForComparison[0]),
+        api.getSessionDetails(selectedForComparison[1])
+      ])
+      
+      setComparisonData({ session1, session2 })
+      setActiveView('comparison')
+    } catch (err) {
+      setError('Failed to load comparison data')
     } finally {
       setLoading(false)
     }
@@ -149,6 +201,13 @@ function History({ darkMode, toggleDarkMode }) {
             Sessions
           </button>
           <button 
+            className={`db-nav-item ${activeView === 'timeline' ? 'active' : ''}`}
+            onClick={() => setActiveView('timeline')}
+          >
+            <Calendar size={18} />
+            Timeline
+          </button>
+          <button 
             className={`db-nav-item ${activeView === 'statistics' ? 'active' : ''}`}
             onClick={() => setActiveView('statistics')}
           >
@@ -197,12 +256,49 @@ function History({ darkMode, toggleDarkMode }) {
               </div>
             </div>
 
+            {/* Comparison Toolbar */}
+            {selectedForComparison.length > 0 && (
+              <div className="comparison-toolbar">
+                <div className="comparison-info">
+                  <CheckCircle size={16} />
+                  <span>{selectedForComparison.length} session{selectedForComparison.length !== 1 ? 's' : ''} selected for comparison</span>
+                </div>
+                <div className="comparison-buttons">
+                  <button 
+                    onClick={handleCompare} 
+                    className="compare-btn"
+                    disabled={selectedForComparison.length !== 2}
+                  >
+                    <BarChart3 size={16} />
+                    Compare Sessions
+                  </button>
+                  <button 
+                    onClick={() => setSelectedForComparison([])} 
+                    className="clear-comparison-btn"
+                  >
+                    <X size={16} />
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+
             {getSortedSessions().length > 0 ? (
               <div className="sessions-grid-compact">
                 {getSortedSessions().map((session, idx) => (
-                  <div key={idx} className="session-card-compact">
+                  <div 
+                    key={idx} 
+                    className={`session-card-compact ${selectedForComparison.includes(session.domain) ? 'selected' : ''}`}
+                  >
                     <div className="session-header-compact">
                       <div className="session-domain-compact">
+                        <input
+                          type="checkbox"
+                          checked={selectedForComparison.includes(session.domain)}
+                          onChange={() => toggleSessionForComparison(session.domain)}
+                          className="session-checkbox"
+                          onClick={(e) => e.stopPropagation()}
+                        />
                         <Globe size={16} />
                         <h3>{getDomain(session.domain)}</h3>
                       </div>
@@ -481,6 +577,243 @@ function History({ darkMode, toggleDarkMode }) {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Timeline View */}
+        {activeView === 'timeline' && timelineData && !loading && (
+          <div className="timeline-view">
+            <h1><Calendar size={24} /> Scraping Timeline</h1>
+            
+            <div className="timeline-visual">
+              {timelineData.timeline && timelineData.timeline.length > 0 ? (
+                <>
+                  <div className="timeline-chart">
+                    {timelineData.timeline.map((item, idx) => {
+                      const maxPages = Math.max(...timelineData.timeline.map(t => t.pages_scraped))
+                      const height = (item.pages_scraped / maxPages) * 100
+                      
+                      return (
+                        <div key={idx} className="timeline-bar-wrapper">
+                          <div 
+                            className="timeline-bar"
+                            style={{ height: `${height}%` }}
+                            title={`${item.date}: ${item.pages_scraped} pages`}
+                          >
+                            <span className="timeline-bar-value">{item.pages_scraped}</span>
+                          </div>
+                          <div className="timeline-bar-label">{item.date}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="timeline-list">
+                    {timelineData.timeline.map((item, idx) => (
+                      <div key={idx} className="timeline-item-card">
+                        <div className="timeline-item-date">
+                          <Calendar size={16} />
+                          <strong>{item.date}</strong>
+                        </div>
+                        <div className="timeline-item-stats">
+                          <div className="timeline-stat">
+                            <FileText size={14} />
+                            <span>{item.pages_scraped} pages</span>
+                          </div>
+                          <div className="timeline-stat">
+                            <Layers size={14} />
+                            <span>{item.depths_reached} depths</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="no-data-card">
+                  <Calendar size={48} />
+                  <h3>No timeline data</h3>
+                  <p>Start scraping to see activity over time</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Comparison View */}
+        {activeView === 'comparison' && comparisonData && !loading && (
+          <div className="comparison-view">
+            <div className="view-header-compact">
+              <h1><BarChart3 size={24} /> Session Comparison</h1>
+              <button onClick={() => setActiveView('sessions')} className="back-btn-compact">
+                <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} /> Back
+              </button>
+            </div>
+
+            <div className="comparison-grid">
+              {/* Session 1 */}
+              <div className="comparison-column">
+                <div className="comparison-header">
+                  <Globe size={20} />
+                  <h2>{getDomain(comparisonData.session1.domain)}</h2>
+                </div>
+
+                <div className="comparison-stats">
+                  <div className="comparison-stat-card">
+                    <FileText size={16} />
+                    <div>
+                      <div className="stat-label">Pages</div>
+                      <div className="stat-value">{comparisonData.session1.overview.total_pages}</div>
+                    </div>
+                  </div>
+                  <div className="comparison-stat-card">
+                    <Layers size={16} />
+                    <div>
+                      <div className="stat-label">Max Depth</div>
+                      <div className="stat-value">D{comparisonData.session1.overview.max_depth}</div>
+                    </div>
+                  </div>
+                  <div className="comparison-stat-card">
+                    <Clock size={16} />
+                    <div>
+                      <div className="stat-label">Duration</div>
+                      <div className="stat-value">
+                        {formatDuration(comparisonData.session1.overview.end_time - comparisonData.session1.overview.start_time)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="comparison-stat-card">
+                    <Download size={16} />
+                    <div>
+                      <div className="stat-label">Files</div>
+                      <div className="stat-value">
+                        {comparisonData.session1.file_stats.reduce((sum, f) => sum + f.count, 0)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="comparison-chart">
+                  <h3>Depth Distribution</h3>
+                  <div className="chart-container">
+                    {comparisonData.session1.depth_distribution.map((item, idx) => (
+                      <div key={idx} className="chart-bar-item">
+                        <span className="chart-label">D{item.depth}</span>
+                        <div className="chart-bar-bg">
+                          <div
+                            className="chart-bar-fill"
+                            style={{
+                              width: `${(item.count / Math.max(...comparisonData.session1.depth_distribution.map(d => d.count))) * 100}%`
+                            }}
+                          ></div>
+                        </div>
+                        <span className="chart-value">{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* VS Divider */}
+              <div className="comparison-divider">
+                <div className="vs-badge">VS</div>
+              </div>
+
+              {/* Session 2 */}
+              <div className="comparison-column">
+                <div className="comparison-header">
+                  <Globe size={20} />
+                  <h2>{getDomain(comparisonData.session2.domain)}</h2>
+                </div>
+
+                <div className="comparison-stats">
+                  <div className="comparison-stat-card">
+                    <FileText size={16} />
+                    <div>
+                      <div className="stat-label">Pages</div>
+                      <div className="stat-value">{comparisonData.session2.overview.total_pages}</div>
+                    </div>
+                  </div>
+                  <div className="comparison-stat-card">
+                    <Layers size={16} />
+                    <div>
+                      <div className="stat-label">Max Depth</div>
+                      <div className="stat-value">D{comparisonData.session2.overview.max_depth}</div>
+                    </div>
+                  </div>
+                  <div className="comparison-stat-card">
+                    <Clock size={16} />
+                    <div>
+                      <div className="stat-label">Duration</div>
+                      <div className="stat-value">
+                        {formatDuration(comparisonData.session2.overview.end_time - comparisonData.session2.overview.start_time)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="comparison-stat-card">
+                    <Download size={16} />
+                    <div>
+                      <div className="stat-label">Files</div>
+                      <div className="stat-value">
+                        {comparisonData.session2.file_stats.reduce((sum, f) => sum + f.count, 0)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="comparison-chart">
+                  <h3>Depth Distribution</h3>
+                  <div className="chart-container">
+                    {comparisonData.session2.depth_distribution.map((item, idx) => (
+                      <div key={idx} className="chart-bar-item">
+                        <span className="chart-label">D{item.depth}</span>
+                        <div className="chart-bar-bg">
+                          <div
+                            className="chart-bar-fill"
+                            style={{
+                              width: `${(item.count / Math.max(...comparisonData.session2.depth_distribution.map(d => d.count))) * 100}%`
+                            }}
+                          ></div>
+                        </div>
+                        <span className="chart-value">{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Comparison Summary */}
+            <div className="comparison-summary">
+              <h3>Comparison Summary</h3>
+              <div className="summary-grid">
+                <div className="summary-item">
+                  <span className="summary-label">More Pages:</span>
+                  <span className="summary-value">
+                    {comparisonData.session1.overview.total_pages > comparisonData.session2.overview.total_pages
+                      ? getDomain(comparisonData.session1.domain)
+                      : getDomain(comparisonData.session2.domain)}
+                  </span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Deeper Crawl:</span>
+                  <span className="summary-value">
+                    {comparisonData.session1.overview.max_depth > comparisonData.session2.overview.max_depth
+                      ? getDomain(comparisonData.session1.domain)
+                      : getDomain(comparisonData.session2.domain)}
+                  </span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">Faster:</span>
+                  <span className="summary-value">
+                    {(comparisonData.session1.overview.end_time - comparisonData.session1.overview.start_time) <
+                     (comparisonData.session2.overview.end_time - comparisonData.session2.overview.start_time)
+                      ? getDomain(comparisonData.session1.domain)
+                      : getDomain(comparisonData.session2.domain)}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         )}

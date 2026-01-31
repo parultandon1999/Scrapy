@@ -78,6 +78,7 @@ class Scraper:
         """
         self.start_url = self._normalize_url(start_url)
         self.should_stop = False
+        self.is_paused = False
         self.domain = urlparse(self.start_url).netloc
         
         # Load configuration overrides or defaults
@@ -1312,6 +1313,14 @@ class Scraper:
             if self.should_stop:
                 self.logger.info(f"[Worker {worker_id}] Stopping...")
                 break
+            
+            # Check if paused
+            while self.is_paused:
+                self.logger.debug(f"[Worker {worker_id}] Paused, waiting...")
+                await asyncio.sleep(1)
+                if self.should_stop:
+                    self.logger.info(f"[Worker {worker_id}] Stopping while paused...")
+                    return
             
             url = None
             depth = 0

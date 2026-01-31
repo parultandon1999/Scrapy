@@ -45,6 +45,16 @@ export const stopScraper = async () => {
   return response.data
 }
 
+export const pauseScraper = async () => {
+  const response = await apiClient.post('/api/scraper/pause')
+  return response.data
+}
+
+export const resumeScraper = async () => {
+  const response = await apiClient.post('/api/scraper/resume')
+  return response.data
+}
+
 export const getConfig = async () => {
   const response = await apiClient.get('/api/config')
   return response.data

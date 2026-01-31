@@ -30,8 +30,32 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
   const [imageViewerOpen, setImageViewerOpen] = useState(false)
   const [currentImage, setCurrentImage] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [pendingUpdates, setPendingUpdates] = useState({ pages: [], files: [] })
+  const updateTimeoutRef = useRef(null)
+  const lastUpdateRef = useRef(Date.now())
+  const [visiblePageCount, setVisiblePageCount] = useState(20)
+  const [visibleFileCount, setVisibleFileCount] = useState(20)
+  const [isExporting, setIsExporting] = useState(false)
+  const [startTime, setStartTime] = useState(null)
+  const [eta, setEta] = useState(null)
+  const [scrapingRate, setScrapingRate] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [collapsedFileTypes, setCollapsedFileTypes] = useState({})
+  const [speedHistory, setSpeedHistory] = useState([])
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const detailedPageRef = useRef(null)
+  const tabsRef = useRef(null)
 
   useEffect(() => {
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        setNotificationsEnabled(permission === 'granted')
+      })
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      setNotificationsEnabled(true)
+    }
+
     if (sessionId && !location.state?.isLiveScraping) {
       setIsHistoryView(true)
       if (location.state?.viewHistoryUrl) {
@@ -84,13 +108,71 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
   const startPolling = () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
-    intervalRef.current = setInterval(fetchStatus, 2000)
+    // Increased to 3 seconds to reduce update frequency
+    intervalRef.current = setInterval(fetchStatus, 3000)
   }
 
   const stopPolling = () => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
+    }
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current)
+      updateTimeoutRef.current = null
+    }
+  }
+
+  // Debounced update function to batch UI updates
+  const scheduleUpdate = (newPages, newFiles) => {
+    // Add to pending updates
+    setPendingUpdates(prev => ({
+      pages: [...prev.pages, ...newPages],
+      files: [...prev.files, ...newFiles]
+    }))
+
+    // Clear existing timeout
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current)
+    }
+
+    // Schedule batched update after 2 seconds or if enough items accumulated
+    const timeSinceLastUpdate = Date.now() - lastUpdateRef.current
+    const shouldUpdateImmediately = timeSinceLastUpdate > 5000 || 
+                                    (newPages.length + newFiles.length) > 50
+
+    if (shouldUpdateImmediately) {
+      applyPendingUpdates()
+    } else {
+      updateTimeoutRef.current = setTimeout(applyPendingUpdates, 2000)
+    }
+  }
+
+  const applyPendingUpdates = () => {
+    setPendingUpdates(pending => {
+      if (pending.pages.length > 0) {
+        setAllPages(prevPages => {
+          const existingIds = new Set(prevPages.map(p => p.id))
+          const newPages = pending.pages.filter(p => !existingIds.has(p.id))
+          return [...prevPages, ...newPages]
+        })
+      }
+
+      if (pending.files.length > 0) {
+        setAllFiles(prevFiles => {
+          const existingNames = new Set(prevFiles.map(f => f.file_name + f.downloaded_at))
+          const newFiles = pending.files.filter(f => !existingNames.has(f.file_name + f.downloaded_at))
+          return [...prevFiles, ...newFiles]
+        })
+      }
+
+      lastUpdateRef.current = Date.now()
+      return { pages: [], files: [] }
+    })
+
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current)
+      updateTimeoutRef.current = null
     }
   }
 
@@ -99,30 +181,72 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       const data = await api.getScraperStatus()
       setStatus(data)
       
+      // Initialize start time when scraping begins
+      if (data.running && !startTime && data.pages_scraped > 0) {
+        setStartTime(Date.now())
+      }
+      
+      // Calculate ETA and scraping rate
+      if (data.running && startTime && data.pages_scraped > 0) {
+        const elapsedSeconds = (Date.now() - startTime) / 1000
+        const rate = data.pages_scraped / elapsedSeconds
+        setScrapingRate(rate)
+        
+        // Track speed history for graph (keep last 20 data points)
+        setSpeedHistory(prev => {
+          const newHistory = [...prev, { time: Date.now(), rate }]
+          return newHistory.slice(-20)
+        })
+        
+        const remaining = data.max_pages - data.pages_scraped
+        if (rate > 0 && remaining > 0) {
+          const etaSeconds = remaining / rate
+          setEta(etaSeconds)
+        } else {
+          setEta(null)
+        }
+      } else if (!data.running) {
+        // Check if scraping just completed
+        const wasRunning = status?.running
+        if (wasRunning && !data.running && data.pages_scraped > 0) {
+          // Send notification
+          if (notificationsEnabled) {
+            new Notification('Scraping Complete! 🎉', {
+              body: `Successfully scraped ${data.pages_scraped} pages`,
+              icon: '/favicon.ico',
+              tag: 'scraping-complete'
+            })
+          }
+        }
+        
+        setStartTime(null)
+        setEta(null)
+        setScrapingRate(0)
+      }
+      
       if (data.session_id && data.session_id !== currentSessionId) {
         setAllPages([])
         setAllFiles([])
+        setPendingUpdates({ pages: [], files: [] })
         setCurrentSessionId(data.session_id)
+        setStartTime(null)
+        setEta(null)
+        setScrapingRate(0)
+        setSpeedHistory([])
       }
       
       if (!data.running && intervalRef.current) {
         stopPolling()
+        // Apply any pending updates immediately when scraping stops
+        applyPendingUpdates()
       }
       
-      if (data.recent_pages) {
-        setAllPages(prevPages => {
-          const existingIds = new Set(prevPages.map(p => p.id))
-          const newPages = data.recent_pages.filter(p => !existingIds.has(p.id))
-          return [...prevPages, ...newPages]
-        })
-      }
-
-      if (data.recent_files) {
-        setAllFiles(prevFiles => {
-          const existingNames = new Set(prevFiles.map(f => f.file_name + f.downloaded_at))
-          const newFiles = data.recent_files.filter(f => !existingNames.has(f.file_name + f.downloaded_at))
-          return [...prevFiles, ...newFiles]
-        })
+      // Use debounced updates instead of immediate updates
+      const newPages = data.recent_pages || []
+      const newFiles = data.recent_files || []
+      
+      if (newPages.length > 0 || newFiles.length > 0) {
+        scheduleUpdate(newPages, newFiles)
       }
       
       if (!data.running && data.pages_scraped === 0 && !isHistoryView) {
@@ -133,12 +257,78 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     }
   }
 
+  const formatETA = (seconds) => {
+    if (!seconds || seconds <= 0) return 'Calculating...'
+    
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = Math.floor(seconds % 60)
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`
+    } else {
+      return `${secs}s`
+    }
+  }
+
   const handleStop = async () => {
     try {
       await api.stopScraper()
       fetchStatus()
     } catch (err) {
       setError('Failed to stop scraper')
+    }
+  }
+
+  const handlePause = async () => {
+    try {
+      await api.pauseScraper()
+      fetchStatus()
+    } catch (err) {
+      setError('Failed to pause scraper')
+    }
+  }
+
+  const handleResume = async () => {
+    try {
+      await api.resumeScraper()
+      fetchStatus()
+    } catch (err) {
+      setError('Failed to resume scraper')
+    }
+  }
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const data = await api.exportData()
+      
+      // Create JSON blob
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      
+      // Create download link
+      const link = document.createElement('a')
+      link.href = url
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      link.download = `scraper-export-${timestamp}.json`
+      
+      // Trigger download
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      setError(null)
+    } catch (err) {
+      setError('Failed to export data')
+      console.error('Export error:', err)
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -171,6 +361,33 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
   const getPageFiles = (pageUrl) => {
     return allFiles.filter(file => file.page_url === pageUrl)
+  }
+
+  // Filter pages based on search query
+  const filteredPages = allPages.filter(page => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      page.url?.toLowerCase().includes(query) ||
+      page.title?.toLowerCase().includes(query)
+    )
+  })
+
+  // Group files by extension
+  const groupedFiles = allFiles.reduce((acc, file) => {
+    const ext = file.file_extension || 'unknown'
+    if (!acc[ext]) {
+      acc[ext] = []
+    }
+    acc[ext].push(file)
+    return acc
+  }, {})
+
+  const toggleFileTypeCollapse = (fileType) => {
+    setCollapsedFileTypes(prev => ({
+      ...prev,
+      [fileType]: !prev[fileType]
+    }))
   }
 
   const handleViewDetails = async (page) => {
@@ -221,6 +438,40 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     }
   }, [imageViewerOpen])
 
+  // Handle sticky tabs shadow on scroll
+  useEffect(() => {
+    const detailedPage = detailedPageRef.current
+    const tabs = tabsRef.current
+    
+    if (!detailedPage || !tabs) return
+
+    const handleScroll = () => {
+      const scrollTop = detailedPage.scrollTop
+      
+      // Add shadow to tabs when scrolled
+      if (scrollTop > 100) {
+        tabs.classList.add('scrolled')
+      } else {
+        tabs.classList.remove('scrolled')
+      }
+      
+      // Add shadow to header when scrolled
+      const header = detailedPage.querySelector('.detailed-page-header')
+      if (header) {
+        if (scrollTop > 10) {
+          header.classList.add('scrolled')
+        } else {
+          header.classList.remove('scrolled')
+        }
+      }
+    }
+
+    detailedPage.addEventListener('scroll', handleScroll)
+    return () => {
+      detailedPage.removeEventListener('scroll', handleScroll)
+    }
+  }, [detailedViewPage])
+
   return (
     <>
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
@@ -236,7 +487,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
               {status.running ? (
                 <div className="status-running">
                   <Play size={14} />
-                  <span>Scraping...</span>
+                  <span>{status.is_paused ? 'Paused' : 'Scraping...'}</span>
                 </div>
               ) : status.pages_scraped > 0 ? (
                 <div className={status.was_stopped ? 'status-stopped' : 'status-complete'}>
@@ -245,6 +496,21 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                 </div>
               ) : null}
             </div>
+
+            {/* Progress Bar */}
+            {status.max_pages > 0 && (
+              <div className="progress-bar-container">
+                <div className="progress-bar-wrapper">
+                  <div 
+                    className="progress-bar-fill"
+                    style={{ width: `${(status.pages_scraped / status.max_pages) * 100}%` }}
+                  />
+                </div>
+                <div className="progress-bar-text">
+                  {Math.round((status.pages_scraped / status.max_pages) * 100)}% Complete
+                </div>
+              </div>
+            )}
 
             <div className="status-stats">
               <div className="status-stat">
@@ -267,6 +533,69 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
               )}
             </div>
 
+            {/* ETA and Rate Display */}
+            {status.running && !status.is_paused && (
+              <div className="eta-container">
+                {scrapingRate > 0 && (
+                  <div className="eta-stat">
+                    <Activity size={14} />
+                    <span>{scrapingRate.toFixed(2)} pages/sec</span>
+                  </div>
+                )}
+                {eta && (
+                  <div className="eta-stat">
+                    <Clock size={14} />
+                    <span>ETA: {formatETA(eta)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Speed Graph */}
+            {status.running && speedHistory.length > 1 && (
+              <div className="speed-graph-container">
+                <div className="speed-graph-header">
+                  <Activity size={14} />
+                  <span>Scraping Speed</span>
+                </div>
+                <svg className="speed-graph" viewBox="0 0 300 80" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="speedGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#1a73e8" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="#1a73e8" stopOpacity="0.05" />
+                    </linearGradient>
+                  </defs>
+                  {(() => {
+                    const maxRate = Math.max(...speedHistory.map(h => h.rate), 0.1)
+                    const points = speedHistory.map((h, i) => {
+                      const x = (i / (speedHistory.length - 1)) * 300
+                      const y = 80 - ((h.rate / maxRate) * 70)
+                      return `${x},${y}`
+                    }).join(' ')
+                    const areaPoints = `0,80 ${points} 300,80`
+                    
+                    return (
+                      <>
+                        <polyline
+                          points={areaPoints}
+                          fill="url(#speedGradient)"
+                          stroke="none"
+                        />
+                        <polyline
+                          points={points}
+                          fill="none"
+                          stroke="#1a73e8"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </>
+                    )
+                  })()}
+                </svg>
+              </div>
+            )}
+
             {status.file_types && Object.keys(status.file_types).length > 0 && (
               <div className="status-file-types">
                 {Object.entries(status.file_types).map(([ext, count]) => (
@@ -278,9 +607,46 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             )}
 
             {status.running && !isHistoryView && (
-              <button onClick={handleStop} className="stop-btn-sidebar">
-                <StopCircle size={16} />
-                Stop Scraping
+              <>
+                <div className="scraper-controls">
+                  {!status.is_paused ? (
+                    <button onClick={handlePause} className="pause-btn-sidebar">
+                      <StopCircle size={16} />
+                      Pause
+                    </button>
+                  ) : (
+                    <button onClick={handleResume} className="resume-btn-sidebar">
+                      <Play size={16} />
+                      Resume
+                    </button>
+                  )}
+                  <button onClick={handleStop} className="stop-btn-sidebar">
+                    <X size={16} />
+                    Stop
+                  </button>
+                </div>
+                
+                {/* Export Button - Available during scraping */}
+                <button 
+                  onClick={handleExport} 
+                  className="export-btn-sidebar"
+                  disabled={isExporting || allPages.length === 0}
+                >
+                  <Download size={16} />
+                  {isExporting ? 'Exporting...' : 'Export Progress'}
+                </button>
+              </>
+            )}
+
+            {/* Export Button - Available when not running */}
+            {!status?.running && !isHistoryView && allPages.length > 0 && (
+              <button 
+                onClick={handleExport} 
+                className="export-btn-sidebar"
+                disabled={isExporting}
+              >
+                <Download size={16} />
+                {isExporting ? 'Exporting...' : 'Export Data'}
               </button>
             )}
           </div>
@@ -339,7 +705,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
         {/* Detailed View - Full Page */}
         {detailedViewPage ? (
-          <div className="detailed-full-page">
+          <div className="detailed-full-page" ref={detailedPageRef}>
             <div className="detailed-page-header">
               <button className="back-btn-full" onClick={closeDetailedView}>
                 <ArrowLeft size={20} />
@@ -349,7 +715,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             </div>
 
             {/* Tabs Navigation */}
-            <div className="detail-tabs-container">
+            <div className="detail-tabs-container" ref={tabsRef}>
               <div className="detail-tabs">
                 <button 
                   className={`detail-tab ${activeTab === 'overview' ? 'active' : ''}`}
@@ -793,9 +1159,34 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
               <h1><FileText size={24} /> Scraped Pages ({allPages.length})</h1>
             </div>
 
-            {allPages.length > 0 ? (
+            {/* Search Bar */}
+            <div className="search-filter-bar">
+              <input
+                type="text"
+                placeholder="Search pages by URL or title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input-filter"
+              />
+              {searchQuery && (
+                <button 
+                  className="clear-search-btn"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {searchQuery && (
+              <div className="search-results-info">
+                Found {filteredPages.length} of {allPages.length} pages
+              </div>
+            )}
+
+            {filteredPages.length > 0 ? (
               <div className="progress-pages-list">
-                {allPages.map((page) => {
+                {filteredPages.slice(0, visiblePageCount).map((page) => {
                   const pageFiles = getPageFiles(page.url)
                   const metadata = metadataContent[page.id]
                   const isExpanded = expandedMetadata[page.id]
@@ -947,6 +1338,18 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                     </div>
                   )
                 })}
+                
+                {/* Load More Button */}
+                {filteredPages.length > visiblePageCount && (
+                  <div className="load-more-container">
+                    <button 
+                      className="load-more-btn"
+                      onClick={() => setVisiblePageCount(prev => prev + 20)}
+                    >
+                      Load More ({filteredPages.length - visiblePageCount} remaining)
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="no-data-card">
@@ -966,42 +1369,71 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             </div>
 
             {allFiles.length > 0 ? (
-              <div className="data-table-compact">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>File</th>
-                      <th>Type</th>
-                      <th>Size</th>
-                      <th>Status</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allFiles.map((file, idx) => (
-                      <tr key={idx}>
-                        <td className="file-cell-compact">
-                          <File size={14} />
-                          {file.file_name}
-                        </td>
-                        <td><span className="file-badge-compact">{file.file_extension}</span></td>
-                        <td className="size-cell-compact">{api.formatBytes(file.file_size_bytes)}</td>
-                        <td>
-                          {file.download_status === 'success' ? (
-                            <span className="status-badge-compact success">
-                              <CheckCircle size={12} /> Success
-                            </span>
-                          ) : (
-                            <span className="status-badge-compact failed">
-                              <XCircle size={12} /> Failed
-                            </span>
-                          )}
-                        </td>
-                        <td className="date-cell-compact">{file.downloaded_at}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="files-grouped-view">
+                {Object.entries(groupedFiles).map(([fileType, files]) => {
+                  const isCollapsed = collapsedFileTypes[fileType]
+                  const successCount = files.filter(f => f.download_status === 'success').length
+                  const totalSize = files.reduce((sum, f) => sum + (f.file_size_bytes || 0), 0)
+                  
+                  return (
+                    <div key={fileType} className="file-type-group">
+                      <div 
+                        className="file-type-header"
+                        onClick={() => toggleFileTypeCollapse(fileType)}
+                      >
+                        <div className="file-type-info">
+                          {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                          <span className="file-badge-large">{fileType}</span>
+                          <span className="file-count">{files.length} files</span>
+                          <span className="file-success-count">
+                            <CheckCircle size={14} /> {successCount} successful
+                          </span>
+                          <span className="file-total-size">
+                            {api.formatBytes(totalSize)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {!isCollapsed && (
+                        <div className="file-type-content">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>File</th>
+                                <th>Size</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {files.map((file, idx) => (
+                                <tr key={idx}>
+                                  <td className="file-cell-compact">
+                                    <File size={14} />
+                                    {file.file_name}
+                                  </td>
+                                  <td className="size-cell-compact">{api.formatBytes(file.file_size_bytes)}</td>
+                                  <td>
+                                    {file.download_status === 'success' ? (
+                                      <span className="status-badge-compact success">
+                                        <CheckCircle size={12} /> Success
+                                      </span>
+                                    ) : (
+                                      <span className="status-badge-compact failed">
+                                        <XCircle size={12} /> Failed
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="date-cell-compact">{file.downloaded_at}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             ) : (
               <div className="no-data-card">

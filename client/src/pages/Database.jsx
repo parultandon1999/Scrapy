@@ -7,7 +7,7 @@ import {
   ChevronRight, X, ExternalLink, File, CheckCircle, 
   XCircle, Database as DatabaseIcon, TrendingUp, Hash,
   BarChart3, PieChart, Activity, GitCompare,
-  Calendar, Layers, AlertCircle, Clock
+  Calendar, Layers, AlertCircle, Clock, Globe
 } from 'lucide-react'
 import * as api from '../services/api'
 import '../styles/Database.css'
@@ -48,6 +48,17 @@ function Database({ darkMode, toggleDarkMode }) {
     hasFiles: null,
     startDate: '',
     endDate: ''
+  })
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showBulkActions, setShowBulkActions] = useState(false)
+  const [dateRange, setDateRange] = useState({
+    startDate: '',
+    endDate: ''
+  })
+  const [hoveredChartItem, setHoveredChartItem] = useState(null)
+  const [chartTypes, setChartTypes] = useState({
+    depth: 'bar',
+    fileType: 'bar'
   })
 
   useEffect(() => {
@@ -317,6 +328,153 @@ function Database({ darkMode, toggleDarkMode }) {
     }
   }
 
+  const handleBulkExport = async () => {
+    if (selectedPages.length === 0) return
+    
+    try {
+      setLoading(true)
+      const data = await api.exportData()
+      
+      // Filter to only selected pages
+      const filteredData = {
+        ...data,
+        pages: data.pages.filter(p => selectedPages.includes(p.id))
+      }
+      
+      const blob = new Blob([JSON.stringify(filteredData, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `selected_pages_export_${Date.now()}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      setError('Failed to export selected pages')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const togglePageSelection = (pageId) => {
+    setSelectedPages(prev => 
+      prev.includes(pageId) 
+        ? prev.filter(id => id !== pageId)
+        : [...prev, pageId]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedPages.length === pages.length) {
+      setSelectedPages([])
+    } else {
+      setSelectedPages(pages.map(p => p.id))
+    }
+  }
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      if (activeView === 'dashboard') {
+        await fetchDashboardData()
+      } else if (activeView === 'pages') {
+        await fetchPages()
+      } else if (activeView === 'files') {
+        await fetchFiles()
+      } else if (activeView === 'files-by-ext') {
+        await fetchFilesByExtension()
+      } else if (activeView === 'largest-downloads') {
+        await fetchLargestDownloads(10)
+      } else if (activeView === 'top-links') {
+        await fetchTopLinks(linkType, 20)
+      } else if (activeView === 'analytics') {
+        await fetchAnalytics()
+      } else if (activeView === 'timeline') {
+        await fetchTimeline()
+      } else if (activeView === 'domains') {
+        await fetchDomains()
+      } else if (activeView === 'link-analysis') {
+        await fetchLinkAnalysis()
+      } else if (activeView === 'performance') {
+        await fetchPerformanceAnalytics()
+      } else if (activeView === 'fingerprints') {
+        await fetchFingerprintAnalytics()
+      } else if (activeView === 'geolocation') {
+        await fetchGeolocationAnalytics()
+      }
+    } catch (err) {
+      setError('Failed to refresh data')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  const handleDateRangeFilter = async () => {
+    if (!dateRange.startDate && !dateRange.endDate) {
+      // If no dates selected, just refresh normally
+      await handleRefresh()
+      return
+    }
+
+    try {
+      setLoading(true)
+      const data = await api.filterPages({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+        limit: pageLimit,
+        offset: pageOffset
+      })
+      setPages(data.pages)
+      setTotalPages(data.total)
+    } catch (err) {
+      setError('Failed to filter by date range')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const clearDateRange = () => {
+    setDateRange({ startDate: '', endDate: '' })
+    fetchPages()
+  }
+
+  const exportChartAsPNG = (chartId, filename) => {
+    const chartElement = document.getElementById(chartId)
+    if (!chartElement) return
+
+    // Use html2canvas or similar library would be ideal, but for now we'll use a simple approach
+    // Create a canvas and draw the chart
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    
+    // Set canvas size
+    canvas.width = chartElement.offsetWidth * 2
+    canvas.height = chartElement.offsetHeight * 2
+    ctx.scale(2, 2)
+    
+    // Draw white background
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    
+    // For now, we'll create a simple text-based export
+    // In production, you'd want to use a library like html2canvas
+    alert('Chart export feature requires html2canvas library. For now, use browser screenshot.')
+  }
+
+  const exportChartData = (data, filename) => {
+    const jsonStr = JSON.stringify(data, null, 2)
+    const blob = new Blob([jsonStr], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}_${Date.now()}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  }
+
   const handleFilterPages = async () => {
     try {
       setLoading(true)
@@ -481,6 +639,71 @@ function Database({ darkMode, toggleDarkMode }) {
           <div className="dashboard-view">
             <h1>Overview</h1>
             
+            {/* Quick Stats Summary Cards */}
+            <div className="quick-stats-grid">
+              <div className="quick-stat-card highlight">
+                <div className="quick-stat-icon">
+                  <HardDrive size={32} />
+                </div>
+                <div className="quick-stat-content">
+                  <div className="quick-stat-label">Total Storage Used</div>
+                  <div className="quick-stat-value">
+                    {(stats.total_download_size_mb || 0).toFixed(2)} MB
+                  </div>
+                  <div className="quick-stat-detail">
+                    {stats.total_file_assets || 0} files downloaded
+                  </div>
+                </div>
+              </div>
+
+              <div className="quick-stat-card">
+                <div className="quick-stat-icon">
+                  <Clock size={32} />
+                </div>
+                <div className="quick-stat-content">
+                  <div className="quick-stat-label">Avg Scrape Time</div>
+                  <div className="quick-stat-value">
+                    {stats.avg_scrape_time ? `${stats.avg_scrape_time.toFixed(1)}s` : 'N/A'}
+                  </div>
+                  <div className="quick-stat-detail">
+                    Per page average
+                  </div>
+                </div>
+              </div>
+
+              <div className="quick-stat-card success">
+                <div className="quick-stat-icon">
+                  <CheckCircle size={32} />
+                </div>
+                <div className="quick-stat-content">
+                  <div className="quick-stat-label">Success Rate</div>
+                  <div className="quick-stat-value">
+                    {stats.total_file_assets > 0 
+                      ? ((stats.successful_downloads / stats.total_file_assets) * 100).toFixed(1)
+                      : 0}%
+                  </div>
+                  <div className="quick-stat-detail">
+                    {stats.successful_downloads || 0} of {stats.total_file_assets || 0} files
+                  </div>
+                </div>
+              </div>
+
+              <div className="quick-stat-card">
+                <div className="quick-stat-icon">
+                  <Globe size={32} />
+                </div>
+                <div className="quick-stat-content">
+                  <div className="quick-stat-label">Most Scraped Domain</div>
+                  <div className="quick-stat-value domain-value">
+                    {stats.most_scraped_domain || 'N/A'}
+                  </div>
+                  <div className="quick-stat-detail">
+                    {stats.most_scraped_domain_count || 0} pages
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Compact Stats Grid */}
             <div className="stats-grid-compact">
               <div className="stat-card-compact">
@@ -610,6 +833,14 @@ function Database({ darkMode, toggleDarkMode }) {
             <div className="view-header-compact">
               <h1><FileText size={24} /> Pages ({totalPages})</h1>
               <div className="view-controls-compact">
+                <button 
+                  onClick={handleRefresh} 
+                  className="refresh-btn-compact"
+                  disabled={isRefreshing}
+                  title="Refresh data"
+                >
+                  <Activity size={16} className={isRefreshing ? 'spinning' : ''} />
+                </button>
                 <select value={pageLimit} onChange={(e) => setPageLimit(Number(e.target.value))} className="control-select-compact">
                   <option value="10">10</option>
                   <option value="20">20</option>
@@ -625,10 +856,78 @@ function Database({ darkMode, toggleDarkMode }) {
                 </button>
               </div>
             </div>
+
+            {/* Date Range Filter */}
+            <div className="date-range-filter">
+              <div className="date-filter-inputs">
+                <div className="date-input-group">
+                  <Calendar size={16} />
+                  <label>From:</label>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="date-input"
+                  />
+                </div>
+                <div className="date-input-group">
+                  <Calendar size={16} />
+                  <label>To:</label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="date-input"
+                  />
+                </div>
+                <button onClick={handleDateRangeFilter} className="filter-apply-btn">
+                  <Search size={16} />
+                  Apply Filter
+                </button>
+                {(dateRange.startDate || dateRange.endDate) && (
+                  <button onClick={clearDateRange} className="filter-clear-btn">
+                    <X size={16} />
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Bulk Actions Toolbar */}
+            {selectedPages.length > 0 && (
+              <div className="bulk-actions-toolbar">
+                <div className="bulk-actions-info">
+                  <CheckCircle size={16} />
+                  <span>{selectedPages.length} page{selectedPages.length !== 1 ? 's' : ''} selected</span>
+                </div>
+                <div className="bulk-actions-buttons">
+                  <button onClick={handleBulkExport} className="bulk-action-btn export">
+                    <Download size={16} />
+                    Export Selected
+                  </button>
+                  <button onClick={handleBulkDelete} className="bulk-action-btn delete">
+                    <X size={16} />
+                    Delete Selected
+                  </button>
+                  <button onClick={() => setSelectedPages([])} className="bulk-action-btn cancel">
+                    Clear Selection
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="data-table-compact">
               <table>
                 <thead>
                   <tr>
+                    <th className="checkbox-cell">
+                      <input
+                        type="checkbox"
+                        checked={selectedPages.length === pages.length && pages.length > 0}
+                        onChange={toggleSelectAll}
+                        className="page-checkbox"
+                      />
+                    </th>
                     <th>URL</th>
                     <th>Title</th>
                     <th>Depth</th>
@@ -638,7 +937,15 @@ function Database({ darkMode, toggleDarkMode }) {
                 </thead>
                 <tbody>
                   {pages.map((page) => (
-                    <tr key={page.id}>
+                    <tr key={page.id} className={selectedPages.includes(page.id) ? 'selected-row' : ''}>
+                      <td className="checkbox-cell">
+                        <input
+                          type="checkbox"
+                          checked={selectedPages.includes(page.id)}
+                          onChange={() => togglePageSelection(page.id)}
+                          className="page-checkbox"
+                        />
+                      </td>
                       <td className="url-cell-compact">
                         <a href={page.url} target="_blank" rel="noopener noreferrer">
                           <ExternalLink size={14} /> {page.url}
@@ -812,6 +1119,14 @@ function Database({ darkMode, toggleDarkMode }) {
           <div className="search-view">
             <div className="view-header-compact">
               <h1><Search size={24} /> Search</h1>
+              <button 
+                onClick={handleRefresh} 
+                className="refresh-btn-compact"
+                disabled={isRefreshing}
+                title="Refresh data"
+              >
+                <Activity size={16} className={isRefreshing ? 'spinning' : ''} />
+              </button>
             </div>
             <form onSubmit={handleSearch} className="search-form-compact">
               <select value={searchType} onChange={(e) => setSearchType(e.target.value)} className="search-select-compact">
@@ -832,7 +1147,9 @@ function Database({ darkMode, toggleDarkMode }) {
 
             {searchResults && (
               <div className="search-results-compact">
-                <h3>{searchResults.total} results for "{searchResults.keyword}"</h3>
+                <div className="search-results-header">
+                  <h3>Found {searchResults.total} result{searchResults.total !== 1 ? 's' : ''} for "{searchResults.keyword}"</h3>
+                </div>
                 {searchResults.results.length > 0 ? (
                   <div className="results-list-compact">
                     {searchResults.results.map((result, idx) => (
@@ -948,53 +1265,326 @@ function Database({ darkMode, toggleDarkMode }) {
         {/* Analytics View */}
         {activeView === 'analytics' && !loading && (
           <div className="analytics-view">
-            <h1><BarChart3 size={24} /> Analytics</h1>
+            <div className="view-header-compact">
+              <h1><BarChart3 size={24} /> Analytics</h1>
+              <div className="view-controls-compact">
+                <button 
+                  onClick={handleRefresh} 
+                  className="refresh-btn-compact"
+                  disabled={isRefreshing}
+                  title="Refresh data"
+                >
+                  <Activity size={16} className={isRefreshing ? 'spinning' : ''} />
+                </button>
+                <button 
+                  onClick={() => exportChartData({ depthDistribution, fileAnalytics }, 'analytics')}
+                  className="export-chart-btn"
+                  title="Export chart data"
+                >
+                  <Download size={16} />
+                  Export Data
+                </button>
+              </div>
+            </div>
             
             <div className="analytics-grid">
+              {/* Depth Distribution Chart */}
               <div className="analytics-card">
-                <h3><Layers size={18} /> Depth Distribution</h3>
-                <div className="chart-container">
-                  {depthDistribution.map((item, idx) => (
-                    <div key={idx} className="chart-bar-item">
-                      <span className="chart-label">Depth {item.depth}</span>
-                      <div className="chart-bar-bg">
-                        <div 
-                          className="chart-bar-fill"
-                          style={{width: `${(item.page_count / Math.max(...depthDistribution.map(d => d.page_count))) * 100}%`}}
-                        ></div>
-                      </div>
-                      <span className="chart-value">{item.page_count}</span>
+                <div className="chart-header">
+                  <h3><Layers size={18} /> Depth Distribution</h3>
+                  <div className="chart-controls">
+                    <div className="chart-type-toggle">
+                      <button 
+                        className={`chart-type-btn ${chartTypes.depth === 'bar' ? 'active' : ''}`}
+                        onClick={() => setChartTypes(prev => ({ ...prev, depth: 'bar' }))}
+                        title="Bar Chart"
+                      >
+                        <BarChart3 size={16} />
+                      </button>
+                      <button 
+                        className={`chart-type-btn ${chartTypes.depth === 'pie' ? 'active' : ''}`}
+                        onClick={() => setChartTypes(prev => ({ ...prev, depth: 'pie' }))}
+                        title="Pie Chart"
+                      >
+                        <PieChart size={16} />
+                      </button>
+                      <button 
+                        className={`chart-type-btn ${chartTypes.depth === 'line' ? 'active' : ''}`}
+                        onClick={() => setChartTypes(prev => ({ ...prev, depth: 'line' }))}
+                        title="Line Chart"
+                      >
+                        <Activity size={16} />
+                      </button>
                     </div>
-                  ))}
+                    <button 
+                      onClick={() => exportChartData(depthDistribution, 'depth_distribution')}
+                      className="chart-export-btn"
+                      title="Export this chart"
+                    >
+                      <Download size={14} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Bar Chart */}
+                {chartTypes.depth === 'bar' && (
+                  <div className="chart-container" id="depth-chart">
+                    {depthDistribution.map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        className="chart-bar-item interactive"
+                        onMouseEnter={() => setHoveredChartItem({ type: 'depth', data: item })}
+                        onMouseLeave={() => setHoveredChartItem(null)}
+                      >
+                        <span className="chart-label">Depth {item.depth}</span>
+                        <div className="chart-bar-bg">
+                          <div 
+                            className="chart-bar-fill"
+                            style={{width: `${(item.page_count / Math.max(...depthDistribution.map(d => d.page_count))) * 100}%`}}
+                          ></div>
+                        </div>
+                        <span className="chart-value">{item.page_count}</span>
+                        {hoveredChartItem?.type === 'depth' && hoveredChartItem?.data.depth === item.depth && (
+                          <div className="chart-tooltip">
+                            <strong>Depth {item.depth}</strong>
+                            <div>Pages: {item.page_count}</div>
+                            <div>Percentage: {((item.page_count / depthDistribution.reduce((sum, d) => sum + d.page_count, 0)) * 100).toFixed(1)}%</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pie Chart */}
+                {chartTypes.depth === 'pie' && (
+                  <div className="pie-chart-container">
+                    <svg viewBox="0 0 200 200" className="pie-chart">
+                      {(() => {
+                        const total = depthDistribution.reduce((sum, d) => sum + d.page_count, 0)
+                        let currentAngle = -90
+                        const colors = ['#1a73e8', '#4285f4', '#8ab4f8', '#aecbfa', '#d2e3fc', '#e8f0fe']
+                        
+                        return depthDistribution.map((item, idx) => {
+                          const percentage = (item.page_count / total) * 100
+                          const angle = (percentage / 100) * 360
+                          const startAngle = currentAngle
+                          const endAngle = currentAngle + angle
+                          currentAngle = endAngle
+
+                          const startRad = (startAngle * Math.PI) / 180
+                          const endRad = (endAngle * Math.PI) / 180
+                          const x1 = 100 + 80 * Math.cos(startRad)
+                          const y1 = 100 + 80 * Math.sin(startRad)
+                          const x2 = 100 + 80 * Math.cos(endRad)
+                          const y2 = 100 + 80 * Math.sin(endRad)
+                          const largeArc = angle > 180 ? 1 : 0
+
+                          return (
+                            <g 
+                              key={idx}
+                              onMouseEnter={() => setHoveredChartItem({ type: 'depth', data: item })}
+                              onMouseLeave={() => setHoveredChartItem(null)}
+                              className="pie-slice"
+                            >
+                              <path
+                                d={`M 100 100 L ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                fill={colors[idx % colors.length]}
+                                stroke="#fff"
+                                strokeWidth="2"
+                              />
+                            </g>
+                          )
+                        })
+                      })()}
+                    </svg>
+                    <div className="pie-legend">
+                      {depthDistribution.map((item, idx) => {
+                        const colors = ['#1a73e8', '#4285f4', '#8ab4f8', '#aecbfa', '#d2e3fc', '#e8f0fe']
+                        const total = depthDistribution.reduce((sum, d) => sum + d.page_count, 0)
+                        return (
+                          <div key={idx} className="legend-item">
+                            <span className="legend-color" style={{ background: colors[idx % colors.length] }}></span>
+                            <span className="legend-label">Depth {item.depth}</span>
+                            <span className="legend-value">{item.page_count} ({((item.page_count / total) * 100).toFixed(1)}%)</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Line Chart */}
+                {chartTypes.depth === 'line' && (
+                  <div className="line-chart-container">
+                    <svg viewBox="0 0 400 200" className="line-chart">
+                      <defs>
+                        <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="#1a73e8" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="#1a73e8" stopOpacity="0.05" />
+                        </linearGradient>
+                      </defs>
+                      {(() => {
+                        const maxValue = Math.max(...depthDistribution.map(d => d.page_count))
+                        const points = depthDistribution.map((item, idx) => {
+                          const x = (idx / (depthDistribution.length - 1)) * 360 + 20
+                          const y = 180 - ((item.page_count / maxValue) * 160)
+                          return `${x},${y}`
+                        }).join(' ')
+                        
+                        const areaPoints = `20,180 ${points} ${360 + 20},180`
+
+                        return (
+                          <>
+                            <polyline
+                              points={areaPoints}
+                              fill="url(#lineGradient)"
+                              stroke="none"
+                            />
+                            <polyline
+                              points={points}
+                              fill="none"
+                              stroke="#1a73e8"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            {depthDistribution.map((item, idx) => {
+                              const x = (idx / (depthDistribution.length - 1)) * 360 + 20
+                              const y = 180 - ((item.page_count / maxValue) * 160)
+                              return (
+                                <circle
+                                  key={idx}
+                                  cx={x}
+                                  cy={y}
+                                  r="5"
+                                  fill="#1a73e8"
+                                  stroke="#fff"
+                                  strokeWidth="2"
+                                  className="line-point"
+                                  onMouseEnter={() => setHoveredChartItem({ type: 'depth', data: item })}
+                                  onMouseLeave={() => setHoveredChartItem(null)}
+                                />
+                              )
+                            })}
+                          </>
+                        )
+                      })()}
+                    </svg>
+                    {hoveredChartItem?.type === 'depth' && (
+                      <div className="chart-tooltip" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                        <strong>Depth {hoveredChartItem.data.depth}</strong>
+                        <div>Pages: {hoveredChartItem.data.page_count}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
+              {/* File Type Analytics Chart */}
               <div className="analytics-card">
-                <h3><PieChart size={18} /> File Type Analytics</h3>
-                <div className="analytics-table">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Type</th>
-                        <th>Total</th>
-                        <th>Success</th>
-                        <th>Failed</th>
-                        <th>Avg Size</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fileAnalytics.slice(0, 10).map((item, idx) => (
-                        <tr key={idx}>
-                          <td><span className="file-badge-compact">{item.file_extension}</span></td>
-                          <td>{item.total_files}</td>
-                          <td className="success-text">{item.successful}</td>
-                          <td className="error-text">{item.failed}</td>
-                          <td>{formatBytes(item.avg_bytes)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="chart-header">
+                  <h3><PieChart size={18} /> File Type Analytics</h3>
+                  <div className="chart-controls">
+                    <div className="chart-type-toggle">
+                      <button 
+                        className={`chart-type-btn ${chartTypes.fileType === 'bar' ? 'active' : ''}`}
+                        onClick={() => setChartTypes(prev => ({ ...prev, fileType: 'bar' }))}
+                        title="Bar Chart"
+                      >
+                        <BarChart3 size={16} />
+                      </button>
+                      <button 
+                        className={`chart-type-btn ${chartTypes.fileType === 'table' ? 'active' : ''}`}
+                        onClick={() => setChartTypes(prev => ({ ...prev, fileType: 'table' }))}
+                        title="Table View"
+                      >
+                        <Layers size={16} />
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => exportChartData(fileAnalytics, 'file_analytics')}
+                      className="chart-export-btn"
+                      title="Export this chart"
+                    >
+                      <Download size={14} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Bar Chart for File Types */}
+                {chartTypes.fileType === 'bar' && (
+                  <div className="chart-container">
+                    {fileAnalytics.slice(0, 10).map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        className="chart-bar-item interactive"
+                        onMouseEnter={() => setHoveredChartItem({ type: 'file', data: item })}
+                        onMouseLeave={() => setHoveredChartItem(null)}
+                      >
+                        <span className="chart-label">{item.file_extension}</span>
+                        <div className="chart-bar-bg">
+                          <div 
+                            className="chart-bar-fill"
+                            style={{width: `${(item.total_files / Math.max(...fileAnalytics.map(f => f.total_files))) * 100}%`}}
+                          ></div>
+                        </div>
+                        <span className="chart-value">{item.total_files}</span>
+                        {hoveredChartItem?.type === 'file' && hoveredChartItem?.data.file_extension === item.file_extension && (
+                          <div className="chart-tooltip">
+                            <strong>{item.file_extension} Files</strong>
+                            <div>Total: {item.total_files}</div>
+                            <div>Success: {item.successful}</div>
+                            <div>Failed: {item.failed}</div>
+                            <div>Avg Size: {formatBytes(item.avg_bytes)}</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Table View */}
+                {chartTypes.fileType === 'table' && (
+                  <div className="analytics-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Type</th>
+                          <th>Total</th>
+                          <th>Success</th>
+                          <th>Failed</th>
+                          <th>Avg Size</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fileAnalytics.slice(0, 10).map((item, idx) => (
+                          <tr 
+                            key={idx}
+                            className="interactive-row"
+                            onMouseEnter={() => setHoveredChartItem({ type: 'file', data: item })}
+                            onMouseLeave={() => setHoveredChartItem(null)}
+                          >
+                            <td><span className="file-badge-compact">{item.file_extension}</span></td>
+                            <td>{item.total_files}</td>
+                            <td className="success-text">{item.successful}</td>
+                            <td className="error-text">{item.failed}</td>
+                            <td>{formatBytes(item.avg_bytes)}</td>
+                            {hoveredChartItem?.type === 'file' && hoveredChartItem?.data.file_extension === item.file_extension && (
+                              <td className="row-tooltip">
+                                <div className="chart-tooltip">
+                                  <strong>{item.file_extension} Files</strong>
+                                  <div>Success Rate: {((item.successful / item.total_files) * 100).toFixed(1)}%</div>
+                                  <div>Total Size: {formatBytes(item.avg_bytes * item.total_files)}</div>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           </div>

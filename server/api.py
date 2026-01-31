@@ -33,7 +33,7 @@ app = FastAPI(title="Web Scraper API", version="1.0.0")
 # Configure CORS to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -492,9 +492,11 @@ async def get_scraper_status():
         }
     
     was_stopped = getattr(scraper_instance, 'was_stopped_manually', False)
+    is_paused = getattr(scraper_instance, 'is_paused', False)
     
     return {
         "running": is_running,
+        "is_paused": is_paused,
         "pages_scraped": scraper_instance.pages_scraped,
         "queue_size": len(scraper_instance.queue),
         "visited": len(scraper_instance.visited),
@@ -537,6 +539,48 @@ async def stop_scraper():
     })
     
     return {"success": True, "message": "Scraper stopped"}
+
+@app.post("/api/scraper/pause")
+async def pause_scraper():
+    """Pauses the running scraper temporarily."""
+    global scraper_instance
+    
+    if not scraper_instance:
+        raise HTTPException(status_code=400, detail="No scraper is running")
+    
+    if scraper_instance.is_paused:
+        raise HTTPException(status_code=400, detail="Scraper is already paused")
+    
+    scraper_instance.is_paused = True
+    logger.info("Scraper paused")
+    
+    await broadcast_message({
+        "type": "scraper_paused",
+        "data": {}
+    })
+    
+    return {"success": True, "message": "Scraper paused"}
+
+@app.post("/api/scraper/resume")
+async def resume_scraper():
+    """Resumes a paused scraper."""
+    global scraper_instance
+    
+    if not scraper_instance:
+        raise HTTPException(status_code=400, detail="No scraper is running")
+    
+    if not scraper_instance.is_paused:
+        raise HTTPException(status_code=400, detail="Scraper is not paused")
+    
+    scraper_instance.is_paused = False
+    logger.info("Scraper resumed")
+    
+    await broadcast_message({
+        "type": "scraper_resumed",
+        "data": {}
+    })
+    
+    return {"success": True, "message": "Scraper resumed"}
 
 @app.get("/api/data/stats")
 async def get_stats():
