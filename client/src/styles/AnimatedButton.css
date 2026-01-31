@@ -1,0 +1,144 @@
+.animated-btn {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-base) var(--ease-in-out);
+  user-select: none;
+}
+
+/* Variants */
+.animated-btn-default {
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: var(--border-width-1) solid var(--border-color);
+}
+
+.animated-btn-primary {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.animated-btn-secondary {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  border: var(--border-width-1) solid var(--border-color);
+}
+
+.animated-btn-success {
+  background: #34a853;
+  color: white;
+}
+
+.animated-btn-danger {
+  background: #d93025;
+  color: white;
+}
+
+/* Sizes */
+.animated-btn-small {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  min-height: var(--button-height-sm);
+}
+
+.animated-btn-medium {
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--font-size-base);
+  min-height: var(--button-height-base);
+}
+
+.animated-btn-large {
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--font-size-lg);
+  min-height: var(--button-height-lg);
+}
+
+/* Hover states */
+.animated-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.animated-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(var(--primary-rgb, 26, 115, 232), 0.4);
+}
+
+.animated-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Disabled state */
+.animated-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Loading state */
+.animated-btn.loading {
+  pointer-events: none;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Icon */
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-base) var(--ease-in-out);
+}
+
+.animated-btn:hover .btn-icon {
+  transform: scale(1.1);
+}
+
+/* Ripple effect */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  transform: scale(0);
+  animation: ripple-animation 0.6s ease-out;
+  pointer-events: none;
+}
+
+@keyframes ripple-animation {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* Dark mode */
+body.dark-mode .animated-btn-default {
+  background: var(--input-bg);
+  border-color: var(--border-color);
+}
+
+body.dark-mode .animated-btn-secondary {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+}

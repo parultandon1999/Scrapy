@@ -11,6 +11,7 @@ import {
 import * as api from '../services/api'
 import { HistoryCardSkeleton, ConfigSectionSkeleton } from '../components/SkeletonLoader'
 import { useToast } from '../components/ToastContainer'
+import LoadingState from '../components/LoadingState'
 import '../styles/History.css'
 
 function History({ darkMode, toggleDarkMode }) {
@@ -389,19 +390,11 @@ function History({ darkMode, toggleDarkMode }) {
           </div>
         )}
 
-        {loading && activeView === 'sessions' && (
-          <div className="sessions-grid-compact">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <HistoryCardSkeleton key={i} />
-            ))}
-          </div>
-        )}
-        {loading && (activeView === 'statistics' || activeView === 'timeline') && (
-          <>
-            <ConfigSectionSkeleton />
-            <ConfigSectionSkeleton />
-          </>
-        )}
+        {loading && activeView === 'sessions' && <LoadingState type="fetching-sessions" size="large" />}
+        {loading && activeView === 'statistics' && <LoadingState type="fetching-stats" size="large" />}
+        {loading && activeView === 'timeline' && <LoadingState type="fetching-timeline" size="large" />}
+        {loading && activeView === 'session-details' && <LoadingState type="fetching-session-details" size="large" />}
+        {loading && activeView === 'comparison' && <LoadingState type="comparing-sessions" size="large" />}
 
         {/* Sessions View */}
         {activeView === 'sessions' && !loading && (

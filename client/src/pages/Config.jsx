@@ -9,6 +9,7 @@ import {
 import ToggleSwitch from '../components/ToggleSwitch'
 import * as api from '../services/api'
 import { ConfigSectionSkeleton } from '../components/SkeletonLoader'
+import LoadingState from '../components/LoadingState'
 import '../styles/Config.css'
 
 function Config({ darkMode, toggleDarkMode }) {
@@ -621,9 +622,7 @@ function Config({ darkMode, toggleDarkMode }) {
             <h2><Settings size={20} /> Configuration</h2>
           </aside>
           <main className="db-main">
-            <ConfigSectionSkeleton />
-            <ConfigSectionSkeleton />
-            <ConfigSectionSkeleton />
+            <LoadingState type="loading-config" size="large" />
           </main>
         </div>
         <Footer />
@@ -746,7 +745,7 @@ function Config({ darkMode, toggleDarkMode }) {
                     onClick={() => handleSaveSection(activeSection)}
                     disabled={saving || !unsavedChanges[activeSection] || Object.keys(validationErrors).some(k => k.startsWith(`${activeSection}.`))}
                   >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? <LoadingState type="saving-config" size="small" className="loading-inline" /> : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -826,7 +825,7 @@ function Config({ darkMode, toggleDarkMode }) {
                   onClick={handleImportConfig}
                   disabled={!importText || saving}
                 >
-                  {saving ? 'Importing...' : 'Import'}
+                  {saving ? <LoadingState type="importing-config" size="small" className="loading-inline" /> : 'Import'}
                 </button>
               </div>
             </div>

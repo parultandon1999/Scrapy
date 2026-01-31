@@ -84,13 +84,13 @@ body.dark-mode .btn-default:hover:not(:disabled) {
 
 /* Primary */
 .btn-primary {
-  background: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%);
+  background: linear-gradient(135deg, var(--color-primary, #1a73e8) 0%, var(--color-primaryDark, #1557b0) 100%);
   color: #fff;
   border: 2px solid transparent;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #1557b0 0%, #0d47a1 100%);
+  background: linear-gradient(135deg, var(--color-primaryDark, #1557b0) 0%, #0d47a1 100%);
   box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
   transform: translateY(-2px);
 }
@@ -106,13 +106,13 @@ body.dark-mode .btn-primary:hover:not(:disabled) {
 
 /* Secondary */
 .btn-secondary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--color-secondary, #667eea) 0%, var(--color-secondaryDark, #764ba2) 100%);
   color: #fff;
   border: 2px solid transparent;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+  background: linear-gradient(135deg, var(--color-secondaryDark, #5568d3) 0%, #6a3f8f 100%);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   transform: translateY(-2px);
 }
@@ -123,13 +123,13 @@ body.dark-mode .btn-secondary {
 
 /* Success */
 .btn-success {
-  background: linear-gradient(135deg, #34a853 0%, #2d8e47 100%);
+  background: linear-gradient(135deg, var(--color-success, #34a853) 0%, var(--color-successDark, #2d8e47) 100%);
   color: #fff;
   border: 2px solid transparent;
 }
 
 .btn-success:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2d8e47 0%, #1e7e34 100%);
+  background: linear-gradient(135deg, var(--color-successDark, #2d8e47) 0%, #1e7e34 100%);
   box-shadow: 0 4px 12px rgba(52, 168, 83, 0.3);
   transform: translateY(-2px);
 }
@@ -140,13 +140,13 @@ body.dark-mode .btn-success {
 
 /* Danger */
 .btn-danger {
-  background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+  background: linear-gradient(135deg, var(--color-danger, #ea4335) 0%, var(--color-dangerDark, #d33b2c) 100%);
   color: #fff;
   border: 2px solid transparent;
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, #d33b2c 0%, #c5221f 100%);
+  background: linear-gradient(135deg, var(--color-dangerDark, #d33b2c) 0%, #c5221f 100%);
   box-shadow: 0 4px 12px rgba(234, 67, 53, 0.3);
   transform: translateY(-2px);
 }
@@ -157,13 +157,13 @@ body.dark-mode .btn-danger {
 
 /* Warning */
 .btn-warning {
-  background: linear-gradient(135deg, #fbbc04 0%, #f9ab00 100%);
+  background: linear-gradient(135deg, var(--color-warning, #fbbc04) 0%, var(--color-warningDark, #f9ab00) 100%);
   color: #202124;
   border: 2px solid transparent;
 }
 
 .btn-warning:hover:not(:disabled) {
-  background: linear-gradient(135deg, #f9ab00 0%, #ea8600 100%);
+  background: linear-gradient(135deg, var(--color-warningDark, #f9ab00) 0%, #ea8600 100%);
   box-shadow: 0 4px 12px rgba(251, 188, 4, 0.3);
   transform: translateY(-2px);
 }

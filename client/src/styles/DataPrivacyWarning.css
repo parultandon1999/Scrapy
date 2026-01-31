@@ -1,0 +1,223 @@
+/**
+ * Data Privacy Warning Banner Styles
+ */
+
+.data-privacy-warning {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  max-width: 600px;
+  width: calc(100% - var(--space-12));
+  z-index: var(--z-notification);
+  animation: slideInUp var(--transition-slow) var(--ease-bounce);
+}
+
+.data-privacy-warning.dismissing {
+  animation: slideOutDown var(--transition-base) var(--ease-in);
+}
+
+.privacy-warning-container {
+  background: var(--card-bg);
+  border: 2px solid var(--warning-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-2xl);
+  display: flex;
+  gap: var(--space-4);
+}
+
+/* ===== ICON ===== */
+
+.privacy-warning-icon {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--warning-color), var(--warning-dark));
+  color: white;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  padding: var(--space-3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* ===== CONTENT ===== */
+
+.privacy-warning-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.privacy-warning-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.privacy-warning-message {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.privacy-warning-message strong {
+  color: var(--warning-color);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ===== DETAILS ===== */
+
+.privacy-warning-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--hover-bg);
+  border-radius: var(--radius-base);
+  border-left: 3px solid var(--warning-color);
+}
+
+.privacy-detail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.privacy-detail-item svg {
+  color: var(--warning-color);
+  flex-shrink: 0;
+}
+
+/* ===== ACTIONS ===== */
+
+.privacy-warning-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ===== ANIMATIONS ===== */
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+/* ===== DARK MODE ===== */
+
+body.dark-mode .privacy-warning-container {
+  background: var(--card-bg);
+  border-color: var(--warning-color);
+  box-shadow: var(--shadow-2xl), 0 0 40px rgba(255, 152, 0, 0.2);
+}
+
+body.dark-mode .privacy-warning-details {
+  background: var(--hover-bg);
+}
+
+/* ===== MOBILE RESPONSIVE ===== */
+
+@media (max-width: 768px) {
+  .data-privacy-warning {
+    bottom: var(--space-4);
+    right: var(--space-4);
+    left: var(--space-4);
+    width: auto;
+    max-width: none;
+  }
+
+  .privacy-warning-container {
+    flex-direction: column;
+    padding: var(--space-4);
+  }
+
+  .privacy-warning-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto;
+  }
+
+  .privacy-warning-content {
+    text-align: center;
+  }
+
+  .privacy-warning-details {
+    text-align: left;
+  }
+
+  .privacy-warning-actions {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .privacy-warning-actions button {
+    flex: 1;
+  }
+}
+
+/* Position above bottom navigation on mobile */
+@media (max-width: 768px) {
+  .data-privacy-warning {
+    bottom: calc(var(--bottom-nav-height) + var(--space-4));
+  }
+}
+
+/* ===== REDUCED MOTION ===== */
+
+@media (prefers-reduced-motion: reduce) {
+  .data-privacy-warning {
+    animation: none;
+  }
+
+  .data-privacy-warning.dismissing {
+    animation: none;
+    opacity: 0;
+  }
+
+  .privacy-warning-icon {
+    animation: none;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+.data-privacy-warning:focus-within {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}

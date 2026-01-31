@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import * as api from '../services/api'
 import { ProxyResultsSkeleton } from '../components/SkeletonLoader'
+import LoadingState from '../components/LoadingState'
 import '../styles/ProxyTester.css'
 
 function ProxyTester({ darkMode, toggleDarkMode }) {
@@ -321,7 +322,7 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
               disabled={loadingProxies}
             >
               <RefreshCw size={16} />
-              {loadingProxies ? 'Loading...' : 'Load Proxies'}
+              {loadingProxies ? <LoadingState type="loading-proxies" size="small" className="loading-inline" /> : 'Load Proxies'}
             </button>
 
             <button 

@@ -10,9 +10,20 @@ const apiClient = axios.create({
   timeout: 30000,
 })
 
+// CSRF Token interceptor
 apiClient.interceptors.request.use(
   (config) => {
     console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`)
+    
+    // Add CSRF token to requests that modify data
+    const modifyingMethods = ['post', 'put', 'delete', 'patch']
+    if (modifyingMethods.includes(config.method.toLowerCase())) {
+      const csrfToken = localStorage.getItem('csrf_token')
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken
+      }
+    }
+    
     return config
   },
   (error) => {

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import * as api from '../services/api'
 import { SelectorResultsSkeleton } from '../components/SkeletonLoader'
+import LoadingState from '../components/LoadingState'
 import '../styles/SelectorFinder.css'
 
 function SelectorFinder({ darkMode, toggleDarkMode }) {
@@ -379,7 +380,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
             onClick={handleAnalyze}
             disabled={loading || !loginUrl}
           >
-            {loading ? 'Analyzing...' : 'Analyze'}
+            {loading ? <LoadingState type="analyzing-login" size="small" className="loading-inline" /> : 'Analyze'}
           </button>
         </div>
       </aside>
@@ -407,7 +408,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
         )}
 
         {/* Analyze Section */}
-        {activeSection === 'analyze' && loading && <SelectorResultsSkeleton />}
+        {activeSection === 'analyze' && loading && <LoadingState type="analyzing-login" size="large" />}
         {activeSection === 'analyze' && results && (
           <div className="selector-view">
             <div className="view-header-compact">
@@ -693,7 +694,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={testLoading}
               >
-                {testLoading ? 'Testing...' : 'Test Login'}
+                {testLoading ? <LoadingState type="testing-login" size="small" className="loading-inline" /> : 'Test Login'}
               </button>
             </form>
 
@@ -789,7 +790,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={testSelectorLoading}
               >
-                {testSelectorLoading ? 'Testing...' : 'Test Selector'}
+                {testSelectorLoading ? <LoadingState type="testing-selector" size="small" className="loading-inline" /> : 'Test Selector'}
               </button>
             </form>
 
@@ -990,7 +991,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={generateLoading}
               >
-                {generateLoading ? 'Generating...' : 'Generate Selectors'}
+                {generateLoading ? <LoadingState type="generating-selectors" size="small" className="loading-inline" /> : 'Generate Selectors'}
               </button>
             </form>
 
@@ -1197,7 +1198,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                 className="test-submit-btn"
                 disabled={findLoading}
               >
-                {findLoading ? 'Searching...' : 'Find Elements'}
+                {findLoading ? <LoadingState type="searching-elements" size="small" className="loading-inline" /> : 'Find Elements'}
               </button>
             </form>
 

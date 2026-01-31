@@ -13,6 +13,7 @@ import {
 import * as api from '../services/api'
 import { DatabaseTableSkeleton, ConfigSectionSkeleton } from '../components/SkeletonLoader'
 import { useToast } from '../components/ToastContainer'
+import LoadingState from '../components/LoadingState'
 import '../styles/Database.css'
 
 function Database({ darkMode, toggleDarkMode }) {
@@ -653,14 +654,21 @@ function Database({ darkMode, toggleDarkMode }) {
           </div>
         )}
 
-        {loading && activeView === 'pages' && <DatabaseTableSkeleton />}
-        {loading && activeView === 'files' && <DatabaseTableSkeleton />}
-        {loading && (activeView === 'analytics' || activeView === 'timeline' || activeView === 'domains') && (
-          <>
-            <ConfigSectionSkeleton />
-            <ConfigSectionSkeleton />
-          </>
-        )}
+        {loading && activeView === 'dashboard' && <LoadingState type="fetching-stats" size="large" />}
+        {loading && activeView === 'pages' && <LoadingState type="fetching-pages" size="large" />}
+        {loading && activeView === 'files' && <LoadingState type="fetching-files" size="large" />}
+        {loading && activeView === 'files-by-ext' && <LoadingState type="fetching-files" size="large" />}
+        {loading && activeView === 'largest-downloads' && <LoadingState type="fetching-files" size="large" />}
+        {loading && activeView === 'top-links' && <LoadingState type="fetching-analytics" size="large" />}
+        {loading && activeView === 'analytics' && <LoadingState type="fetching-analytics" size="large" />}
+        {loading && activeView === 'timeline' && <LoadingState type="fetching-timeline" size="large" />}
+        {loading && activeView === 'domains' && <LoadingState type="fetching-domains" size="large" />}
+        {loading && activeView === 'link-analysis' && <LoadingState type="fetching-analytics" size="large" />}
+        {loading && activeView === 'performance' && <LoadingState type="fetching-analytics" size="large" />}
+        {loading && activeView === 'fingerprints' && <LoadingState type="fetching-analytics" size="large" />}
+        {loading && activeView === 'geolocation' && <LoadingState type="fetching-analytics" size="large" />}
+        {loading && activeView === 'page-details' && <LoadingState type="fetching-pages" size="large" />}
+        {loading && activeView === 'search' && <LoadingState type="searching-content" size="large" />}
 
         {/* Dashboard View */}
         {activeView === 'dashboard' && stats && (
