@@ -15,6 +15,8 @@ from playwright.async_api import async_playwright
 import config
 from scraper import Scraper
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+import functools
 
 # --- Logging Configuration ---
 logging.basicConfig(
@@ -48,6 +50,16 @@ scraper_task = None
 websocket_connections = []
 # Unique ID for the current scraping session
 current_session_id = None
+# Thread pool for blocking database operations
+db_executor = ThreadPoolExecutor(max_workers=4)
+
+def run_in_executor(func):
+    """Decorator to run blocking functions in thread pool"""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(db_executor, lambda: func(*args, **kwargs))
+    return wrapper
 
 class ProxyTester:
     """
@@ -235,6 +247,7 @@ class ScraperConfig(BaseModel):
     password_selector: Optional[str] = None
     submit_selector: Optional[str] = None
     success_indicator: Optional[str] = None
+    manual_login_mode: Optional[bool] = False
     extraction_rules: Optional[List[dict]] = []
 
 class ProxyTestRequest(BaseModel):
@@ -354,6 +367,10 @@ async def start_scraper(config_data: ScraperConfig):
             success_indicator=config_data.success_indicator,
         )
         
+        # Set manual login mode if provided
+        if config_data.manual_login_mode:
+            scraper_instance.manual_login_mode = config_data.manual_login_mode
+        
         scraper_instance.was_stopped_manually = False
         scraper_instance.session_id = current_session_id
         
@@ -408,68 +425,98 @@ async def get_scraper_status():
             "session_id": None
         }
     
-    recent_pages = []
-    recent_files = []
-    file_types = {}
-    total_pages_in_db = 0
-    
     session_id = getattr(scraper_instance, 'session_id', current_session_id)
-    
-    # Fetch latest data from SQLite for UI
-    try:
-        conn = sqlite3.connect(scraper_instance.db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT COUNT(*) as count FROM pages')
-        total_pages_in_db = cursor.fetchone()['count']
-        
-        # Get recently scraped pages
-        cursor.execute('''
-            SELECT id, url, title, depth, datetime(timestamp, 'unixepoch') as scraped_at
-            FROM pages
-            ORDER BY timestamp DESC
-        ''')
-        all_pages = [dict(row) for row in cursor.fetchall()]
-        
-        # Filter mostly by what's in memory if running, or all if finished
-        if hasattr(scraper_instance, 'visited'):
-            recent_pages = [p for p in all_pages if p['url'] in scraper_instance.visited]
-        else:
-            recent_pages = all_pages
-        
-        # Get recently downloaded files
-        try:
-            cursor.execute('''
-                SELECT fa.file_name, fa.file_extension, fa.file_size_bytes,
-                       fa.download_status, p.url as page_url,
-                       datetime(fa.download_timestamp, 'unixepoch') as downloaded_at
-                FROM file_assets fa
-                JOIN pages p ON fa.page_id = p.id
-                ORDER BY fa.download_timestamp DESC
-            ''')
-            all_files = [dict(row) for row in cursor.fetchall()]
-            
-            if hasattr(scraper_instance, 'visited'):
-                recent_files = [f for f in all_files if f['page_url'] in scraper_instance.visited]
-            else:
-                recent_files = all_files
-            
-            # Aggregate file types
-            file_type_counts = {}
-            for f in recent_files:
-                if f['download_status'] == 'success':
-                    ext = f['file_extension']
-                    file_type_counts[ext] = file_type_counts.get(ext, 0) + 1
-            file_types = file_type_counts
-        except sqlite3.OperationalError:
-            pass
-        
-        conn.close()
-    except Exception as e:
-        logger.error(f"Error fetching recent data: {e}")
-    
     is_running = scraper_task and not scraper_task.done()
+    was_stopped = getattr(scraper_instance, 'was_stopped_manually', False)
+    is_paused = getattr(scraper_instance, 'is_paused', False)
+    
+    # Get in-memory stats (non-blocking)
+    pages_scraped = scraper_instance.pages_scraped
+    queue_size = len(scraper_instance.queue)
+    visited_count = len(scraper_instance.visited)
+    max_pages = scraper_instance.max_pages
+    downloads = scraper_instance.downloads_stats if hasattr(scraper_instance, 'downloads_stats') else {}
+    start_url = scraper_instance.start_url
+    max_depth = scraper_instance.max_depth
+    concurrent_limit = scraper_instance.concurrent_limit
+    authenticated = bool(scraper_instance.storage_state) if hasattr(scraper_instance, 'storage_state') else False
+    
+    # Fetch DB data in thread pool to avoid blocking
+    def fetch_db_data():
+        recent_pages = []
+        recent_files = []
+        file_types = {}
+        total_pages_in_db = 0
+        
+        try:
+            conn = sqlite3.connect(scraper_instance.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT COUNT(*) as count FROM pages')
+            total_pages_in_db = cursor.fetchone()['count']
+            
+            # Limit query to recent 50 pages for performance
+            cursor.execute('''
+                SELECT id, url, title, depth, datetime(timestamp, 'unixepoch') as scraped_at
+                FROM pages
+                ORDER BY timestamp DESC
+                LIMIT 50
+            ''')
+            all_pages = [dict(row) for row in cursor.fetchall()]
+            
+            # Filter by visited URLs if scraper is running
+            if hasattr(scraper_instance, 'visited') and is_running:
+                recent_pages = [p for p in all_pages if p['url'] in scraper_instance.visited][:20]
+            else:
+                recent_pages = all_pages[:20]
+            
+            # Get recent files (limit to 30 for performance)
+            try:
+                cursor.execute('''
+                    SELECT fa.file_name, fa.file_extension, fa.file_size_bytes,
+                           fa.download_status, p.url as page_url,
+                           datetime(fa.download_timestamp, 'unixepoch') as downloaded_at
+                    FROM file_assets fa
+                    JOIN pages p ON fa.page_id = p.id
+                    ORDER BY fa.download_timestamp DESC
+                    LIMIT 30
+                ''')
+                all_files = [dict(row) for row in cursor.fetchall()]
+                
+                if hasattr(scraper_instance, 'visited') and is_running:
+                    recent_files = [f for f in all_files if f['page_url'] in scraper_instance.visited][:15]
+                else:
+                    recent_files = all_files[:15]
+                
+                # Aggregate file types from recent files only
+                file_type_counts = {}
+                for f in recent_files:
+                    if f['download_status'] == 'success':
+                        ext = f['file_extension']
+                        file_type_counts[ext] = file_type_counts.get(ext, 0) + 1
+                file_types = file_type_counts
+            except sqlite3.OperationalError:
+                pass
+            
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error fetching DB data in status: {e}")
+        
+        return recent_pages, recent_files, file_types, total_pages_in_db
+    
+    # Run DB fetch in thread pool
+    try:
+        loop = asyncio.get_event_loop()
+        recent_pages, recent_files, file_types, total_pages_in_db = await loop.run_in_executor(
+            db_executor, fetch_db_data
+        )
+    except Exception as e:
+        logger.error(f"Error in executor: {e}")
+        recent_pages = []
+        recent_files = []
+        file_types = {}
+        total_pages_in_db = 0
     
     # Reset state if database is empty and not running
     if total_pages_in_db == 0 and not is_running:
@@ -491,23 +538,20 @@ async def get_scraper_status():
             "session_id": session_id
         }
     
-    was_stopped = getattr(scraper_instance, 'was_stopped_manually', False)
-    is_paused = getattr(scraper_instance, 'is_paused', False)
-    
     return {
         "running": is_running,
         "is_paused": is_paused,
-        "pages_scraped": scraper_instance.pages_scraped,
-        "queue_size": len(scraper_instance.queue),
-        "visited": len(scraper_instance.visited),
-        "max_pages": scraper_instance.max_pages,
-        "downloads": scraper_instance.downloads_stats if hasattr(scraper_instance, 'downloads_stats') else {},
+        "pages_scraped": pages_scraped,
+        "queue_size": queue_size,
+        "visited": visited_count,
+        "max_pages": max_pages,
+        "downloads": downloads,
         "recent_pages": recent_pages,
         "recent_files": recent_files,
-        "start_url": scraper_instance.start_url,
-        "max_depth": scraper_instance.max_depth,
-        "concurrent_limit": scraper_instance.concurrent_limit,
-        "authenticated": bool(scraper_instance.storage_state) if hasattr(scraper_instance, 'storage_state') else False,
+        "start_url": start_url,
+        "max_depth": max_depth,
+        "concurrent_limit": concurrent_limit,
+        "authenticated": authenticated,
         "was_stopped": was_stopped,
         "file_types": file_types,
         "session_id": session_id

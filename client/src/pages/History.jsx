@@ -24,6 +24,24 @@ function History({ darkMode, toggleDarkMode }) {
   const [selectedForComparison, setSelectedForComparison] = useState([])
   const [comparisonData, setComparisonData] = useState(null)
   const [timelineData, setTimelineData] = useState(null)
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(null)
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
+  const [sessionTags, setSessionTags] = useState({}) // Store tags in localStorage
+  const [editingTag, setEditingTag] = useState(null)
+  const [tagInput, setTagInput] = useState('')
+
+  // Load tags from localStorage on mount
+  useEffect(() => {
+    const savedTags = localStorage.getItem('sessionTags')
+    if (savedTags) {
+      setSessionTags(JSON.parse(savedTags))
+    }
+  }, [])
+
+  // Save tags to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('sessionTags', JSON.stringify(sessionTags))
+  }, [sessionTags])
 
   useEffect(() => {
     if (activeView === 'sessions') {
@@ -122,23 +140,71 @@ function History({ darkMode, toggleDarkMode }) {
 
   const handleDeleteSession = async (domain, e) => {
     e.stopPropagation()
-    if (!confirm(`Delete all data for ${domain}? This cannot be undone.`)) return
+    // Open confirmation modal instead of simple confirm
+    setDeleteConfirmModal(domain)
+    setDeleteConfirmInput('')
+  }
+
+  const confirmDelete = async () => {
+    const domain = deleteConfirmModal
+    
+    // Extract domain name for comparison (remove protocol)
+    const domainName = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+    
+    if (deleteConfirmInput !== domainName) {
+      alert('Domain name does not match. Please type the exact domain name.')
+      return
+    }
 
     try {
       setLoading(true)
       const result = await api.deleteSession(domain)
       alert(`Deleted ${result.deleted_pages} pages`)
+      
+      // Remove tag if exists
+      const newTags = { ...sessionTags }
+      delete newTags[domain]
+      setSessionTags(newTags)
+      
       fetchSessions()
       if (selectedSession === domain) {
         setSelectedSession(null)
         setSessionDetails(null)
         setActiveView('sessions')
       }
+      setDeleteConfirmModal(null)
+      setDeleteConfirmInput('')
     } catch (err) {
       setError('Failed to delete session')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleAddTag = (domain) => {
+    setEditingTag(domain)
+    setTagInput(sessionTags[domain] || '')
+  }
+
+  const saveTag = (domain) => {
+    if (tagInput.trim()) {
+      setSessionTags(prev => ({
+        ...prev,
+        [domain]: tagInput.trim()
+      }))
+    } else {
+      // Remove tag if empty
+      const newTags = { ...sessionTags }
+      delete newTags[domain]
+      setSessionTags(newTags)
+    }
+    setEditingTag(null)
+    setTagInput('')
+  }
+
+  const cancelTagEdit = () => {
+    setEditingTag(null)
+    setTagInput('')
   }
 
   const handleViewProgress = (domain) => {
@@ -301,8 +367,18 @@ function History({ darkMode, toggleDarkMode }) {
                         />
                         <Globe size={16} />
                         <h3>{getDomain(session.domain)}</h3>
+                        {sessionTags[session.domain] && (
+                          <span className="session-tag">{sessionTags[session.domain]}</span>
+                        )}
                       </div>
                       <div className="session-actions-compact">
+                        <button
+                          onClick={() => handleAddTag(session.domain)}
+                          className="action-btn-compact"
+                          title="Add/Edit Tag"
+                        >
+                          🏷️
+                        </button>
                         <button
                           onClick={() => fetchSessionDetails(session.domain)}
                           className="action-btn-compact"
@@ -818,6 +894,89 @@ function History({ darkMode, toggleDarkMode }) {
           </div>
         )}
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal && (
+        <div className="modal-overlay" onClick={() => setDeleteConfirmModal(null)}>
+          <div className="modal-content delete-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>⚠️ Confirm Deletion</h2>
+              <button className="modal-close" onClick={() => setDeleteConfirmModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="delete-warning">
+                <AlertCircle size={48} color="#d93025" />
+                <p>You are about to permanently delete all data for:</p>
+                <div className="delete-domain">{deleteConfirmModal}</div>
+                <p className="delete-info">
+                  This will delete <strong>all pages, files, and metadata</strong> associated with this session.
+                  This action <strong>cannot be undone</strong>.
+                </p>
+              </div>
+              <div className="delete-confirm-input">
+                <label>Type the domain name to confirm:</label>
+                <input
+                  type="text"
+                  value={deleteConfirmInput}
+                  onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                  placeholder={deleteConfirmModal.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                  autoFocus
+                />
+                <p className="input-hint">
+                  Enter: <code>{deleteConfirmModal.replace(/^https?:\/\//, '').replace(/\/$/, '')}</code>
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setDeleteConfirmModal(null)}>
+                Cancel
+              </button>
+              <button 
+                className="btn-danger" 
+                onClick={confirmDelete}
+                disabled={deleteConfirmInput !== deleteConfirmModal.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tag Edit Modal */}
+      {editingTag && (
+        <div className="modal-overlay" onClick={cancelTagEdit}>
+          <div className="modal-content tag-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🏷️ Add/Edit Tag</h2>
+              <button className="modal-close" onClick={cancelTagEdit}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>Add a label to help organize this session:</p>
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="e.g., Production, Test, Research"
+                maxLength={20}
+                autoFocus
+                onKeyPress={(e) => e.key === 'Enter' && saveTag(editingTag)}
+              />
+              <p className="tag-examples">
+                Examples: Production, Test, Development, Research, Archive
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={cancelTagEdit}>
+                Cancel
+              </button>
+              <button className="btn-primary" onClick={() => saveTag(editingTag)}>
+                Save Tag
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     <Footer />
   </>

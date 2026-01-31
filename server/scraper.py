@@ -103,6 +103,7 @@ class Scraper:
         self.password_selector = password_selector if password_selector is not None else config.AUTH['password_selector']
         self.submit_selector = submit_selector if submit_selector is not None else config.AUTH['submit_selector']
         self.success_indicator = success_indicator if success_indicator is not None else config.AUTH['success_indicator']
+        self.manual_login_mode = config.AUTH.get('manual_login_mode', False)
         
         # Auth state storage
         auth_state_filename = auth_state_file if auth_state_file is not None else config.AUTH['auth_state_file']
@@ -252,6 +253,71 @@ class Scraper:
         
         return fingerprint
 
+    async def perform_manual_login(self, browser):
+        """
+        Opens a visible browser window for MANUAL login.
+        Useful for sites with CAPTCHA or strong bot detection (Pinterest, Instagram, etc.)
+        
+        User logs in manually, then the session is saved automatically.
+        
+        Args:
+            browser (Browser): The Playwright browser instance.
+            
+        Returns:
+            bool: True if session was saved, False otherwise.
+        """
+        self.logger.info("=" * 70)
+        self.logger.info("MANUAL LOGIN MODE")
+        self.logger.info("=" * 70)
+        self.logger.info(f"Opening browser for manual login to: {self.login_url}")
+        self.logger.info("Please log in manually in the browser window that opens.")
+        self.logger.info("After successful login, navigate to your target page.")
+        self.logger.info("The session will be saved automatically after 30 seconds.")
+        self.logger.info("=" * 70)
+        
+        try:
+            # Create context with fingerprint but NO storage state
+            fingerprint = self._generate_fingerprint()
+            context_options = {
+                "user_agent": fingerprint["user_agent"],
+                "viewport": fingerprint["viewport"],
+                "timezone_id": fingerprint["timezone_id"],
+                "geolocation": fingerprint["geolocation"],
+                "permissions": ["geolocation"],
+                "locale": fingerprint["locale"],
+            }
+            
+            context = await browser.new_context(**context_options)
+            page = await context.new_page()
+            
+            # Navigate to login page
+            await page.goto(self.login_url, timeout=30000)
+            
+            self.logger.info("Browser opened. Waiting 60 seconds for you to log in manually...")
+            self.logger.info("(You can close this message once you've logged in)")
+            
+            # Wait for user to login (60 seconds)
+            await asyncio.sleep(60)
+            
+            # Save the session state
+            self.storage_state = await context.storage_state()
+            
+            with open(self.auth_state_file, 'w') as f:
+                json.dump(self.storage_state, f, indent=2)
+            
+            self.logger.info(f"Session saved to: {self.auth_state_file}")
+            self.logger.info(f"Saved {len(self.storage_state.get('cookies', []))} cookies")
+            
+            await page.close()
+            await context.close()
+            
+            self.logger.info("Manual login complete! Session will be reused for scraping.")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Manual login failed: {e}")
+            return False
+
     async def perform_login(self, browser):
         """
         Handles the authentication process.
@@ -319,17 +385,59 @@ class Scraper:
             context, _ = await self.create_context(browser)
             page = await context.new_page()
             
+            # Add extra stealth scripts for sites like Pinterest
+            await page.add_init_script("""
+                // Remove webdriver property
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                
+                // Mock plugins
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+                
+                // Mock languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
+                });
+                
+                // Chrome runtime
+                window.chrome = {
+                    runtime: {}
+                };
+                
+                // Permissions
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
+            """)
+            
             self.logger.info(f"Navigating to login URL: {self.login_url}")
             await page.goto(self.login_url, wait_until="networkidle", timeout=30000)
-            await asyncio.sleep(2)
+            
+            # Add human-like delays
+            await asyncio.sleep(random.uniform(2, 4))
+            
+            # Scroll a bit to simulate human behavior
+            await page.evaluate("window.scrollTo(0, 100)")
+            await asyncio.sleep(random.uniform(0.5, 1))
             
             self.logger.debug(f"Entering username")
-            await page.fill(self.username_selector, self.username)
-            await asyncio.sleep(0.5)
+            # Type slowly like a human
+            await page.click(self.username_selector)
+            await asyncio.sleep(random.uniform(0.3, 0.7))
+            await page.type(self.username_selector, self.username, delay=random.randint(50, 150))
+            await asyncio.sleep(random.uniform(0.5, 1))
             
             self.logger.debug(f"Entering password")
-            await page.fill(self.password_selector, self.password)
-            await asyncio.sleep(0.5)
+            await page.click(self.password_selector)
+            await asyncio.sleep(random.uniform(0.3, 0.7))
+            await page.type(self.password_selector, self.password, delay=random.randint(50, 150))
+            await asyncio.sleep(random.uniform(1, 2))
             
             self.logger.debug(f"Clicking submit button")
             await page.click(self.submit_selector)
@@ -338,7 +446,7 @@ class Scraper:
             try:
                 await page.wait_for_load_state("networkidle", timeout=15000)
             except:
-                await asyncio.sleep(3)
+                await asyncio.sleep(5)
             
             current_url = page.url
             
@@ -1346,6 +1454,29 @@ class Scraper:
         4. Waits for completion and reports stats.
         """
         async with async_playwright() as p:
+            # For manual login mode, we need a visible browser first
+            if self.login_url and self.manual_login_mode:
+                self.logger.info("=" * 70)
+                self.logger.info("MANUAL LOGIN MODE - Launching visible browser")
+                self.logger.info("=" * 70)
+                
+                # Launch visible browser for manual login
+                manual_browser = await p.chromium.launch(
+                    headless=False,  # Always visible for manual login
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                        "--no-sandbox"
+                    ]
+                )
+                
+                login_success = await self.perform_manual_login(manual_browser)
+                await manual_browser.close()
+                
+                if not login_success:
+                    self.logger.warning("Manual login failed. Continuing without authentication...")
+            
+            # Now launch the main browser for scraping (can be headless)
             browser = await p.chromium.launch(
                 headless=self.headless,
                 args=[
@@ -1355,7 +1486,8 @@ class Scraper:
                 ]
             )
             
-            if self.login_url:
+            # Automated login (if not manual mode)
+            if self.login_url and not self.manual_login_mode:
                 login_success = await self.perform_login(browser)
                 if not login_success:
                     self.logger.warning("Login failed. Continuing without authentication...")

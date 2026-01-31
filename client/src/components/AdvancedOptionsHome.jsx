@@ -18,7 +18,8 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
     username_selector: '',
     password_selector: '',
     submit_selector: '',
-    success_indicator: ''
+    success_indicator: '',
+    manual_login_mode: false
   })
 
   const handleChange = (key, value) => {
@@ -76,7 +77,8 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
       username_selector: '',
       password_selector: '',
       submit_selector: '',
-      success_indicator: ''
+      success_indicator: '',
+      manual_login_mode: false
     })
   }
 
@@ -166,6 +168,28 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
           {/* Authentication Settings */}
           <div className="option-section">
             <h3>Authentication (Optional)</h3>
+            
+            {/* Manual Login Mode Toggle */}
+            <div className="option-checkboxes manual-login-notice">
+              <label className="checkbox-label">
+                <ToggleSwitch
+                  type="checkbox"
+                  checked={options.manual_login_mode}
+                  onChange={(e) => handleChange('manual_login_mode', e.target.checked)}
+                />
+                <span>Manual Login Mode</span>
+              </label>
+              {options.manual_login_mode && (
+                <div className="info-box">
+                  <span className="info-icon">ℹ️</span>
+                  <div className="info-text">
+                    <strong>Manual Login Enabled</strong>
+                    <p>A visible browser window will open for you to log in manually. Perfect for sites with CAPTCHA (Pinterest, Instagram, etc.). Session will be saved automatically after 60 seconds.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
             <div className="option-grid">
               <div className="option-field full-width">
                 <label>Login URL</label>
@@ -204,6 +228,7 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
                   placeholder="input[name='username']"
                   value={options.username_selector}
                   onChange={(e) => handleChange('username_selector', e.target.value)}
+                  disabled={options.manual_login_mode}
                 />
               </div>
 
@@ -214,6 +239,7 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
                   placeholder="input[name='password']"
                   value={options.password_selector}
                   onChange={(e) => handleChange('password_selector', e.target.value)}
+                  disabled={options.manual_login_mode}
                 />
               </div>
 
@@ -224,6 +250,7 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
                   placeholder="button[type='submit']"
                   value={options.submit_selector}
                   onChange={(e) => handleChange('submit_selector', e.target.value)}
+                  disabled={options.manual_login_mode}
                 />
               </div>
 
@@ -234,6 +261,7 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
                   placeholder=".user-profile"
                   value={options.success_indicator}
                   onChange={(e) => handleChange('success_indicator', e.target.value)}
+                  disabled={options.manual_login_mode}
                 />
               </div>
             </div>

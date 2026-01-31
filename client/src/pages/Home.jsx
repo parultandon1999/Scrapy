@@ -114,6 +114,7 @@ function Home({ darkMode, toggleDarkMode }) {
       if (advancedOptions.password_selector) payload.password_selector = advancedOptions.password_selector
       if (advancedOptions.submit_selector) payload.submit_selector = advancedOptions.submit_selector
       if (advancedOptions.success_indicator) payload.success_indicator = advancedOptions.success_indicator
+      if (advancedOptions.manual_login_mode !== undefined) payload.manual_login_mode = advancedOptions.manual_login_mode
 
       // Step 2: Starting
       setLoadingStep('Starting scraper...')

@@ -9,6 +9,7 @@ import History from './pages/History'
 import Config from './pages/Config'
 import SelectorFinder from './pages/SelectorFinder'
 import ProxyTester from './pages/ProxyTester'
+import ActiveScrapingBanner from './components/ActiveScrapingBanner'
 
 function App() {
   const [darkMode, setDarkMode] = useState(false)
@@ -34,6 +35,7 @@ function App() {
 
   return (
     <Router>
+        <ActiveScrapingBanner />
         <Routes>
           <Route path="/" element={<Home darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
           <Route path="/progress" element={<ScrapingProgress darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />

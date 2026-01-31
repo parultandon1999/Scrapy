@@ -35,6 +35,7 @@ AUTH = {
     'password_selector': "input[name='password']",
     'submit_selector': "button[type='submit']",
     'success_indicator': None,
+    'manual_login_mode': False,  # Set to True for sites with CAPTCHA (Pinterest, Instagram, etc.)
     'error_selectors': [
         '.error',
         '.alert-error',

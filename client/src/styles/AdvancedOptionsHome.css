@@ -290,3 +290,79 @@ body.dark-mode .modal-footer {
     font-size: 12px;
   }
 }
+
+
+/* Manual Login Mode Info Box */
+.manual-login-notice {
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.info-box {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #e8f0fe;
+  border-left: 4px solid #1a73e8;
+  border-radius: 4px;
+  animation: slideDown 0.3s ease-out;
+}
+
+body.dark-mode .info-box {
+  background: #1a2a3a;
+  border-left-color: #4285f4;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.info-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.info-text {
+  flex: 1;
+}
+
+.info-text strong {
+  display: block;
+  font-size: 14px;
+  color: #1a73e8;
+  margin-bottom: 4px;
+}
+
+body.dark-mode .info-text strong {
+  color: #8ab4f8;
+}
+
+.info-text p {
+  margin: 0;
+  font-size: 13px;
+  color: #5f6368;
+  line-height: 1.5;
+}
+
+body.dark-mode .info-text p {
+  color: #999999;
+}
+
+.option-field input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+body.dark-mode .option-field input:disabled {
+  background: #0f0f0f;
+  opacity: 0.4;
+}

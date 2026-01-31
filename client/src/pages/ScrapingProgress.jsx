@@ -222,6 +222,9 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
         setStartTime(null)
         setEta(null)
         setScrapingRate(0)
+        
+        // STOP POLLING when scraping is not running
+        stopPolling()
       }
       
       if (data.session_id && data.session_id !== currentSessionId) {
@@ -248,6 +251,12 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       if (newPages.length > 0 || newFiles.length > 0) {
         scheduleUpdate(newPages, newFiles)
       }
+    } catch (err) {
+      console.error('Failed to fetch status:', err)
+      // Stop polling on error
+      stopPolling()
+    }
+  }
       
       if (!data.running && data.pages_scraped === 0 && !isHistoryView) {
         navigate('/')
