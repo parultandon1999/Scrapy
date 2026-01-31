@@ -1,0 +1,473 @@
+/* Tour Overlay */
+.tour-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 9998;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Tour Spotlight */
+.tour-spotlight {
+  position: fixed;
+  border: 3px solid #1a73e8;
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+  z-index: 9999;
+  pointer-events: none;
+  transition: all 0.3s ease-out;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 20px rgba(26, 115, 232, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7), 0 0 40px rgba(26, 115, 232, 0.8);
+  }
+}
+
+body.dark-mode .tour-spotlight {
+  border-color: #8ab4f8;
+}
+
+/* Tour Tooltip */
+.tour-tooltip {
+  position: fixed;
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body.dark-mode .tour-tooltip {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Tooltip Arrow */
+.tour-tooltip::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 10px solid transparent;
+}
+
+.tour-tooltip.position-bottom::before {
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-bottom-color: #fff;
+}
+
+body.dark-mode .tour-tooltip.position-bottom::before {
+  border-bottom-color: #1a1a1a;
+}
+
+.tour-tooltip.position-top::before {
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-top-color: #fff;
+}
+
+body.dark-mode .tour-tooltip.position-top::before {
+  border-top-color: #1a1a1a;
+}
+
+.tour-tooltip.position-left::before {
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-left-color: #fff;
+}
+
+body.dark-mode .tour-tooltip.position-left::before {
+  border-left-color: #1a1a1a;
+}
+
+.tour-tooltip.position-right::before {
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-right-color: #fff;
+}
+
+body.dark-mode .tour-tooltip.position-right::before {
+  border-right-color: #1a1a1a;
+}
+
+/* Tooltip Header */
+.tour-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.tour-tooltip-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #202124;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body.dark-mode .tour-tooltip-title {
+  color: #e0e0e0;
+}
+
+.tour-tooltip-close {
+  background: transparent;
+  border: none;
+  color: #5f6368;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.tour-tooltip-close:hover {
+  background: #f8f9fa;
+  color: #202124;
+}
+
+body.dark-mode .tour-tooltip-close {
+  color: #9aa0a6;
+}
+
+body.dark-mode .tour-tooltip-close:hover {
+  background: #2a2a2a;
+  color: #e0e0e0;
+}
+
+/* Tooltip Content */
+.tour-tooltip-content {
+  color: #5f6368;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+body.dark-mode .tour-tooltip-content {
+  color: #9aa0a6;
+}
+
+/* Tooltip Footer */
+.tour-tooltip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tour-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #5f6368;
+}
+
+body.dark-mode .tour-progress {
+  color: #9aa0a6;
+}
+
+.tour-progress-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.tour-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dadce0;
+  transition: all 0.2s;
+}
+
+.tour-progress-dot.active {
+  background: #1a73e8;
+  width: 24px;
+  border-radius: 4px;
+}
+
+body.dark-mode .tour-progress-dot {
+  background: #444;
+}
+
+body.dark-mode .tour-progress-dot.active {
+  background: #8ab4f8;
+}
+
+.tour-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tour-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tour-btn-skip {
+  background: transparent;
+  color: #5f6368;
+}
+
+.tour-btn-skip:hover {
+  background: #f8f9fa;
+  color: #202124;
+}
+
+body.dark-mode .tour-btn-skip {
+  color: #9aa0a6;
+}
+
+body.dark-mode .tour-btn-skip:hover {
+  background: #2a2a2a;
+  color: #e0e0e0;
+}
+
+.tour-btn-back {
+  background: #f8f9fa;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+}
+
+.tour-btn-back:hover {
+  background: #e8eaed;
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+body.dark-mode .tour-btn-back {
+  background: #2a2a2a;
+  color: #9aa0a6;
+  border-color: #444;
+}
+
+body.dark-mode .tour-btn-back:hover {
+  background: #333;
+  border-color: #8ab4f8;
+  color: #8ab4f8;
+}
+
+.tour-btn-next,
+.tour-btn-finish {
+  background: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%);
+  color: #fff;
+}
+
+.tour-btn-next:hover,
+.tour-btn-finish:hover {
+  background: linear-gradient(135deg, #1557b0 0%, #0d47a1 100%);
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+
+body.dark-mode .tour-btn-next,
+body.dark-mode .tour-btn-finish {
+  background: linear-gradient(135deg, #8ab4f8 0%, #669df6 100%);
+  color: #0a0a0a;
+}
+
+body.dark-mode .tour-btn-next:hover,
+body.dark-mode .tour-btn-finish:hover {
+  background: linear-gradient(135deg, #a8c7fa 0%, #8ab4f8 100%);
+}
+
+/* Welcome Modal */
+.tour-welcome-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  z-index: 10001;
+  animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+body.dark-mode .tour-welcome-modal {
+  background: #1a1a1a;
+  border: 1px solid #333;
+}
+
+.tour-welcome-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.tour-welcome-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #202124;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+body.dark-mode .tour-welcome-title {
+  color: #e0e0e0;
+}
+
+.tour-welcome-description {
+  font-size: 16px;
+  color: #5f6368;
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+body.dark-mode .tour-welcome-description {
+  color: #9aa0a6;
+}
+
+.tour-welcome-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.tour-welcome-btn {
+  flex: 1;
+  padding: 14px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tour-welcome-btn-skip {
+  background: #f8f9fa;
+  color: #5f6368;
+  border: 2px solid #dadce0;
+}
+
+.tour-welcome-btn-skip:hover {
+  background: #e8eaed;
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+body.dark-mode .tour-welcome-btn-skip {
+  background: #2a2a2a;
+  color: #9aa0a6;
+  border-color: #444;
+}
+
+body.dark-mode .tour-welcome-btn-skip:hover {
+  background: #333;
+  border-color: #8ab4f8;
+  color: #8ab4f8;
+}
+
+.tour-welcome-btn-start {
+  background: linear-gradient(135deg, #1a73e8 0%, #1557b0 100%);
+  color: #fff;
+}
+
+.tour-welcome-btn-start:hover {
+  background: linear-gradient(135deg, #1557b0 0%, #0d47a1 100%);
+  box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+}
+
+body.dark-mode .tour-welcome-btn-start {
+  background: linear-gradient(135deg, #8ab4f8 0%, #669df6 100%);
+  color: #0a0a0a;
+}
+
+body.dark-mode .tour-welcome-btn-start:hover {
+  background: linear-gradient(135deg, #a8c7fa 0%, #8ab4f8 100%);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .tour-tooltip {
+    max-width: 90%;
+    padding: 20px;
+  }
+
+  .tour-welcome-modal {
+    padding: 32px 24px;
+  }
+
+  .tour-welcome-title {
+    font-size: 24px;
+  }
+
+  .tour-welcome-description {
+    font-size: 14px;
+  }
+
+  .tour-welcome-actions {
+    flex-direction: column;
+  }
+}

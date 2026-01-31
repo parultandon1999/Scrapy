@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import Breadcrumb from '../components/Breadcrumb'
 import { 
   LayoutDashboard, FileText, FolderOpen, Package, 
   HardDrive, Link2, Search, Download, ChevronLeft, 
@@ -10,9 +11,12 @@ import {
   Calendar, Layers, AlertCircle, Clock, Globe
 } from 'lucide-react'
 import * as api from '../services/api'
+import { DatabaseTableSkeleton, ConfigSectionSkeleton } from '../components/SkeletonLoader'
+import { useToast } from '../components/ToastContainer'
 import '../styles/Database.css'
 
 function Database({ darkMode, toggleDarkMode }) {
+  const toast = useToast()
   const [activeView, setActiveView] = useState('dashboard')
   const [stats, setStats] = useState(null)
   const [pages, setPages] = useState([])
@@ -320,7 +324,7 @@ function Database({ darkMode, toggleDarkMode }) {
       const data = await api.bulkDeletePages(selectedPages)
       setSelectedPages([])
       fetchPages()
-      alert(`Deleted ${data.deleted_count} pages`)
+      toast.success(`Deleted ${data.deleted_count} pages`)
     } catch (err) {
       setError('Failed to delete pages')
     } finally {
@@ -459,7 +463,7 @@ function Database({ darkMode, toggleDarkMode }) {
     
     // For now, we'll create a simple text-based export
     // In production, you'd want to use a library like html2canvas
-    alert('Chart export feature requires html2canvas library. For now, use browser screenshot.')
+    toast.info('Chart export feature requires html2canvas library. For now, use browser screenshot.')
   }
 
   const exportChartData = (data, filename) => {
@@ -504,9 +508,9 @@ function Database({ darkMode, toggleDarkMode }) {
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="database" />
       <div className="database-page">
       {/* Sidebar Navigation */}
-      <aside className="db-sidebar">
+      <aside className="db-sidebar" role="complementary" aria-label="Database navigation">
         <h2><DatabaseIcon size={20} /> Database</h2>
-        <nav className="db-nav">
+        <nav className="db-nav" aria-label="Database sections">
           <button 
             className={`db-nav-item ${activeView === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveView('dashboard')}
@@ -619,7 +623,29 @@ function Database({ darkMode, toggleDarkMode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="db-main">
+      <main id="main-content" className="db-main" role="main">
+        <Breadcrumb 
+          items={[
+            { label: 'Database', icon: DatabaseIcon, path: '/database' },
+            { label: activeView === 'dashboard' ? 'Overview' : 
+                     activeView === 'pages' ? 'Pages' :
+                     activeView === 'files' ? 'Files' :
+                     activeView === 'files-by-ext' ? 'By Type' :
+                     activeView === 'largest-downloads' ? 'Largest' :
+                     activeView === 'top-links' ? 'Links' :
+                     activeView === 'search' ? 'Search' :
+                     activeView === 'analytics' ? 'Analytics' :
+                     activeView === 'timeline' ? 'Timeline' :
+                     activeView === 'domains' ? 'Domains' :
+                     activeView === 'link-analysis' ? 'Link Analysis' :
+                     activeView === 'performance' ? 'Performance' :
+                     activeView === 'fingerprints' ? 'Fingerprints' :
+                     activeView === 'geolocation' ? 'Geolocation' :
+                     activeView === 'page-details' ? 'Page Details' : 'View'
+            }
+          ]}
+        />
+        
         {error && (
           <div className="db-error">
             <p>{error}</p>
@@ -627,11 +653,13 @@ function Database({ darkMode, toggleDarkMode }) {
           </div>
         )}
 
-        {loading && activeView !== 'dashboard' && (
-          <div className="db-loading">
-            <div className="spinner"></div>
-            <p>Loading...</p>
-          </div>
+        {loading && activeView === 'pages' && <DatabaseTableSkeleton />}
+        {loading && activeView === 'files' && <DatabaseTableSkeleton />}
+        {loading && (activeView === 'analytics' || activeView === 'timeline' || activeView === 'domains') && (
+          <>
+            <ConfigSectionSkeleton />
+            <ConfigSectionSkeleton />
+          </>
         )}
 
         {/* Dashboard View */}

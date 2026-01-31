@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Play, Settings } from 'lucide-react'
 import { startScraper, getScrapedUrls } from '../services/api'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import Button from '../components/Button'
+import Tour from '../components/Tour'
+import { homeTourSteps } from '../utils/tourHelpers'
 import AdvancedOptionsModal from '../components/AdvancedOptionsHome'
 import SearchBar from '../components/Searchbar'
 import '../styles/Home.css'
@@ -153,6 +157,11 @@ function Home({ darkMode, toggleDarkMode }) {
 
   return (
     <>
+      <Tour 
+        steps={homeTourSteps}
+        onComplete={() => console.log('Tour completed')}
+        onSkip={() => console.log('Tour skipped')}
+      />
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
       <div className="home">
         {/* Main content - centered */}
@@ -173,30 +182,24 @@ function Home({ darkMode, toggleDarkMode }) {
         />
         
         <div className="buttons">
-          <button 
-            type="button"
-            className="btn-primary"
+          <Button
+            variant="primary"
+            icon={Play}
             disabled={isLoading || !url || !urlValid}
+            loading={isLoading}
             onClick={handleSubmit}
           >
-            {isLoading ? (
-              <span className="loading-text">
-                <span className="loading-spinner"></span>
-                {loadingStep}
-              </span>
-            ) : (
-              'Start Scraping'
-            )}
-          </button>
-          <button 
-            type="button" 
-            className="btn-secondary advanced-options-btn"
+            {isLoading ? loadingStep : 'Start Scraping'}
+          </Button>
+          <Button
+            variant="secondary"
+            icon={Settings}
             onClick={() => setShowAdvancedModal(true)}
             disabled={isLoading}
           >
             Advanced Options
             {hasAdvancedOptions() && <span className="options-badge pulse">●</span>}
-          </button>
+          </Button>
         </div>
 
         <AdvancedOptionsModal

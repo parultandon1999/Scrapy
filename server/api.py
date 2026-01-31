@@ -61,6 +61,224 @@ def run_in_executor(func):
         return await loop.run_in_executor(db_executor, lambda: func(*args, **kwargs))
     return wrapper
 
+def calculate_selector_strength(selector: str, element_count: int, has_id: bool, has_unique_attr: bool, 
+                                 is_specific: bool, uses_nth_child: bool) -> dict:
+    """
+    Calculate a reliability score for a CSS selector.
+    Returns score (0-100) and strength level (weak/moderate/strong/excellent).
+    """
+    score = 50  # Base score
+    
+    # ID selectors are most reliable
+    if has_id and '#' in selector:
+        score += 30
+    
+    # Unique attributes are good
+    if has_unique_attr:
+        score += 15
+    
+    # Specific selectors (longer, more detailed) are more reliable
+    if is_specific:
+        score += 10
+    
+    # Single match is ideal
+    if element_count == 1:
+        score += 20
+    elif element_count <= 3:
+        score += 10
+    elif element_count > 10:
+        score -= 20
+    
+    # nth-child is fragile (page structure changes break it)
+    if uses_nth_child:
+        score -= 15
+    
+    # Class-only selectors are less reliable
+    if selector.startswith('.') and selector.count('.') == 1 and ' ' not in selector:
+        score -= 10
+    
+    # Clamp score between 0 and 100
+    score = max(0, min(100, score))
+    
+    # Determine strength level
+    if score >= 85:
+        strength = "excellent"
+        color = "#34a853"
+    elif score >= 70:
+        strength = "strong"
+        color = "#1a73e8"
+    elif score >= 50:
+        strength = "moderate"
+        color = "#f9ab00"
+    else:
+        strength = "weak"
+        color = "#ea4335"
+    
+    return {
+        "score": score,
+        "strength": strength,
+        "color": color,
+        "description": get_strength_description(strength)
+    }
+
+def get_strength_description(strength: str) -> str:
+    """Get human-readable description of selector strength."""
+    descriptions = {
+        "excellent": "Highly reliable - unlikely to break",
+        "strong": "Reliable - good for production use",
+        "moderate": "Acceptable - may need monitoring",
+        "weak": "Fragile - consider alternatives"
+    }
+    return descriptions.get(strength, "Unknown")
+
+async def generate_robust_selectors(page, element) -> list:
+    """
+    Generate multiple fallback selectors for an element, ordered by reliability.
+    Returns list of selector dictionaries with strength scores.
+    """
+    selectors = []
+    
+    try:
+        # Get element details
+        tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+        elem_id = await element.get_attribute("id")
+        elem_class = await element.get_attribute("class")
+        elem_name = await element.get_attribute("name")
+        elem_type = await element.get_attribute("type")
+        elem_text = await element.evaluate("el => el.textContent?.trim() || ''")
+        
+        # 1. ID selector (most reliable)
+        if elem_id:
+            selector = f"#{elem_id}"
+            count = len(await page.query_selector_all(selector))
+            strength = calculate_selector_strength(
+                selector, count, True, True, True, False
+            )
+            selectors.append({
+                "selector": selector,
+                "type": "ID",
+                "strength": strength,
+                "matches": count
+            })
+        
+        # 2. Name attribute (reliable for forms)
+        if elem_name:
+            selector = f"{tag_name}[name='{elem_name}']"
+            count = len(await page.query_selector_all(selector))
+            strength = calculate_selector_strength(
+                selector, count, False, True, True, False
+            )
+            selectors.append({
+                "selector": selector,
+                "type": "Name Attribute",
+                "strength": strength,
+                "matches": count
+            })
+        
+        # 3. Type attribute (for inputs)
+        if elem_type:
+            selector = f"{tag_name}[type='{elem_type}']"
+            count = len(await page.query_selector_all(selector))
+            strength = calculate_selector_strength(
+                selector, count, False, True, False, False
+            )
+            selectors.append({
+                "selector": selector,
+                "type": "Type Attribute",
+                "strength": strength,
+                "matches": count
+            })
+        
+        # 4. Class selector (less reliable)
+        if elem_class:
+            classes = elem_class.strip().split()
+            if classes:
+                selector = f"{tag_name}.{classes[0]}"
+                count = len(await page.query_selector_all(selector))
+                strength = calculate_selector_strength(
+                    selector, count, False, False, False, False
+                )
+                selectors.append({
+                    "selector": selector,
+                    "type": "Class",
+                    "strength": strength,
+                    "matches": count
+                })
+        
+        # 5. Text content selector (for buttons/links)
+        if elem_text and len(elem_text) < 50 and tag_name in ['button', 'a', 'span']:
+            selector = f"{tag_name}:has-text('{elem_text[:30]}')"
+            try:
+                count = len(await page.query_selector_all(selector))
+                strength = calculate_selector_strength(
+                    selector, count, False, False, True, False
+                )
+                selectors.append({
+                    "selector": selector,
+                    "type": "Text Content",
+                    "strength": strength,
+                    "matches": count
+                })
+            except:
+                pass
+        
+        # 6. Combined class selector (more specific)
+        if elem_class:
+            classes = elem_class.strip().split()
+            if len(classes) > 1:
+                selector = f"{tag_name}.{'.'.join(classes[:2])}"
+                count = len(await page.query_selector_all(selector))
+                strength = calculate_selector_strength(
+                    selector, count, False, False, True, False
+                )
+                selectors.append({
+                    "selector": selector,
+                    "type": "Multiple Classes",
+                    "strength": strength,
+                    "matches": count
+                })
+        
+        # 7. XPath (fallback)
+        try:
+            xpath = await element.evaluate("""el => {
+                const getPathTo = (element) => {
+                    if (element.id !== '')
+                        return 'id("' + element.id + '")';
+                    if (element === document.body)
+                        return element.tagName;
+                    
+                    let ix = 0;
+                    const siblings = element.parentNode.childNodes;
+                    for (let i = 0; i < siblings.length; i++) {
+                        const sibling = siblings[i];
+                        if (sibling === element)
+                            return getPathTo(element.parentNode) + '/' + element.tagName + '[' + (ix + 1) + ']';
+                        if (sibling.nodeType === 1 && sibling.tagName === element.tagName)
+                            ix++;
+                    }
+                };
+                return getPathTo(el);
+            }""")
+            
+            selectors.append({
+                "selector": xpath,
+                "type": "XPath",
+                "strength": calculate_selector_strength(
+                    xpath, 1, False, False, True, True
+                ),
+                "matches": 1
+            })
+        except:
+            pass
+        
+        # Sort by strength score (highest first)
+        selectors.sort(key=lambda x: x["strength"]["score"], reverse=True)
+        
+    except Exception as e:
+        logger.error(f"Error generating robust selectors: {e}")
+    
+    return selectors
+
 class ProxyTester:
     """
     Utility class to validate proxy servers using Playwright.
@@ -274,6 +492,16 @@ class TestLoginRequest(BaseModel):
     password_selector: str
     submit_selector: str
     success_indicator: Optional[str] = None
+
+class TestSelectorRequest(BaseModel):
+    """Payload for testing a CSS selector on a page."""
+    url: str
+    selector: str
+
+class GenerateRobustSelectorRequest(BaseModel):
+    """Payload for generating robust selectors for an element."""
+    url: str
+    target_description: str  # Description of what to find (e.g., "login button", "username field")
 
 class FindElementRequest(BaseModel):
     """Payload for searching specific elements on a page."""
@@ -2067,6 +2295,192 @@ async def test_login_selectors(request: TestLoginRequest):
                 result["message"] = f"Test failed: {str(e)}"
                 if not result["errors"]:
                     result["errors"].append(str(e))
+            finally:
+                await browser.close()
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/selector-finder/test-selector")
+async def test_selector(request: TestSelectorRequest):
+    """
+    Tests a CSS selector on a page and returns information about matched elements.
+    Returns element count, bounding boxes for highlighting, element details, and strength score.
+    """
+    try:
+        from playwright.async_api import async_playwright
+        
+        result = {
+            "success": False,
+            "selector": request.selector,
+            "url": request.url,
+            "matched_count": 0,
+            "elements": [],
+            "strength": None,
+            "error": None
+        }
+        
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                viewport={"width": 1920, "height": 1080}
+            )
+            page = await context.new_page()
+            
+            try:
+                await page.goto(request.url, wait_until="networkidle", timeout=30000)
+                await asyncio.sleep(1)
+                
+                # Find all matching elements
+                elements = await page.query_selector_all(request.selector)
+                result["matched_count"] = len(elements)
+                
+                if len(elements) > 0:
+                    result["success"] = True
+                    
+                    # Calculate selector strength
+                    has_id = '#' in request.selector
+                    has_unique_attr = '[' in request.selector and ']' in request.selector
+                    is_specific = len(request.selector) > 20 or request.selector.count(' ') > 1
+                    uses_nth_child = ':nth-child' in request.selector or ':nth-of-type' in request.selector
+                    
+                    result["strength"] = calculate_selector_strength(
+                        request.selector,
+                        len(elements),
+                        has_id,
+                        has_unique_attr,
+                        is_specific,
+                        uses_nth_child
+                    )
+                    
+                    # Get details for each matched element (limit to 20 for performance)
+                    for idx, element in enumerate(elements[:20]):
+                        try:
+                            # Get bounding box for highlighting
+                            box = await element.bounding_box()
+                            
+                            # Get element details
+                            tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+                            text_content = await element.evaluate("el => el.textContent?.trim() || ''")
+                            inner_html = await element.evaluate("el => el.innerHTML")
+                            
+                            # Get attributes
+                            attributes = await element.evaluate("""el => {
+                                const attrs = {};
+                                for (let attr of el.attributes) {
+                                    attrs[attr.name] = attr.value;
+                                }
+                                return attrs;
+                            }""")
+                            
+                            elem_data = {
+                                "index": idx,
+                                "tag": tag_name,
+                                "text": text_content[:200] if text_content else "",
+                                "inner_html": inner_html[:500] if inner_html else "",
+                                "attributes": attributes,
+                                "bounding_box": box if box else None
+                            }
+                            
+                            result["elements"].append(elem_data)
+                        except Exception as e:
+                            logger.error(f"Error getting element details: {e}")
+                            continue
+                else:
+                    result["error"] = "No elements matched the selector"
+                
+            except Exception as e:
+                result["success"] = False
+                result["error"] = f"Failed to test selector: {str(e)}"
+            finally:
+                await browser.close()
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/selector-finder/generate-robust-selector")
+async def generate_robust_selector(request: GenerateRobustSelectorRequest):
+    """
+    Generates multiple robust selectors for an element based on description.
+    Returns selectors ordered by reliability with strength scores.
+    """
+    try:
+        from playwright.async_api import async_playwright
+        
+        result = {
+            "success": False,
+            "url": request.url,
+            "target_description": request.target_description,
+            "selectors": [],
+            "error": None
+        }
+        
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context(
+                viewport={"width": 1920, "height": 1080}
+            )
+            page = await context.new_page()
+            
+            try:
+                await page.goto(request.url, wait_until="networkidle", timeout=30000)
+                await asyncio.sleep(1)
+                
+                # Try to find element based on description
+                target_lower = request.target_description.lower()
+                element = None
+                
+                # Strategy 1: Look for buttons/inputs with matching text or attributes
+                if any(word in target_lower for word in ['button', 'submit', 'login', 'sign in']):
+                    # Try buttons first
+                    buttons = await page.query_selector_all('button, input[type="submit"], input[type="button"]')
+                    for btn in buttons:
+                        text = await btn.inner_text() if await btn.evaluate("el => el.tagName") == "BUTTON" else ""
+                        value = await btn.get_attribute("value") or ""
+                        if any(word in text.lower() or word in value.lower() for word in target_lower.split()):
+                            element = btn
+                            break
+                
+                # Strategy 2: Look for input fields
+                elif any(word in target_lower for word in ['input', 'field', 'username', 'email', 'password']):
+                    inputs = await page.query_selector_all('input')
+                    for inp in inputs:
+                        name = await inp.get_attribute("name") or ""
+                        placeholder = await inp.get_attribute("placeholder") or ""
+                        input_type = await inp.get_attribute("type") or ""
+                        
+                        if any(word in name.lower() or word in placeholder.lower() or word in input_type.lower() 
+                               for word in target_lower.split()):
+                            element = inp
+                            break
+                
+                # Strategy 3: Look for any element with matching text
+                else:
+                    all_elements = await page.query_selector_all('a, button, span, div, input, label')
+                    for elem in all_elements:
+                        try:
+                            text = await elem.inner_text()
+                            if text and any(word in text.lower() for word in target_lower.split()):
+                                element = elem
+                                break
+                        except:
+                            continue
+                
+                if element:
+                    # Generate robust selectors for the found element
+                    selectors = await generate_robust_selectors(page, element)
+                    result["selectors"] = selectors
+                    result["success"] = True
+                else:
+                    result["error"] = f"Could not find element matching '{request.target_description}'"
+                
+            except Exception as e:
+                result["success"] = False
+                result["error"] = f"Failed to generate selectors: {str(e)}"
             finally:
                 await browser.close()
         

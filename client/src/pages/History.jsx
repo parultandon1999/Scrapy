@@ -2,16 +2,20 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import Breadcrumb from '../components/Breadcrumb'
 import {
   Clock, Globe, FileText, HardDrive, Link2, Calendar,
   Layers, Trash2, Eye, BarChart3, Download, ChevronRight,
   AlertCircle, CheckCircle, XCircle, X, Filter, Search
 } from 'lucide-react'
 import * as api from '../services/api'
+import { HistoryCardSkeleton, ConfigSectionSkeleton } from '../components/SkeletonLoader'
+import { useToast } from '../components/ToastContainer'
 import '../styles/History.css'
 
 function History({ darkMode, toggleDarkMode }) {
   const navigate = useNavigate()
+  const toast = useToast()
   const [activeView, setActiveView] = useState('sessions')
   const [sessions, setSessions] = useState([])
   const [statistics, setStatistics] = useState(null)
@@ -27,14 +31,22 @@ function History({ darkMode, toggleDarkMode }) {
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null)
   const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
   const [sessionTags, setSessionTags] = useState({}) // Store tags in localStorage
+  const [sessionNotes, setSessionNotes] = useState({}) // Store notes in localStorage
   const [editingTag, setEditingTag] = useState(null)
+  const [editingNote, setEditingNote] = useState(null)
   const [tagInput, setTagInput] = useState('')
+  const [noteInput, setNoteInput] = useState('')
+  const [exportingSession, setExportingSession] = useState(null)
 
-  // Load tags from localStorage on mount
+  // Load tags and notes from localStorage on mount
   useEffect(() => {
     const savedTags = localStorage.getItem('sessionTags')
+    const savedNotes = localStorage.getItem('sessionNotes')
     if (savedTags) {
       setSessionTags(JSON.parse(savedTags))
+    }
+    if (savedNotes) {
+      setSessionNotes(JSON.parse(savedNotes))
     }
   }, [])
 
@@ -42,6 +54,11 @@ function History({ darkMode, toggleDarkMode }) {
   useEffect(() => {
     localStorage.setItem('sessionTags', JSON.stringify(sessionTags))
   }, [sessionTags])
+
+  // Save notes to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('sessionNotes', JSON.stringify(sessionNotes))
+  }, [sessionNotes])
 
   useEffect(() => {
     if (activeView === 'sessions') {
@@ -96,7 +113,7 @@ function History({ darkMode, toggleDarkMode }) {
       } else if (prev.length < 2) {
         return [...prev, domain]
       } else {
-        alert('You can only compare 2 sessions at a time')
+        toast.warning('You can only compare 2 sessions at a time')
         return prev
       }
     })
@@ -104,7 +121,7 @@ function History({ darkMode, toggleDarkMode }) {
 
   const handleCompare = async () => {
     if (selectedForComparison.length !== 2) {
-      alert('Please select exactly 2 sessions to compare')
+      toast.warning('Please select exactly 2 sessions to compare')
       return
     }
 
@@ -152,19 +169,22 @@ function History({ darkMode, toggleDarkMode }) {
     const domainName = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
     
     if (deleteConfirmInput !== domainName) {
-      alert('Domain name does not match. Please type the exact domain name.')
+      toast.error('Domain name does not match. Please type the exact domain name.')
       return
     }
 
     try {
       setLoading(true)
       const result = await api.deleteSession(domain)
-      alert(`Deleted ${result.deleted_pages} pages`)
+      toast.success(`Deleted ${result.deleted_pages} pages`)
       
-      // Remove tag if exists
+      // Remove tag and note if exists
       const newTags = { ...sessionTags }
+      const newNotes = { ...sessionNotes }
       delete newTags[domain]
+      delete newNotes[domain]
       setSessionTags(newTags)
+      setSessionNotes(newNotes)
       
       fetchSessions()
       if (selectedSession === domain) {
@@ -205,6 +225,71 @@ function History({ darkMode, toggleDarkMode }) {
   const cancelTagEdit = () => {
     setEditingTag(null)
     setTagInput('')
+  }
+
+  const handleAddNote = (domain) => {
+    setEditingNote(domain)
+    setNoteInput(sessionNotes[domain] || '')
+  }
+
+  const saveNote = (domain) => {
+    if (noteInput.trim()) {
+      setSessionNotes(prev => ({
+        ...prev,
+        [domain]: noteInput.trim()
+      }))
+    } else {
+      // Remove note if empty
+      const newNotes = { ...sessionNotes }
+      delete newNotes[domain]
+      setSessionNotes(newNotes)
+    }
+    setEditingNote(null)
+    setNoteInput('')
+  }
+
+  const cancelNoteEdit = () => {
+    setEditingNote(null)
+    setNoteInput('')
+  }
+
+  const handleExportSession = async (domain, e) => {
+    e.stopPropagation()
+    setExportingSession(domain)
+    
+    try {
+      const details = await api.getSessionDetails(domain)
+      
+      // Create export data
+      const exportData = {
+        domain: domain,
+        tag: sessionTags[domain] || null,
+        note: sessionNotes[domain] || null,
+        exported_at: new Date().toISOString(),
+        overview: details.overview,
+        depth_distribution: details.depth_distribution,
+        file_stats: details.file_stats,
+        recent_pages: details.recent_pages
+      }
+      
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `session_${getDomain(domain)}_${Date.now()}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast.success('Session exported successfully!')
+    } catch (err) {
+      toast.error('Failed to export session')
+      console.error(err)
+    } finally {
+      setExportingSession(null)
+    }
   }
 
   const handleViewProgress = (domain) => {
@@ -256,9 +341,9 @@ function History({ darkMode, toggleDarkMode }) {
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="history" />
       <div className="database-page">
       {/* Sidebar Navigation */}
-      <aside className="db-sidebar">
+      <aside className="db-sidebar" role="complementary" aria-label="History navigation">
         <h2><Clock size={20} /> History</h2>
-        <nav className="db-nav">
+        <nav className="db-nav" aria-label="History sections">
           <button 
             className={`db-nav-item ${activeView === 'sessions' ? 'active' : ''}`}
             onClick={() => setActiveView('sessions')}
@@ -284,7 +369,19 @@ function History({ darkMode, toggleDarkMode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="db-main">
+      <main id="main-content" className="db-main" role="main">
+        <Breadcrumb 
+          items={[
+            { label: 'History', icon: Clock, path: '/history' },
+            { label: activeView === 'sessions' ? 'Sessions' :
+                     activeView === 'timeline' ? 'Timeline' :
+                     activeView === 'statistics' ? 'Statistics' :
+                     activeView === 'session-details' ? `Session: ${selectedSession ? getDomain(selectedSession) : 'Details'}` :
+                     activeView === 'comparison' ? 'Compare Sessions' : 'View'
+            }
+          ]}
+        />
+        
         {error && (
           <div className="db-error">
             <p>{error}</p>
@@ -292,11 +389,18 @@ function History({ darkMode, toggleDarkMode }) {
           </div>
         )}
 
-        {loading && activeView !== 'sessions' && (
-          <div className="db-loading">
-            <div className="spinner"></div>
-            <p>Loading...</p>
+        {loading && activeView === 'sessions' && (
+          <div className="sessions-grid-compact">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <HistoryCardSkeleton key={i} />
+            ))}
           </div>
+        )}
+        {loading && (activeView === 'statistics' || activeView === 'timeline') && (
+          <>
+            <ConfigSectionSkeleton />
+            <ConfigSectionSkeleton />
+          </>
         )}
 
         {/* Sessions View */}
@@ -380,6 +484,21 @@ function History({ darkMode, toggleDarkMode }) {
                           🏷️
                         </button>
                         <button
+                          onClick={() => handleAddNote(session.domain)}
+                          className="action-btn-compact"
+                          title="Add/Edit Note"
+                        >
+                          📝
+                        </button>
+                        <button
+                          onClick={(e) => handleExportSession(session.domain, e)}
+                          className="action-btn-compact success"
+                          title="Export Session"
+                          disabled={exportingSession === session.domain}
+                        >
+                          {exportingSession === session.domain ? '⏳' : <Download size={14} />}
+                        </button>
+                        <button
                           onClick={() => fetchSessionDetails(session.domain)}
                           className="action-btn-compact"
                           title="View Details"
@@ -408,6 +527,14 @@ function History({ darkMode, toggleDarkMode }) {
                         {session.domain}
                       </a>
                     </div>
+
+                    {/* Show note if exists */}
+                    {sessionNotes[session.domain] && (
+                      <div className="session-note">
+                        <span className="note-icon">📝</span>
+                        <span className="note-text">{sessionNotes[session.domain]}</span>
+                      </div>
+                    )}
 
                     <div className="session-stats-compact">
                       <div className="session-stat-compact">
@@ -972,6 +1099,40 @@ function History({ darkMode, toggleDarkMode }) {
               </button>
               <button className="btn-primary" onClick={() => saveTag(editingTag)}>
                 Save Tag
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Note Edit Modal */}
+      {editingNote && (
+        <div className="modal-overlay" onClick={cancelNoteEdit}>
+          <div className="modal-content note-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>📝 Add/Edit Note</h2>
+              <button className="modal-close" onClick={cancelNoteEdit}>×</button>
+            </div>
+            <div className="modal-body">
+              <p>Add notes about this scraping session:</p>
+              <textarea
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                placeholder="e.g., Scraped for client project, contains product data, needs review..."
+                maxLength={500}
+                rows={6}
+                autoFocus
+              />
+              <p className="note-char-count">
+                {noteInput.length}/500 characters
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={cancelNoteEdit}>
+                Cancel
+              </button>
+              <button className="btn-primary" onClick={() => saveNote(editingNote)}>
+                Save Note
               </button>
             </div>
           </div>

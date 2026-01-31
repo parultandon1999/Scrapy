@@ -1779,3 +1779,114 @@ body.dark-mode .modal-close:hover {
 body.dark-mode .modal-footer {
   border-top-color: #2a2a2a;
 }
+
+
+/* Session Notes */
+.session-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-left: 3px solid #5f6368;
+  border-radius: 4px;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+body.dark-mode .session-note {
+  background: #1a1a1a;
+  border-left-color: #4a4a4a;
+}
+
+.note-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.note-text {
+  color: #5f6368;
+  word-break: break-word;
+}
+
+body.dark-mode .note-text {
+  color: #999999;
+}
+
+/* Note Edit Modal */
+.note-modal {
+  max-width: 500px;
+}
+
+.note-modal .modal-body p {
+  margin-bottom: 12px;
+  color: #5f6368;
+}
+
+body.dark-mode .note-modal .modal-body p {
+  color: #999999;
+}
+
+.note-modal textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 2px solid #dadce0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #202124;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.2s;
+}
+
+.note-modal textarea:focus {
+  outline: none;
+  border-color: #1a73e8;
+}
+
+body.dark-mode .note-modal textarea {
+  background: #0a0a0a;
+  border-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+body.dark-mode .note-modal textarea:focus {
+  border-color: #4285f4;
+}
+
+.note-char-count {
+  font-size: 12px;
+  color: #5f6368;
+  margin-top: 6px;
+  text-align: right;
+}
+
+body.dark-mode .note-char-count {
+  color: #999999;
+}
+
+/* Export Button Success Style */
+.action-btn-compact.success {
+  background: #34a853;
+  color: white;
+}
+
+.action-btn-compact.success:hover:not(:disabled) {
+  background: #2d9248;
+}
+
+body.dark-mode .action-btn-compact.success {
+  background: #2d7a3f;
+}
+
+body.dark-mode .action-btn-compact.success:hover:not(:disabled) {
+  background: #34a853;
+}
+
+.action-btn-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import Breadcrumb from '../components/Breadcrumb'
 import {
   Search, Copy, CheckCircle, XCircle, AlertCircle, X,
-  FileCode, MousePointer, FormInput, TestTube, Plus, Minus, Image
+  FileCode, MousePointer, FormInput, TestTube, Plus, Minus, Image, Sparkles, Shield,
+  BookmarkPlus, Library, Trash2, Star, Edit2, Save
 } from 'lucide-react'
 import * as api from '../services/api'
+import { SelectorResultsSkeleton } from '../components/SkeletonLoader'
 import '../styles/SelectorFinder.css'
 
 function SelectorFinder({ darkMode, toggleDarkMode }) {
@@ -32,6 +35,55 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
   const [searchType, setSearchType] = useState('partial')
   const [findLoading, setFindLoading] = useState(false)
   const [findResults, setFindResults] = useState(null)
+
+  // Test Selector state
+  const [testSelectorUrl, setTestSelectorUrl] = useState('')
+  const [testSelectorInput, setTestSelectorInput] = useState('')
+  const [testSelectorLoading, setTestSelectorLoading] = useState(false)
+  const [testSelectorResults, setTestSelectorResults] = useState(null)
+
+  // Robust Selector Generator state
+  const [generateUrl, setGenerateUrl] = useState('')
+  const [generateDescription, setGenerateDescription] = useState('')
+  const [generateLoading, setGenerateLoading] = useState(false)
+  const [generateResults, setGenerateResults] = useState(null)
+
+  // Selector Library state
+  const [selectorLibrary, setSelectorLibrary] = useState([])
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [selectorToSave, setSelectorToSave] = useState('')
+  const [selectorName, setSelectorName] = useState('')
+  const [selectorDescription, setSelectorDescription] = useState('')
+
+  // Test History state
+  const [testHistory, setTestHistory] = useState([])
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedLibrary = localStorage.getItem('selectorLibrary')
+    if (savedLibrary) {
+      setSelectorLibrary(JSON.parse(savedLibrary))
+    }
+
+    const savedHistory = localStorage.getItem('testHistory')
+    if (savedHistory) {
+      setTestHistory(JSON.parse(savedHistory))
+    }
+  }, [])
+
+  // Save library to localStorage whenever it changes
+  useEffect(() => {
+    if (selectorLibrary.length > 0) {
+      localStorage.setItem('selectorLibrary', JSON.stringify(selectorLibrary))
+    }
+  }, [selectorLibrary])
+
+  // Save history to localStorage whenever it changes
+  useEffect(() => {
+    if (testHistory.length > 0) {
+      localStorage.setItem('testHistory', JSON.stringify(testHistory))
+    }
+  }, [testHistory])
 
   const handleAnalyze = async (e) => {
     e.preventDefault()
@@ -107,6 +159,100 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
     }
   }
 
+  const handleTestSelector = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setTestSelectorLoading(true)
+    setTestSelectorResults(null)
+
+    try {
+      const data = await api.testSelector(testSelectorUrl, testSelectorInput)
+      setTestSelectorResults(data)
+      
+      // Save to test history
+      const historyEntry = {
+        id: Date.now(),
+        selector: testSelectorInput,
+        url: testSelectorUrl,
+        timestamp: new Date().toISOString(),
+        success: data.success,
+        matchCount: data.matched_count,
+        strength: data.strength
+      }
+      setTestHistory(prev => [historyEntry, ...prev].slice(0, 50)) // Keep last 50
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to test selector')
+    } finally {
+      setTestSelectorLoading(false)
+    }
+  }
+
+  const handleGenerateRobustSelector = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setGenerateLoading(true)
+    setGenerateResults(null)
+
+    try {
+      const data = await api.generateRobustSelector(generateUrl, generateDescription)
+      setGenerateResults(data)
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to generate selectors')
+    } finally {
+      setGenerateLoading(false)
+    }
+  }
+
+  // Selector Library functions
+  const openSaveModal = (selector) => {
+    setSelectorToSave(selector)
+    setSelectorName('')
+    setSelectorDescription('')
+    setShowSaveModal(true)
+  }
+
+  const handleSaveToLibrary = () => {
+    if (!selectorToSave || !selectorName) return
+
+    const newSelector = {
+      id: Date.now(),
+      name: selectorName,
+      selector: selectorToSave,
+      description: selectorDescription,
+      createdAt: new Date().toISOString(),
+      usageCount: 0
+    }
+
+    setSelectorLibrary(prev => [newSelector, ...prev])
+    setShowSaveModal(false)
+    setSelectorToSave('')
+    setSelectorName('')
+    setSelectorDescription('')
+  }
+
+  const handleDeleteFromLibrary = (id) => {
+    if (confirm('Delete this selector from your library?')) {
+      setSelectorLibrary(prev => prev.filter(s => s.id !== id))
+    }
+  }
+
+  const handleUseFromLibrary = (selector) => {
+    setTestSelectorInput(selector.selector)
+    setActiveSection('selector-test')
+    
+    // Increment usage count
+    setSelectorLibrary(prev => prev.map(s => 
+      s.id === selector.id ? { ...s, usageCount: s.usageCount + 1 } : s
+    ))
+  }
+
+  const clearTestHistory = () => {
+    if (confirm('Clear all test history?')) {
+      setTestHistory([])
+      localStorage.removeItem('testHistory')
+    }
+  }
+
   const addSearchQuery = () => {
     setSearchQueries([...searchQueries, ''])
   }
@@ -151,6 +297,12 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
     setActiveSection('test')
   }
 
+  const useForSelectorTest = (selector) => {
+    setTestSelectorInput(selector)
+    setTestSelectorUrl(loginUrl || findUrl || testSelectorUrl)
+    setActiveSection('selector-test')
+  }
+
   return (
     <>
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="selector-finder" />
@@ -173,6 +325,34 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
           >
             <TestTube size={18} />
             Test Login
+          </button>
+          <button
+            className={`db-nav-item ${activeSection === 'selector-test' ? 'active' : ''}`}
+            onClick={() => setActiveSection('selector-test')}
+          >
+            <MousePointer size={18} />
+            Test Selector
+          </button>
+          <button
+            className={`db-nav-item ${activeSection === 'generate' ? 'active' : ''}`}
+            onClick={() => setActiveSection('generate')}
+          >
+            <Sparkles size={18} />
+            Generate Robust
+          </button>
+          <button
+            className={`db-nav-item ${activeSection === 'library' ? 'active' : ''}`}
+            onClick={() => setActiveSection('library')}
+          >
+            <Library size={18} />
+            Library ({selectorLibrary.length})
+          </button>
+          <button
+            className={`db-nav-item ${activeSection === 'history' ? 'active' : ''}`}
+            onClick={() => setActiveSection('history')}
+          >
+            <FormInput size={18} />
+            History ({testHistory.length})
           </button>
           <button
             className={`db-nav-item ${activeSection === 'finder' ? 'active' : ''}`}
@@ -205,7 +385,19 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="db-main">
+      <main id="main-content" className="db-main" role="main">
+        <Breadcrumb 
+          items={[
+            { label: 'Selector Finder', icon: Search, path: '/selector-finder' },
+            { label: activeSection === 'analyze' ? 'Analyze' :
+                     activeSection === 'test' ? 'Test Selector' :
+                     activeSection === 'generate' ? 'Generate Robust' :
+                     activeSection === 'library' ? 'Library' :
+                     activeSection === 'history' ? 'History' : 'Tools'
+            }
+          ]}
+        />
+        
         {error && (
           <div className="db-error">
             <AlertCircle size={18} />
@@ -215,6 +407,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
         )}
 
         {/* Analyze Section */}
+        {activeSection === 'analyze' && loading && <SelectorResultsSkeleton />}
         {activeSection === 'analyze' && results && (
           <div className="selector-view">
             <div className="view-header-compact">
@@ -245,6 +438,13 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                           <Copy size={14} />
                         </button>
                         <button
+                          className="icon-btn test-btn"
+                          onClick={() => useForSelectorTest(results.suggested_config.username_selector)}
+                          title="Test this selector"
+                        >
+                          <TestTube size={14} />
+                        </button>
+                        <button
                           className="icon-btn"
                           onClick={() => useSuggestedSelector('usernameSelector', results.suggested_config.username_selector)}
                           title="Use in test"
@@ -267,6 +467,13 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                           <Copy size={14} />
                         </button>
                         <button
+                          className="icon-btn test-btn"
+                          onClick={() => useForSelectorTest(results.suggested_config.password_selector)}
+                          title="Test this selector"
+                        >
+                          <TestTube size={14} />
+                        </button>
+                        <button
                           className="icon-btn"
                           onClick={() => useSuggestedSelector('passwordSelector', results.suggested_config.password_selector)}
                           title="Use in test"
@@ -287,6 +494,13 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                           title="Copy"
                         >
                           <Copy size={14} />
+                        </button>
+                        <button
+                          className="icon-btn test-btn"
+                          onClick={() => useForSelectorTest(results.suggested_config.submit_selector)}
+                          title="Test this selector"
+                        >
+                          <TestTube size={14} />
                         </button>
                         <button
                           className="icon-btn"
@@ -523,6 +737,344 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
                     <strong>Errors:</strong>
                     {testResults.errors.map((err, i) => (
                       <p key={i}>{err}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Test Selector Section */}
+        {activeSection === 'selector-test' && (
+          <div className="selector-view">
+            <div className="view-header-compact">
+              <h1>
+                <MousePointer size={24} />
+                Test CSS Selector
+              </h1>
+              <p className="view-subtitle">Test any CSS selector and see which elements it matches</p>
+            </div>
+
+            <form className="test-form" onSubmit={handleTestSelector}>
+              <div className="form-grid">
+                <div className="form-field full-width">
+                  <label>Page URL</label>
+                  <input
+                    type="url"
+                    value={testSelectorUrl}
+                    onChange={(e) => setTestSelectorUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    required
+                  />
+                </div>
+
+                <div className="form-field full-width">
+                  <label>CSS Selector</label>
+                  <input
+                    type="text"
+                    value={testSelectorInput}
+                    onChange={(e) => setTestSelectorInput(e.target.value)}
+                    placeholder="input[name='username'], .btn-primary, #submit-button"
+                    required
+                  />
+                  <p className="field-hint">
+                    Examples: <code>button[type="submit"]</code>, <code>.login-form input</code>, <code>#username</code>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="test-submit-btn"
+                disabled={testSelectorLoading}
+              >
+                {testSelectorLoading ? 'Testing...' : 'Test Selector'}
+              </button>
+            </form>
+
+            {/* Test Selector Results */}
+            {testSelectorResults && (
+              <div className={`test-results ${testSelectorResults.success ? 'success' : 'failure'}`}>
+                <div className="test-result-header">
+                  {testSelectorResults.success ? (
+                    <>
+                      <CheckCircle size={24} />
+                      <h3>Found {testSelectorResults.matched_count} element{testSelectorResults.matched_count !== 1 ? 's' : ''}</h3>
+                      <button
+                        className="save-to-library-btn"
+                        onClick={() => openSaveModal(testSelectorInput)}
+                        title="Save to Library"
+                      >
+                        <BookmarkPlus size={16} />
+                        Save to Library
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle size={24} />
+                      <h3>{testSelectorResults.error || 'No elements matched'}</h3>
+                    </>
+                  )}
+                </div>
+
+                {/* Strength Indicator */}
+                {testSelectorResults.strength && (
+                  <div className="strength-indicator">
+                    <div className="strength-header">
+                      <Shield size={18} />
+                      <h4>Selector Strength</h4>
+                    </div>
+                    <div className="strength-content">
+                      <div className="strength-score-bar">
+                        <div 
+                          className="strength-fill" 
+                          style={{
+                            width: `${testSelectorResults.strength.score}%`,
+                            background: testSelectorResults.strength.color
+                          }}
+                        ></div>
+                      </div>
+                      <div className="strength-details">
+                        <span className="strength-badge" style={{
+                          background: testSelectorResults.strength.color,
+                          color: '#fff'
+                        }}>
+                          {testSelectorResults.strength.strength.toUpperCase()}
+                        </span>
+                        <span className="strength-score">{testSelectorResults.strength.score}/100</span>
+                        <span className="strength-description">{testSelectorResults.strength.description}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {testSelectorResults.success && testSelectorResults.elements && testSelectorResults.elements.length > 0 && (
+                  <div className="matched-elements">
+                    {testSelectorResults.elements.map((elem, idx) => (
+                      <div className="element-card matched" key={idx}>
+                        <div className="element-header">
+                          <div className="element-title">
+                            <span className="element-badge">{elem.tag}</span>
+                            <span className="element-index">Element {elem.index + 1}</span>
+                            {elem.attributes?.id && <span className="element-id">#{elem.attributes.id}</span>}
+                            {elem.attributes?.class && (
+                              <span className="element-class">.{elem.attributes.class.split(' ')[0]}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="element-body">
+                          {/* Text Content */}
+                          {elem.text && (
+                            <div className="element-section">
+                              <strong>Text Content:</strong>
+                              <p className="element-text">{elem.text}</p>
+                            </div>
+                          )}
+
+                          {/* Attributes */}
+                          {elem.attributes && Object.keys(elem.attributes).length > 0 && (
+                            <div className="element-section">
+                              <strong>Attributes:</strong>
+                              <div className="attributes-grid">
+                                {Object.entries(elem.attributes).map(([key, value]) => (
+                                  <div className="attr-item" key={key}>
+                                    <span className="attr-label">{key}:</span>
+                                    <code>{value}</code>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Inner HTML */}
+                          {elem.inner_html && (
+                            <div className="element-section">
+                              <strong>Inner HTML:</strong>
+                              <div className="code-block">
+                                <code>{elem.inner_html}</code>
+                                <button
+                                  className="icon-btn copy-code"
+                                  onClick={() => copyToClipboard(elem.inner_html)}
+                                  title="Copy"
+                                >
+                                  <Copy size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Bounding Box / Position */}
+                          {elem.bounding_box && (
+                            <div className="element-section">
+                              <strong>Position on Page:</strong>
+                              <div className="position-highlight">
+                                <p className="position-info">
+                                  x: {Math.round(elem.bounding_box.x)}px, 
+                                  y: {Math.round(elem.bounding_box.y)}px, 
+                                  width: {Math.round(elem.bounding_box.width)}px, 
+                                  height: {Math.round(elem.bounding_box.height)}px
+                                </p>
+                                <div className="highlight-indicator">
+                                  <div className="highlight-box" style={{
+                                    width: `${Math.min(elem.bounding_box.width / 10, 100)}px`,
+                                    height: `${Math.min(elem.bounding_box.height / 10, 60)}px`,
+                                    border: '2px solid #1a73e8',
+                                    background: 'rgba(26, 115, 232, 0.1)',
+                                    borderRadius: '4px'
+                                  }}></div>
+                                  <span className="highlight-label">Visual representation (scaled)</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {testSelectorResults.matched_count > 20 && (
+                      <div className="more-results-notice">
+                        <AlertCircle size={16} />
+                        <p>Showing first 20 of {testSelectorResults.matched_count} matched elements</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Generate Robust Selector Section */}
+        {activeSection === 'generate' && (
+          <div className="selector-view">
+            <div className="view-header-compact">
+              <h1>
+                <Sparkles size={24} />
+                Generate Robust Selector
+              </h1>
+              <p className="view-subtitle">Create multiple fallback selectors with reliability scores</p>
+            </div>
+
+            <form className="test-form" onSubmit={handleGenerateRobustSelector}>
+              <div className="form-grid">
+                <div className="form-field full-width">
+                  <label>Page URL</label>
+                  <input
+                    type="url"
+                    value={generateUrl}
+                    onChange={(e) => setGenerateUrl(e.target.value)}
+                    placeholder="https://example.com"
+                    required
+                  />
+                </div>
+
+                <div className="form-field full-width">
+                  <label>Element Description</label>
+                  <input
+                    type="text"
+                    value={generateDescription}
+                    onChange={(e) => setGenerateDescription(e.target.value)}
+                    placeholder="e.g., 'login button', 'username field', 'submit button'"
+                    required
+                  />
+                  <p className="field-hint">
+                    Describe the element you want to find. Examples: "login button", "email input", "submit form"
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="test-submit-btn"
+                disabled={generateLoading}
+              >
+                {generateLoading ? 'Generating...' : 'Generate Selectors'}
+              </button>
+            </form>
+
+            {/* Generate Results */}
+            {generateResults && (
+              <div className={`test-results ${generateResults.success ? 'success' : 'failure'}`}>
+                <div className="test-result-header">
+                  {generateResults.success ? (
+                    <>
+                      <CheckCircle size={24} />
+                      <h3>Generated {generateResults.selectors?.length || 0} Selector{generateResults.selectors?.length !== 1 ? 's' : ''}</h3>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle size={24} />
+                      <h3>{generateResults.error || 'Failed to generate selectors'}</h3>
+                    </>
+                  )}
+                </div>
+
+                {generateResults.success && generateResults.selectors && generateResults.selectors.length > 0 && (
+                  <div className="robust-selectors-list">
+                    <div className="robust-selectors-intro">
+                      <AlertCircle size={16} />
+                      <p>Selectors are ordered by reliability. Use the strongest selector for production.</p>
+                    </div>
+                    
+                    {generateResults.selectors.map((selectorData, idx) => (
+                      <div className="robust-selector-card" key={idx}>
+                        <div className="robust-selector-header">
+                          <div className="robust-selector-rank">#{idx + 1}</div>
+                          <div className="robust-selector-type">{selectorData.type}</div>
+                          <div className="robust-selector-matches">
+                            {selectorData.matches} match{selectorData.matches !== 1 ? 'es' : ''}
+                          </div>
+                        </div>
+
+                        <div className="robust-selector-body">
+                          <div className="selector-code-display">
+                            <code>{selectorData.selector}</code>
+                            <button
+                              className="icon-btn"
+                              onClick={() => copyToClipboard(selectorData.selector)}
+                              title="Copy"
+                            >
+                              <Copy size={14} />
+                            </button>
+                            <button
+                              className="icon-btn test-btn"
+                              onClick={() => {
+                                setTestSelectorInput(selectorData.selector)
+                                setTestSelectorUrl(generateUrl)
+                                setActiveSection('selector-test')
+                              }}
+                              title="Test this selector"
+                            >
+                              <TestTube size={14} />
+                            </button>
+                          </div>
+
+                          {/* Strength Indicator */}
+                          <div className="strength-indicator compact">
+                            <div className="strength-score-bar">
+                              <div 
+                                className="strength-fill" 
+                                style={{
+                                  width: `${selectorData.strength.score}%`,
+                                  background: selectorData.strength.color
+                                }}
+                              ></div>
+                            </div>
+                            <div className="strength-details">
+                              <span className="strength-badge" style={{
+                                background: selectorData.strength.color,
+                                color: '#fff'
+                              }}>
+                                {selectorData.strength.strength.toUpperCase()}
+                              </span>
+                              <span className="strength-score">{selectorData.strength.score}/100</span>
+                              <span className="strength-description">{selectorData.strength.description}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -897,6 +1449,154 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
           </div>
         )}
 
+        {/* Selector Library Section */}
+        {activeSection === 'library' && (
+          <div className="selector-view">
+            <div className="view-header-compact">
+              <h1>
+                <Library size={24} />
+                Selector Library
+              </h1>
+              <p className="view-subtitle">Save and manage your frequently used selectors</p>
+            </div>
+
+            {selectorLibrary.length > 0 ? (
+              <div className="library-grid">
+                {selectorLibrary.map((item) => (
+                  <div className="library-card" key={item.id}>
+                    <div className="library-card-header">
+                      <h3>{item.name}</h3>
+                      <div className="library-card-actions">
+                        <button
+                          className="icon-btn"
+                          onClick={() => handleUseFromLibrary(item)}
+                          title="Use this selector"
+                        >
+                          <MousePointer size={14} />
+                        </button>
+                        <button
+                          className="icon-btn"
+                          onClick={() => copyToClipboard(item.selector)}
+                          title="Copy"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          className="icon-btn delete-btn"
+                          onClick={() => handleDeleteFromLibrary(item.id)}
+                          title="Delete"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="library-card-body">
+                      <code className="library-selector">{item.selector}</code>
+                      {item.description && (
+                        <p className="library-description">{item.description}</p>
+                      )}
+                      <div className="library-meta">
+                        <span className="library-usage">
+                          <Star size={12} /> Used {item.usageCount} times
+                        </span>
+                        <span className="library-date">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <Library size={48} />
+                <h3>No Saved Selectors</h3>
+                <p>Test selectors and save them to your library for quick access</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Test History Section */}
+        {activeSection === 'history' && (
+          <div className="selector-view">
+            <div className="view-header-compact">
+              <div>
+                <h1>
+                  <FormInput size={24} />
+                  Test History
+                </h1>
+                <p className="view-subtitle">Recent selector tests with results</p>
+              </div>
+              {testHistory.length > 0 && (
+                <button className="clear-history-btn" onClick={clearTestHistory}>
+                  <Trash2 size={16} />
+                  Clear History
+                </button>
+              )}
+            </div>
+
+            {testHistory.length > 0 ? (
+              <div className="history-list">
+                {testHistory.map((item) => (
+                  <div className={`history-card ${item.success ? 'success' : 'failure'}`} key={item.id}>
+                    <div className="history-card-header">
+                      <div className="history-status">
+                        {item.success ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                        <span>{item.success ? `${item.matchCount} matches` : 'Failed'}</span>
+                      </div>
+                      <span className="history-time">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="history-card-body">
+                      <code className="history-selector">{item.selector}</code>
+                      <p className="history-url">{item.url}</p>
+                      {item.strength && (
+                        <div className="history-strength">
+                          <span 
+                            className="strength-badge-small" 
+                            style={{ background: item.strength.color }}
+                          >
+                            {item.strength.strength.toUpperCase()}
+                          </span>
+                          <span className="strength-score-small">{item.strength.score}/100</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="history-card-actions">
+                      <button
+                        className="history-action-btn"
+                        onClick={() => {
+                          setTestSelectorInput(item.selector)
+                          setTestSelectorUrl(item.url)
+                          setActiveSection('selector-test')
+                        }}
+                      >
+                        <TestTube size={14} />
+                        Test Again
+                      </button>
+                      <button
+                        className="history-action-btn"
+                        onClick={() => openSaveModal(item.selector)}
+                      >
+                        <BookmarkPlus size={14} />
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <FormInput size={48} />
+                <h3>No Test History</h3>
+                <p>Your selector test results will appear here</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Empty State */}
         {!results && activeSection === 'analyze' && !loading && (
           <div className="empty-state">
@@ -915,6 +1615,59 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
         )}
       </main>
     </div>
+
+    {/* Save to Library Modal */}
+    {showSaveModal && (
+      <div className="modal-overlay" onClick={() => setShowSaveModal(false)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>Save Selector to Library</h2>
+            <button className="modal-close" onClick={() => setShowSaveModal(false)}>
+              <X size={20} />
+            </button>
+          </div>
+          <div className="modal-body">
+            <div className="form-field">
+              <label>Selector</label>
+              <code className="modal-selector-display">{selectorToSave}</code>
+            </div>
+            <div className="form-field">
+              <label>Name *</label>
+              <input
+                type="text"
+                value={selectorName}
+                onChange={(e) => setSelectorName(e.target.value)}
+                placeholder="e.g., Login Button, Email Input"
+                autoFocus
+              />
+            </div>
+            <div className="form-field">
+              <label>Description (Optional)</label>
+              <textarea
+                value={selectorDescription}
+                onChange={(e) => setSelectorDescription(e.target.value)}
+                placeholder="Add notes about when to use this selector..."
+                rows={3}
+              />
+            </div>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setShowSaveModal(false)}>
+                Cancel
+              </button>
+              <button 
+                className="btn-save" 
+                onClick={handleSaveToLibrary}
+                disabled={!selectorName}
+              >
+                <Save size={16} />
+                Save to Library
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
     <Footer />
   </>
   )

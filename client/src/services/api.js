@@ -270,6 +270,22 @@ export const testLoginSelectors = async (testData) => {
   return response.data
 }
 
+export const testSelector = async (url, selector) => {
+  const response = await apiClient.post('/api/selector-finder/test-selector', {
+    url: url,
+    selector: selector
+  })
+  return response.data
+}
+
+export const generateRobustSelector = async (url, targetDescription) => {
+  const response = await apiClient.post('/api/selector-finder/generate-robust-selector', {
+    url: url,
+    target_description: targetDescription
+  })
+  return response.data
+}
+
 export const findElementByContent = async (searchData) => {
   const response = await apiClient.post('/api/selector-finder/find-element', {
     url: searchData.url,

@@ -2,13 +2,15 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import Breadcrumb from '../components/Breadcrumb'
 import {
   Activity, Globe, FileText, Download, Layers, Clock,
   ExternalLink, File, CheckCircle, XCircle, ChevronDown,
   ChevronUp, StopCircle, Play, Package, Link2, Image,
-  Hash, Calendar, Shield, X, Eye, ArrowLeft
+  Hash, Shield, X, Eye, ArrowLeft
 } from 'lucide-react'
 import * as api from '../services/api'
+import { ScrapingProgressSkeleton } from '../components/SkeletonLoader'
 import '../styles/ScrapingProgress.css'
 
 function ScrapingProgress({ darkMode, toggleDarkMode }) {
@@ -211,7 +213,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
         if (wasRunning && !data.running && data.pages_scraped > 0) {
           // Send notification
           if (notificationsEnabled) {
-            new Notification('Scraping Complete! 🎉', {
+            new Notification('Scraping Complete!', {
               body: `Successfully scraped ${data.pages_scraped} pages`,
               icon: '/favicon.ico',
               tag: 'scraping-complete'
@@ -243,6 +245,12 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
         // Apply any pending updates immediately when scraping stops
         applyPendingUpdates()
       }
+
+      // Handle empty/new session redirect
+      if (!data.running && data.pages_scraped === 0 && !isHistoryView) {
+        navigate('/')
+        return
+      }
       
       // Use debounced updates instead of immediate updates
       const newPages = data.recent_pages || []
@@ -255,14 +263,6 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       console.error('Failed to fetch status:', err)
       // Stop polling on error
       stopPolling()
-    }
-  }
-      
-      if (!data.running && data.pages_scraped === 0 && !isHistoryView) {
-        navigate('/')
-      }
-    } catch (err) {
-      console.error('Error fetching status:', err)
     }
   }
 
@@ -680,7 +680,14 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="db-main">
+      <main id="main-content" className="db-main" role="main">
+        <Breadcrumb 
+          items={[
+            { label: 'Scraping Progress', icon: Activity, path: '/progress' },
+            { label: activeView === 'pages' ? 'Pages' : 'Files' }
+          ]}
+        />
+        
         {error && (
           <div className="db-error">
             <p>{error}</p>
@@ -794,10 +801,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
               <div className="detailed-page-content">
               {!detailedViewData ? (
-                <div className="detail-loading">
-                  <div className="spinner"></div>
-                  <p>Loading page details...</p>
-                </div>
+                <ScrapingProgressSkeleton />
               ) : (
                 <>
                 {/* Overview Tab */}
