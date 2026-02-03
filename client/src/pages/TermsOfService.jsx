@@ -1,6 +1,6 @@
 import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Breadcrumb from '../components/mui/Breadcrumb'
+// import Footer from '../components/Footer'
+import Breadcrumb from '../components/mui/breadcrumbs/Breadcrumb'
 import { FileText, AlertTriangle, CheckCircle, Info, Shield } from 'lucide-react'
 import '../styles/LegalPages.css'
 
@@ -279,7 +279,7 @@ function TermsOfService({ darkMode, toggleDarkMode }) {
           </div>
         </main>
       </div>
-      <Footer />
+      {/* <Footer /> */}
     </>
   )
 }

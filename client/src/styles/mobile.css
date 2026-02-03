@@ -3,7 +3,7 @@
 /* Ensure proper spacing for fixed header on mobile */
 @media (max-width: 768px) {
   body {
-    padding-top: 60px; /* Space for fixed header */
+    padding-top: 56px; /* Space for fixed header on mobile */
   }
 
   /* Main content area adjustments */

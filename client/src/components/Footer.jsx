@@ -9,8 +9,8 @@ function Footer() {
           <a href="/privacy-policy">Privacy Policy</a>
           <span className="footer-separator">•</span>
           <a href="/terms">Terms of Service</a>
-          <span className="footer-separator">•</span>
-          <a href="/security">Security</a>
+          {/* <span className="footer-separator">•</span>
+          <a href="/security">Security</a> */}
         </nav>
       </div>
     </footer>

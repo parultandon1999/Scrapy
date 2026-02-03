@@ -1,22 +1,44 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Breadcrumb from '../components/mui/Breadcrumb'
 import {
-  Activity, Globe, FileText, Download, Layers, Clock,
-  ExternalLink, File, CheckCircle, XCircle, ChevronDown,
-  ChevronUp, StopCircle, Play, Package, Link2, Image,
-  Hash, Shield, X, Eye, ArrowLeft
-} from 'lucide-react'
+  Box,
+  Container,
+  Grid,
+  Paper,
+  Typography,
+  LinearProgress,
+  Chip,
+  TextField,
+  InputAdornment,
+  Divider,
+  Card,
+  CardContent,
+  Stack,
+  Alert,
+  Collapse,
+  Tabs,
+  Tab,
+  Avatar,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemButton,
+} from '@mui/material'
+import Navbar from '../components/Navbar'
+import Breadcrumb from '../components/mui/breadcrumbs/Breadcrumb'
+import Button from '../components/mui/buttons/Button'
+import Badge from '../components/mui/badges/Badge'
+import Icon from '../components/mui/icons/Icon'
 import * as api from '../services/api'
-import { ScrapingProgressSkeleton } from '../components/SkeletonLoader'
-import '../styles/ScrapingProgress.css'
+import { ScrapingProgressSkeleton } from '../components/mui/skeletons/SkeletonLoader'
 
 function ScrapingProgress({ darkMode, toggleDarkMode }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { sessionId } = useParams()
+  
+  // State
   const [activeView, setActiveView] = useState('pages')
   const [status, setStatus] = useState(null)
   const [allPages, setAllPages] = useState([])
@@ -31,7 +53,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
   const [detailedViewData, setDetailedViewData] = useState(null)
   const [imageViewerOpen, setImageViewerOpen] = useState(false)
   const [currentImage, setCurrentImage] = useState(null)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(0)
   const [_pendingUpdates, setPendingUpdates] = useState({ pages: [], files: [] })
   const updateTimeoutRef = useRef(null)
   const lastUpdateRef = useRef(Date.now())
@@ -42,13 +64,15 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
   const [scrapingRate, setScrapingRate] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [collapsedFileTypes, setCollapsedFileTypes] = useState({})
-  const [speedHistory, setSpeedHistory] = useState([])
+  const [_speedHistory, setSpeedHistory] = useState([])
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [htmlStructureSearch, setHtmlStructureSearch] = useState('')
+  
+  // Refs
   const detailedPageRef = useRef(null)
-  const tabsRef = useRef(null)
 
+  // --- Effects ---
   useEffect(() => {
-    // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().then(permission => {
         setNotificationsEnabled(permission === 'granted')
@@ -68,20 +92,17 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     }
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, location.state])
 
+  // --- API & Logic Functions ---
   const fetchHistoryData = async (startUrl) => {
     try {
       const data = await api.getHistoryByUrl(startUrl)
-      
       setAllPages(data.pages || [])
       setAllFiles(data.files || [])
-      
       const fileTypes = {}
       if (data.files) {
         data.files.forEach(f => {
@@ -90,7 +111,6 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
           }
         })
       }
-      
       setStatus({
         running: false,
         pages_scraped: data.pages?.length || 0,
@@ -110,7 +130,6 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
   const startPolling = () => {
     if (intervalRef.current) clearInterval(intervalRef.current)
-    // Increased to 3 seconds to reduce update frequency
     intervalRef.current = setInterval(fetchStatus, 3000)
   }
 
@@ -125,23 +144,16 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     }
   }
 
-  // Debounced update function to batch UI updates
   const scheduleUpdate = (newPages, newFiles) => {
-    // Add to pending updates
     setPendingUpdates(prev => ({
       pages: [...prev.pages, ...newPages],
       files: [...prev.files, ...newFiles]
     }))
 
-    // Clear existing timeout
-    if (updateTimeoutRef.current) {
-      clearTimeout(updateTimeoutRef.current)
-    }
+    if (updateTimeoutRef.current) clearTimeout(updateTimeoutRef.current)
 
-    // Schedule batched update after 2 seconds or if enough items accumulated
     const timeSinceLastUpdate = Date.now() - lastUpdateRef.current
-    const shouldUpdateImmediately = timeSinceLastUpdate > 5000 || 
-                                    (newPages.length + newFiles.length) > 50
+    const shouldUpdateImmediately = timeSinceLastUpdate > 5000 || (newPages.length + newFiles.length) > 50
 
     if (shouldUpdateImmediately) {
       applyPendingUpdates()
@@ -159,7 +171,6 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
           return [...prevPages, ...newPages]
         })
       }
-
       if (pending.files.length > 0) {
         setAllFiles(prevFiles => {
           const existingNames = new Set(prevFiles.map(f => f.file_name + f.downloaded_at))
@@ -167,11 +178,9 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
           return [...prevFiles, ...newFiles]
         })
       }
-
       lastUpdateRef.current = Date.now()
       return { pages: [], files: [] }
     })
-
     if (updateTimeoutRef.current) {
       clearTimeout(updateTimeoutRef.current)
       updateTimeoutRef.current = null
@@ -183,35 +192,27 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       const data = await api.getScraperStatus()
       setStatus(data)
       
-      // Initialize start time when scraping begins
       if (data.running && !startTime && data.pages_scraped > 0) {
         setStartTime(Date.now())
       }
       
-      // Calculate ETA and scraping rate
       if (data.running && startTime && data.pages_scraped > 0) {
         const elapsedSeconds = (Date.now() - startTime) / 1000
         const rate = data.pages_scraped / elapsedSeconds
         setScrapingRate(rate)
-        
-        // Track speed history for graph (keep last 20 data points)
         setSpeedHistory(prev => {
           const newHistory = [...prev, { time: Date.now(), rate }]
           return newHistory.slice(-20)
         })
-        
         const remaining = data.max_pages - data.pages_scraped
         if (rate > 0 && remaining > 0) {
-          const etaSeconds = remaining / rate
-          setEta(etaSeconds)
+          setEta(remaining / rate)
         } else {
           setEta(null)
         }
       } else if (!data.running) {
-        // Check if scraping just completed
         const wasRunning = status?.running
         if (wasRunning && !data.running && data.pages_scraped > 0) {
-          // Send notification
           if (notificationsEnabled) {
             new Notification('Scraping Complete!', {
               body: `Successfully scraped ${data.pages_scraped} pages`,
@@ -220,12 +221,9 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             })
           }
         }
-        
         setStartTime(null)
         setEta(null)
         setScrapingRate(0)
-        
-        // STOP POLLING when scraping is not running
         stopPolling()
       }
       
@@ -242,17 +240,14 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       
       if (!data.running && intervalRef.current) {
         stopPolling()
-        // Apply any pending updates immediately when scraping stops
         applyPendingUpdates()
       }
 
-      // Handle empty/new session redirect
       if (!data.running && data.pages_scraped === 0 && !isHistoryView) {
         navigate('/')
         return
       }
       
-      // Use debounced updates instead of immediate updates
       const newPages = data.recent_pages || []
       const newFiles = data.recent_files || []
       
@@ -261,77 +256,46 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       }
     } catch (err) {
       console.error('Failed to fetch status:', err)
-      // Stop polling on error
       stopPolling()
     }
   }
 
   const formatETA = (seconds) => {
     if (!seconds || seconds <= 0) return 'Calculating...'
-    
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     const secs = Math.floor(seconds % 60)
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`
-    } else {
-      return `${secs}s`
-    }
+    if (hours > 0) return `${hours}h ${minutes}m`
+    if (minutes > 0) return `${minutes}m ${secs}s`
+    return `${secs}s`
   }
 
   const handleStop = async () => {
-    try {
-      await api.stopScraper()
-      fetchStatus()
-    } catch {
-      setError('Failed to stop scraper')
-    }
+    try { await api.stopScraper(); fetchStatus() } catch { setError('Failed to stop scraper') }
   }
 
   const handlePause = async () => {
-    try {
-      await api.pauseScraper()
-      fetchStatus()
-    } catch {
-      setError('Failed to pause scraper')
-    }
+    try { await api.pauseScraper(); fetchStatus() } catch { setError('Failed to pause scraper') }
   }
 
   const handleResume = async () => {
-    try {
-      await api.resumeScraper()
-      fetchStatus()
-    } catch {
-      setError('Failed to resume scraper')
-    }
+    try { await api.resumeScraper(); fetchStatus() } catch { setError('Failed to resume scraper') }
   }
 
   const handleExport = async () => {
     setIsExporting(true)
     try {
       const data = await api.exportData()
-      
-      // Create JSON blob
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = window.URL.createObjectURL(blob)
-      
-      // Create download link
       const link = document.createElement('a')
       link.href = url
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
       link.download = `scraper-export-${timestamp}.json`
-      
-      // Trigger download
       document.body.appendChild(link)
       link.click()
-      
-      // Cleanup
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-      
       setError(null)
     } catch (err) {
       setError('Failed to export data')
@@ -346,7 +310,6 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       setExpandedMetadata(prev => ({ ...prev, [pageId]: false }))
     } else {
       setExpandedMetadata(prev => ({ ...prev, [pageId]: true }))
-      
       if (!metadataContent[pageId]) {
         try {
           const data = await api.getPageMetadata(pageId)
@@ -368,11 +331,8 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     }
   }
 
-  const getPageFiles = (pageUrl) => {
-    return allFiles.filter(file => file.page_url === pageUrl)
-  }
+  const getPageFiles = (pageUrl) => allFiles.filter(file => file.page_url === pageUrl)
 
-  // Filter pages based on search query
   const filteredPages = allPages.filter(page => {
     if (!searchQuery.trim()) return true
     const query = searchQuery.toLowerCase()
@@ -382,27 +342,21 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
     )
   })
 
-  // Group files by extension
   const groupedFiles = allFiles.reduce((acc, file) => {
     const ext = file.file_extension || 'unknown'
-    if (!acc[ext]) {
-      acc[ext] = []
-    }
+    if (!acc[ext]) acc[ext] = []
     acc[ext].push(file)
     return acc
   }, {})
 
   const toggleFileTypeCollapse = (fileType) => {
-    setCollapsedFileTypes(prev => ({
-      ...prev,
-      [fileType]: !prev[fileType]
-    }))
+    setCollapsedFileTypes(prev => ({ ...prev, [fileType]: !prev[fileType] }))
   }
 
   const handleViewDetails = async (page) => {
     setDetailedViewPage(page)
     setDetailedViewData(null)
-    
+    setHtmlStructureSearch('')
     try {
       const data = await api.getPageDetails(page.id)
       setDetailedViewData(data)
@@ -416,7 +370,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
   const closeDetailedView = () => {
     setDetailedViewPage(null)
     setDetailedViewData(null)
-    setActiveTab('overview')
+    setActiveTab(0)
   }
 
   const openImageViewer = (img) => {
@@ -431,1038 +385,990 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && imageViewerOpen) {
-        closeImageViewer()
-      }
+      if (e.key === 'Escape' && imageViewerOpen) closeImageViewer()
     }
-
     if (imageViewerOpen) {
       window.addEventListener('keydown', handleKeyDown)
       document.body.style.overflow = 'hidden'
     }
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = 'unset'
     }
   }, [imageViewerOpen])
 
-  // Handle sticky tabs shadow on scroll
-  useEffect(() => {
-    const detailedPage = detailedPageRef.current
-    const tabs = tabsRef.current
-    
-    if (!detailedPage || !tabs) return
+  // --- Render Helpers ---
+  const getStatusColor = () => {
+    if (!status) return 'default'
+    if (status.running) return status.is_paused ? 'warning' : 'info'
+    if (status.was_stopped) return 'error'
+    return 'success'
+  }
 
-    const handleScroll = () => {
-      const scrollTop = detailedPage.scrollTop
-      
-      // Add shadow to tabs when scrolled
-      if (scrollTop > 100) {
-        tabs.classList.add('scrolled')
-      } else {
-        tabs.classList.remove('scrolled')
-      }
-      
-      // Add shadow to header when scrolled
-      const header = detailedPage.querySelector('.detailed-page-header')
-      if (header) {
-        if (scrollTop > 10) {
-          header.classList.add('scrolled')
-        } else {
-          header.classList.remove('scrolled')
-        }
-      }
-    }
+  const getStatusText = () => {
+    if (!status) return 'Loading...'
+    if (status.running) return status.is_paused ? 'Paused' : 'Scraping...'
+    if (status.was_stopped) return 'Stopped'
+    return 'Complete'
+  }
 
-    detailedPage.addEventListener('scroll', handleScroll)
-    return () => {
-      detailedPage.removeEventListener('scroll', handleScroll)
-    }
-  }, [detailedViewPage])
+  const getStatusIconName = () => {
+    if (!status) return null
+    if (status.running) return status.is_paused ? 'Pause' : 'PlayArrow'
+    if (status.was_stopped) return 'StopCircle'
+    return 'CheckCircle'
+  }
 
   return (
-    <>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
-      <div className="database-page">
-      {/* Sidebar Navigation */}
-      <aside className="db-sidebar">
-        <h2><Activity size={20} /> Progress</h2>
-        
-        {/* Status Card */}
-        {status && (
-          <div className="progress-status-card">
-            <div className="status-indicator">
-              {status.running ? (
-                <div className="status-running">
-                  <Play size={14} />
-                  <span>{status.is_paused ? 'Paused' : 'Scraping...'}</span>
-                </div>
-              ) : status.pages_scraped > 0 ? (
-                <div className={status.was_stopped ? 'status-stopped' : 'status-complete'}>
-                  {status.was_stopped ? <StopCircle size={14} /> : <CheckCircle size={14} />}
-                  <span>{status.was_stopped ? 'Stopped' : 'Complete'}</span>
-                </div>
-              ) : null}
-            </div>
 
-            {/* Progress Bar */}
-            {status.max_pages > 0 && (
-              <div className="progress-bar-container">
-                <div className="progress-bar-wrapper">
-                  <div 
-                    className="progress-bar-fill"
-                    style={{ width: `${(status.pages_scraped / status.max_pages) * 100}%` }}
+      <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
+        {/* Sidebar */}
+        <Paper 
+          elevation={0}
+          sx={{ 
+            width: { xs: '100%', md: 320 },
+            borderRight: 1,
+            borderColor: 'divider',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Icon name="Timeline" size="small" />
+              Progress
+            </Typography>
+
+            {status && (
+              <Stack spacing={3}>
+                {/* Status Badge */}
+                <Box>
+                  <Chip
+                    icon={getStatusIconName() ? <Icon name={getStatusIconName()} size={14} /> : undefined}
+                    label={getStatusText()}
+                    color={getStatusColor()}
+                    size="small"
                   />
-                </div>
-                <div className="progress-bar-text">
-                  {Math.round((status.pages_scraped / status.max_pages) * 100)}% Complete
-                </div>
-              </div>
-            )}
+                </Box>
 
-            <div className="status-stats">
-              <div className="status-stat">
-                <FileText size={14} />
-                <span>{status.pages_scraped} / {status.max_pages}</span>
-              </div>
-              <div className="status-stat">
-                <Layers size={14} />
-                <span>{status.queue_size} queued</span>
-              </div>
-              <div className="status-stat">
-                <CheckCircle size={14} />
-                <span>{status.visited} visited</span>
-              </div>
-              {status.downloads?.successful > 0 && (
-                <div className="status-stat">
-                  <Download size={14} />
-                  <span>{status.downloads.successful} files</span>
-                </div>
-              )}
-            </div>
-
-            {/* ETA and Rate Display */}
-            {status.running && !status.is_paused && (
-              <div className="eta-container">
-                {scrapingRate > 0 && (
-                  <div className="eta-stat">
-                    <Activity size={14} />
-                    <span>{scrapingRate.toFixed(2)} pages/sec</span>
-                  </div>
+                {/* Progress Bar */}
+                {status.max_pages > 0 && (
+                  <Box>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={(status.pages_scraped / status.max_pages) * 100}
+                      sx={{ height: 8, borderRadius: 1 }}
+                    />
+                    <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', mt: 0.5 }}>
+                      {Math.round((status.pages_scraped / status.max_pages) * 100)}% Complete
+                    </Typography>
+                  </Box>
                 )}
-                {eta && (
-                  <div className="eta-stat">
-                    <Clock size={14} />
-                    <span>ETA: {formatETA(eta)}</span>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* Speed Graph */}
-            {status.running && speedHistory.length > 1 && (
-              <div className="speed-graph-container">
-                <div className="speed-graph-header">
-                  <Activity size={14} />
-                  <span>Scraping Speed</span>
-                </div>
-                <svg className="speed-graph" viewBox="0 0 300 80" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id="speedGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#1a73e8" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="#1a73e8" stopOpacity="0.05" />
-                    </linearGradient>
-                  </defs>
-                  {(() => {
-                    const maxRate = Math.max(...speedHistory.map(h => h.rate), 0.1)
-                    const points = speedHistory.map((h, i) => {
-                      const x = (i / (speedHistory.length - 1)) * 300
-                      const y = 80 - ((h.rate / maxRate) * 70)
-                      return `${x},${y}`
-                    }).join(' ')
-                    const areaPoints = `0,80 ${points} 300,80`
-                    
-                    return (
-                      <>
-                        <polyline
-                          points={areaPoints}
-                          fill="url(#speedGradient)"
-                          stroke="none"
-                        />
-                        <polyline
-                          points={points}
-                          fill="none"
-                          stroke="#1a73e8"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </>
-                    )
-                  })()}
-                </svg>
-              </div>
-            )}
-
-            {status.file_types && Object.keys(status.file_types).length > 0 && (
-              <div className="status-file-types">
-                {Object.entries(status.file_types).map(([ext, count]) => (
-                  <span key={ext} className="file-type-badge-small">
-                    {ext} ({count})
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {status.running && !isHistoryView && (
-              <>
-                <div className="scraper-controls">
-                  {!status.is_paused ? (
-                    <button onClick={handlePause} className="pause-btn-sidebar">
-                      <StopCircle size={16} />
-                      Pause
-                    </button>
-                  ) : (
-                    <button onClick={handleResume} className="resume-btn-sidebar">
-                      <Play size={16} />
-                      Resume
-                    </button>
+                {/* Stats Grid */}
+                <Grid container spacing={1.5}>
+                  <Grid item xs={6}>
+                    <Paper variant="outlined" sx={{ p: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                        <Icon name="Description" size={10} /> Scraped
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        {status.pages_scraped} <Typography component="span" variant="caption" color="text.secondary">/ {status.max_pages}</Typography>
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Paper variant="outlined" sx={{ p: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                        <Icon name="Layers" size={10} /> Queue
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">{status.queue_size}</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Paper variant="outlined" sx={{ p: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                        <Icon name="CheckCircle" size={10} /> Visited
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">{status.visited}</Typography>
+                    </Paper>
+                  </Grid>
+                  {status.downloads?.successful > 0 && (
+                    <Grid item xs={6}>
+                      <Paper variant="outlined" sx={{ p: 1.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <Icon name="Download" size={10} /> Files
+                        </Typography>
+                        <Typography variant="body2" fontWeight="medium">{status.downloads.successful}</Typography>
+                      </Paper>
+                    </Grid>
                   )}
-                  <button onClick={handleStop} className="stop-btn-sidebar">
-                    <X size={16} />
-                    Stop
-                  </button>
-                </div>
-                
-                {/* Export Button - Available during scraping */}
-                <button 
-                  onClick={handleExport} 
-                  className="export-btn-sidebar"
-                  disabled={isExporting || allPages.length === 0}
-                >
-                  <Download size={16} />
-                  {isExporting ? 'Exporting...' : 'Export Progress'}
-                </button>
-              </>
-            )}
+                </Grid>
 
-            {/* Export Button - Available when not running */}
-            {!status?.running && !isHistoryView && allPages.length > 0 && (
-              <button 
-                onClick={handleExport} 
-                className="export-btn-sidebar"
-                disabled={isExporting}
-              >
-                <Download size={16} />
-                {isExporting ? 'Exporting...' : 'Export Data'}
-              </button>
-            )}
-          </div>
-        )}
-
-        <nav className="db-nav">
-          <button 
-            className={`db-nav-item ${activeView === 'pages' ? 'active' : ''}`}
-            onClick={() => setActiveView('pages')}
-          >
-            <FileText size={18} />
-            Pages ({allPages.length})
-          </button>
-          <button 
-            className={`db-nav-item ${activeView === 'files' ? 'active' : ''}`}
-            onClick={() => setActiveView('files')}
-          >
-            <Package size={18} />
-            Files ({allFiles.length})
-          </button>
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <main id="main-content" className="db-main" role="main">
-        <Breadcrumb 
-          items={[
-            { label: 'Scraping Progress', icon: Activity, path: '/progress' },
-            { label: activeView === 'pages' ? 'Pages' : 'Files' }
-          ]}
-        />
-        
-        {error && (
-          <div className="db-error">
-            <p>{error}</p>
-            <button onClick={() => setError(null)}><X size={18} /></button>
-          </div>
-        )}
-
-        {/* Image Viewer Modal */}
-        {imageViewerOpen && currentImage && (
-          <div className="image-viewer-modal" onClick={closeImageViewer}>
-            <button className="image-viewer-close" onClick={closeImageViewer}>
-              <X size={32} />
-            </button>
-            <div className="image-viewer-content" onClick={(e) => e.stopPropagation()}>
-              <img 
-                /* REFACTORED: Use helper functions for dynamic image URLs */
-                src={currentImage.src.includes('/api/screenshot/') 
-                  ? currentImage.src 
-                  : api.getProxyImageUrl(currentImage.src)
-                }
-                alt={currentImage.alt || 'Image'}
-              />
-              {currentImage.alt && (
-                <div className="image-viewer-caption">
-                  {currentImage.alt}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Detailed View - Full Page */}
-        {detailedViewPage ? (
-          <div className="detailed-full-page" ref={detailedPageRef}>
-            <div className="detailed-page-header">
-              <button className="back-btn-full" onClick={closeDetailedView}>
-                <ArrowLeft size={20} />
-                Back to Pages
-              </button>
-              <h1>Page Details</h1>
-            </div>
-
-            {/* Tabs Navigation */}
-            <div className="detail-tabs-container" ref={tabsRef}>
-              <div className="detail-tabs">
-                <button 
-                  className={`detail-tab ${activeTab === 'overview' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('overview')}
-                >
-                  <FileText size={16} />
-                  Overview
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'screenshot' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('screenshot')}
-                >
-                  <Eye size={16} />
-                  Screenshot
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'headers' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('headers')}
-                >
-                  <Hash size={16} />
-                  Headers
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'links' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('links')}
-                >
-                  <Link2 size={16} />
-                  Links
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'images' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('images')}
-                >
-                  <Image size={16} />
-                  Images
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'files' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('files')}
-                >
-                  <Download size={16} />
-                  Downloaded
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'structure' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('structure')}
-                >
-                  <Layers size={16} />
-                  HTML Structure
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'content' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('content')}
-                >
-                  <FileText size={16} />
-                  Content
-                </button>
-                <button 
-                  className={`detail-tab ${activeTab === 'fingerprint' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('fingerprint')}
-                >
-                  <Shield size={16} />
-                  Fingerprint
-                </button>
-              </div>
-            </div>
-
-              <div className="detailed-page-content">
-              {!detailedViewData ? (
-                <ScrapingProgressSkeleton />
-              ) : (
-                <>
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                  <>
-                    {/* Page Title & URL */}
-                    <div className="detail-section">
-                      <h3>{detailedViewPage.title || 'No title'}</h3>
-                      <a href={detailedViewPage.url} target="_blank" rel="noopener noreferrer" className="detail-url">
-                        <ExternalLink size={16} />
-                        {detailedViewPage.url}
-                      </a>
-                    </div>
-
-                    {/* Metadata Grid */}
-                    <div className="detail-section">
-                      <h4>Page Information</h4>
-                      <div className="detail-metadata-grid">
-                        <div className="detail-meta-item">
-                          <span className="detail-meta-label">Depth Level</span>
-                          <span className="detail-meta-value">
-                            <Layers size={14} />
-                            Level {detailedViewPage.depth}
-                          </span>
-                        </div>
-                        <div className="detail-meta-item">
-                          <span className="detail-meta-label">Scraped At</span>
-                          <span className="detail-meta-value">
-                            <Clock size={14} />
-                            {detailedViewPage.scraped_at}
-                          </span>
-                        </div>
-                        <div className="detail-meta-item">
-                          <span className="detail-meta-label">Proxy</span>
-                          <span className="detail-meta-value">
-                            <Globe size={14} />
-                            {detailedViewData.proxy_used || 'Direct'}
-                          </span>
-                        </div>
-                        <div className="detail-meta-item">
-                          <span className="detail-meta-label">Authenticated</span>
-                          <span className="detail-meta-value">
-                            <Shield size={14} />
-                            {detailedViewData.authenticated ? 'Yes' : 'No'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Description */}
-                    {detailedViewData?.description && detailedViewData.description !== 'No description' && (
-                      <div className="detail-section">
-                        <h4>Description</h4>
-                        <p className="detail-description">{detailedViewData.description}</p>
-                      </div>
-                    )}
-
-                    {/* Statistics */}
-                    <div className="detail-section">
-                      <h4>Statistics</h4>
-                      <div className="detail-stats-grid">
-                        <div className="detail-stat-card">
-                          <Image size={20} />
-                          <div>
-                            <div className="detail-stat-value">{detailedViewData.media?.length || 0}</div>
-                            <div className="detail-stat-label">Images</div>
-                          </div>
-                        </div>
-                        <div className="detail-stat-card">
-                          <Link2 size={20} />
-                          <div>
-                            <div className="detail-stat-value">
-                              {detailedViewData.links?.filter(l => l.link_type === 'internal').length || 0}
-                            </div>
-                            <div className="detail-stat-label">Internal Links</div>
-                          </div>
-                        </div>
-                        <div className="detail-stat-card">
-                          <ExternalLink size={20} />
-                          <div>
-                            <div className="detail-stat-value">
-                              {detailedViewData.links?.filter(l => l.link_type === 'external').length || 0}
-                            </div>
-                            <div className="detail-stat-label">External Links</div>
-                          </div>
-                        </div>
-                        <div className="detail-stat-card">
-                          <Download size={20} />
-                          <div>
-                            <div className="detail-stat-value">{detailedViewData.file_assets?.length || 0}</div>
-                            <div className="detail-stat-label">Files</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
+                {/* ETA */}
+                {status.running && !status.is_paused && (
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.50' }}>
+                    <Stack spacing={1}>
+                      {scrapingRate > 0 && (
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Icon name="Timeline" size="small" />
+                          {scrapingRate.toFixed(2)} pages/sec
+                        </Typography>
+                      )}
+                      {eta && (
+                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Icon name="AccessTime" size="small" />
+                          ETA: {formatETA(eta)}
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Paper>
                 )}
 
-                {/* Screenshot Tab */}
-                {activeTab === 'screenshot' && (
-                  <div className="detail-section">
-                    <h4>Page Screenshot</h4>
-                    <div className="detail-screenshot-container">
-                      <img 
-                        /* REFACTORED: Use helper function */
-                        src={api.getScreenshotUrl(detailedViewPage.id)}
-                        alt="Page Screenshot"
-                        className="detail-screenshot"
-                        onClick={() => openImageViewer({
-                          /* REFACTORED: Use helper function */
-                          src: api.getScreenshotUrl(detailedViewPage.id),
-                          alt: `Screenshot of ${detailedViewPage.title || detailedViewPage.url}`
-                        })}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
+                {/* File Type Badges */}
+                {status.file_types && Object.keys(status.file_types).length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                    {Object.entries(status.file_types).map(([ext, count]) => (
+                      <Badge
+                        key={ext}
+                        variant="chip"
+                        content={`${ext} (${count})`}
+                        color="primary"
+                        size="small"
                       />
-                      <div className="detail-screenshot-error" style={{display: 'none'}}>
-                        <FileText size={48} />
-                        <span>Screenshot not available</span>
-                      </div>
-                    </div>
-                  </div>
+                    ))}
+                  </Box>
                 )}
 
-                {/* Headers Tab */}
-                {activeTab === 'headers' && (
-                  <div className="detail-section">
-                    <h4>Headers ({detailedViewData?.headers?.length || 0})</h4>
-                    {detailedViewData?.headers && detailedViewData.headers.length > 0 ? (
-                      <div className="detail-headers-list">
-                        {detailedViewData.headers.map((header, idx) => (
-                          <div key={idx} className="detail-header-item">
-                            <span className="detail-header-tag">{header.header_type}</span>
-                            <span className="detail-header-text">{header.header_text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="no-data-message">
-                        <Hash size={48} />
-                        <p>No headers found on this page</p>
-                      </div>
+                {/* Controls */}
+                {status.running && !isHistoryView && (
+                  <Stack spacing={1} sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                    <Grid container spacing={1}>
+                      <Grid item xs={6}>
+                        {!status.is_paused ? (
+                          <Button
+                            variant="warning"
+                            onClick={handlePause}
+                            fullWidth
+                            size="small"
+                          >
+                            <Icon name="Pause" size="small" /> Pause
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="success"
+                            onClick={handleResume}
+                            fullWidth
+                            size="small"
+                          >
+                            <Icon name="PlayArrow" size="small" /> Resume
+                          </Button>
+                        )}
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Button
+                          variant="danger"
+                          onClick={handleStop}
+                          fullWidth
+                          size="small"
+                        >
+                          <Icon name="Close" size="small" /> Stop
+                        </Button>
+                      </Grid>
+                    </Grid>
+                    <Button
+                      variant="primary"
+                      onClick={handleExport}
+                      disabled={isExporting || allPages.length === 0}
+                      loading={isExporting}
+                      fullWidth
+                      size="small"
+                    >
+                      <Icon name="Download" size="small" /> {isExporting ? 'Exporting...' : 'Export Data'}
+                    </Button>
+                  </Stack>
+                )}
+
+                {/* Export when stopped */}
+                {!status?.running && !isHistoryView && allPages.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    loading={isExporting}
+                    fullWidth
+                    size="small"
+                  >
+                    <Icon name="Download" size="small" /> {isExporting ? 'Exporting...' : 'Export Data'}
+                  </Button>
+                )}
+              </Stack>
+            )}
+
+            {/* Navigation Tabs */}
+            <Box sx={{ mt: 4 }}>
+              <List disablePadding>
+                <ListItemButton
+                  selected={activeView === 'pages'}
+                  onClick={() => setActiveView('pages')}
+                  sx={{ borderRadius: 1, mb: 0.5 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Icon name="Description" size="small" />
+                  </ListItemIcon>
+                  <ListItemText primary="Pages" />
+                  <Chip label={allPages.length} size="small" />
+                </ListItemButton>
+                <ListItemButton
+                  selected={activeView === 'files'}
+                  onClick={() => setActiveView('files')}
+                  sx={{ borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>
+                    <Icon name="Inventory" size="small" />
+                  </ListItemIcon>
+                  <ListItemText primary="Files" />
+                  <Chip label={allFiles.length} size="small" />
+                </ListItemButton>
+              </List>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Main Content Area */}
+        <Box 
+          component="main" 
+          ref={detailedPageRef}
+          sx={{ 
+            flex: 1, 
+            overflowY: 'auto',
+            bgcolor: 'background.default'
+          }}
+        >
+          {/* Breadcrumb Header */}
+          <Paper 
+            elevation={0}
+            sx={{ 
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              borderBottom: 1,
+              borderColor: 'divider',
+              px: 3,
+              py: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              bgcolor: 'background.paper',
+              backdropFilter: 'blur(8px)'
+            }}
+          >
+            <Breadcrumb 
+              items={[
+                { label: 'Progress', icon: 'Timeline', path: '/progress' },
+                { label: detailedViewPage ? 'Details' : (activeView === 'pages' ? 'Pages' : 'Files') }
+              ]}
+            />
+            
+            {/* Error Alert */}
+            {error && (
+              <Alert 
+                severity="error" 
+                onClose={() => setError(null)}
+                sx={{ py: 0 }}
+              >
+                {error}
+              </Alert>
+            )}
+          </Paper>
+
+          <Container maxWidth="xl" sx={{ py: 4 }}>
+            {/* Detailed View Mode */}
+            {detailedViewPage ? (
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                  <Button
+                    variant="icon"
+                    iconOnly
+                    onClick={closeDetailedView}
+                  >
+                    <Icon name="ArrowBack" size="small" />
+                  </Button>
+                  <Box>
+                    <Typography variant="h5" fontWeight="light">
+                      {detailedViewPage.title || 'Untitled Page'}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      color="primary"
+                      component="a"
+                      href={detailedViewPage.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                    >
+                      {detailedViewPage.url} <Icon name="OpenInNew" size={12} />
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Detail Tabs */}
+                <Paper sx={{ mb: 3 }}>
+                  <Tabs 
+                    value={activeTab} 
+                    onChange={(e, newValue) => setActiveTab(newValue)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                  >
+                    <Tab icon={<Icon name="Description" size={16} />} label="Overview" iconPosition="start" />
+                    <Tab icon={<Icon name="Visibility" size={16} />} label="Screenshot" iconPosition="start" />
+                    <Tab icon={<Icon name="Tag" size={16} />} label="Headers" iconPosition="start" />
+                    <Tab icon={<Icon name="Link" size={16} />} label="Links" iconPosition="start" />
+                    <Tab icon={<Icon name="Image" size={16} />} label="Images" iconPosition="start" />
+                    <Tab icon={<Icon name="Download" size={16} />} label="Files" iconPosition="start" />
+                    <Tab icon={<Icon name="Layers" size={16} />} label="HTML Structure" iconPosition="start" />
+                    <Tab icon={<Icon name="Description" size={16} />} label="Content" iconPosition="start" />
+                    <Tab icon={<Icon name="Security" size={16} />} label="Fingerprint" iconPosition="start" />
+                  </Tabs>
+                </Paper>
+
+                {!detailedViewData ? (
+                  <ScrapingProgressSkeleton />
+                ) : (
+                  <Box>
+                    {/* Overview Tab */}
+                    {activeTab === 0 && (
+                      <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
+                          <Paper sx={{ p: 3 }}>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              METADATA
+                            </Typography>
+                            <Stack spacing={2} sx={{ mt: 2 }}>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Scraped At</Typography>
+                                <Typography variant="body2">{detailedViewPage.scraped_at}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Depth Level</Typography>
+                                <Typography variant="body2">Level {detailedViewPage.depth}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Proxy</Typography>
+                                <Typography variant="body2">{detailedViewData.proxy_used || 'Direct'}</Typography>
+                              </Box>
+                              <Box>
+                                <Typography variant="caption" color="text.secondary">Authenticated</Typography>
+                                <Typography variant="body2">{detailedViewData.authenticated ? 'Yes' : 'No'}</Typography>
+                              </Box>
+                            </Stack>
+                          </Paper>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                          <Paper sx={{ p: 3 }}>
+                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                              STATS
+                            </Typography>
+                            <Grid container spacing={2} sx={{ mt: 1 }}>
+                              {[
+                                { label: 'Images', value: detailedViewData.media?.length || 0, icon: 'Image' },
+                                { label: 'Int. Links', value: detailedViewData.links?.filter(l => l.link_type === 'internal').length || 0, icon: 'Link' },
+                                { label: 'Ext. Links', value: detailedViewData.links?.filter(l => l.link_type === 'external').length || 0, icon: 'OpenInNew' },
+                                { label: 'Files', value: detailedViewData.file_assets?.length || 0, icon: 'Download' },
+                              ].map((stat, i) => (
+                                <Grid item xs={6} key={i}>
+                                  <Paper variant="outlined" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+                                      <Icon name={stat.icon} size={16} />
+                                    </Avatar>
+                                    <Box>
+                                      <Typography variant="h6">{stat.value}</Typography>
+                                      <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
+                                    </Box>
+                                  </Paper>
+                                </Grid>
+                              ))}
+                            </Grid>
+                          </Paper>
+                        </Grid>
+
+                        {detailedViewData?.description && detailedViewData.description !== 'No description' && (
+                          <Grid item xs={12}>
+                            <Paper sx={{ p: 3 }}>
+                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                                DESCRIPTION
+                              </Typography>
+                              <Typography variant="body2" sx={{ mt: 1 }}>
+                                {detailedViewData.description}
+                              </Typography>
+                            </Paper>
+                          </Grid>
+                        )}
+                      </Grid>
                     )}
-                  </div>
-                )}
 
-                {/* Links Tab */}
-                {activeTab === 'links' && (
-                  <div className="detail-section">
-                    <h4>Links ({detailedViewData?.links?.length || 0})</h4>
-                    {detailedViewData?.links && detailedViewData.links.length > 0 ? (
-                      <div className="detail-links-container">
-                        <div className="detail-links-list">
-                          {detailedViewData.links.map((link, idx) => (
-                            <a 
-                              key={idx} 
-                              href={link.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="detail-link-item"
-                            >
-                              {link.link_type === 'internal' ? <Link2 size={14} /> : <ExternalLink size={14} />}
-                              {link.url}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="no-data-message">
-                        <Link2 size={48} />
-                        <p>No links found on this page</p>
-                      </div>
+                    {/* Screenshot Tab */}
+                    {activeTab === 1 && (
+                      <Paper sx={{ p: 2 }}>
+                        <Box
+                          component="img"
+                          src={api.getScreenshotUrl(detailedViewPage.id)}
+                          alt="Page Screenshot"
+                          sx={{
+                            width: '100%',
+                            height: 'auto',
+                            borderRadius: 1,
+                            cursor: 'zoom-in',
+                            '&:hover': { opacity: 0.95 }
+                          }}
+                          onClick={() => openImageViewer({
+                            src: api.getScreenshotUrl(detailedViewPage.id),
+                            alt: `Screenshot of ${detailedViewPage.title}`
+                          })}
+                        />
+                      </Paper>
                     )}
-                  </div>
-                )}
 
-                {/* Images Tab */}
-                {activeTab === 'images' && (
-                  <div className="detail-section">
-                    <h4>Images ({detailedViewData?.media?.length || 0})</h4>
-                    {detailedViewData?.media && detailedViewData.media.length > 0 ? (
-                      <div className="detail-media-grid">
-                        {detailedViewData.media.map((img, idx) => (
-                          <div key={idx} className="detail-media-item">
-                            <div 
-                              className="detail-media-image-wrapper"
-                              onClick={() => openImageViewer(img)}
-                              style={{ cursor: 'pointer' }}
-                            >
-                              <img 
-                                /* REFACTORED: Use helper function */
-                                src={api.getProxyImageUrl(img.src)}
-                                alt={img.alt || 'No alt text'} 
-                                loading="lazy"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
+                    {/* Headers Tab */}
+                    {activeTab === 2 && (
+                      <Stack spacing={1}>
+                        {detailedViewData?.headers?.length > 0 ? (
+                          detailedViewData.headers.map((header, idx) => (
+                            <Paper key={idx} variant="outlined" sx={{ p: 2, display: 'flex', gap: 2 }}>
+                              <Chip label={header.header_type} color="primary" size="small" />
+                              <Typography variant="body2">{header.header_text}</Typography>
+                            </Paper>
+                          ))
+                        ) : (
+                          <Paper sx={{ p: 8, textAlign: 'center' }}>
+                            <Typography color="text.secondary">No headers found</Typography>
+                          </Paper>
+                        )}
+                      </Stack>
+                    )}
+
+                    {/* Links Tab */}
+                    {activeTab === 3 && (
+                      <Paper>
+                        {detailedViewData?.links?.length > 0 ? (
+                          <List sx={{ maxHeight: 600, overflow: 'auto' }}>
+                            {detailedViewData.links.map((link, idx) => (
+                              <ListItem
+                                key={idx}
+                                component="a"
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{ textDecoration: 'none', color: 'inherit' }}
+                              >
+                                <ListItemIcon>
+                                  <Chip
+                                    icon={<Icon name={link.link_type === 'internal' ? 'Link' : 'OpenInNew'} size={14} />}
+                                    label={link.link_type}
+                                    color={link.link_type === 'internal' ? 'primary' : 'success'}
+                                    size="small"
+                                  />
+                                </ListItemIcon>
+                                <ListItemText 
+                                  primary={link.url}
+                                  primaryTypographyProps={{ 
+                                    variant: 'body2',
+                                    noWrap: true,
+                                    sx: { '&:hover': { color: 'primary.main' } }
+                                  }}
+                                />
+                              </ListItem>
+                            ))}
+                          </List>
+                        ) : (
+                          <Box sx={{ p: 8, textAlign: 'center' }}>
+                            <Typography color="text.secondary">No links found</Typography>
+                          </Box>
+                        )}
+                      </Paper>
+                    )}
+
+                    {/* Images Tab */}
+                    {activeTab === 4 && (
+                      <Grid container spacing={2}>
+                        {detailedViewData?.media?.length > 0 ? (
+                          detailedViewData.media.map((img, idx) => (
+                            <Grid item xs={6} sm={4} md={3} key={idx}>
+                              <Paper
+                                sx={{
+                                  position: 'relative',
+                                  paddingTop: '100%',
+                                  overflow: 'hidden',
+                                  cursor: 'pointer',
+                                  '&:hover img': { transform: 'scale(1.05)' }
                                 }}
-                              />
-                              <div className="detail-media-error" style={{display: 'none'}}>
-                                <File size={24} />
-                                <span>Image failed to load</span>
-                                <a 
-                                  href={img.src} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="detail-media-link"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  View Original
-                                </a>
-                              </div>
-                            </div>
-                            <span className="detail-media-alt" title={img.alt || 'No alt text'}>
-                              {img.alt || 'No alt text'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="no-data-message">
-                        <Image size={48} />
-                        <p>No images found on this page</p>
-                      </div>
+                                onClick={() => openImageViewer(img)}
+                              >
+                                <Box
+                                  component="img"
+                                  src={api.getProxyImageUrl(img.src)}
+                                  alt={img.alt || ''}
+                                  sx={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                    transition: 'transform 0.2s'
+                                  }}
+                                />
+                              </Paper>
+                            </Grid>
+                          ))
+                        ) : (
+                          <Grid item xs={12}>
+                            <Paper sx={{ p: 8, textAlign: 'center' }}>
+                              <Typography color="text.secondary">No images found</Typography>
+                            </Paper>
+                          </Grid>
+                        )}
+                      </Grid>
                     )}
-                  </div>
-                )}
 
-                {/* Downloaded Files Tab */}
-                {activeTab === 'files' && (
-                  <div className="detail-section">
-                    <h4>Downloaded Files ({detailedViewData?.file_assets?.length || 0})</h4>
-                    {detailedViewData?.file_assets && detailedViewData.file_assets.length > 0 ? (
-                      <div className="detail-files-list">
-                        {detailedViewData.file_assets.map((file, idx) => (
-                          <div key={idx} className="detail-file-item">
-                            <File size={16} />
-                            <div className="detail-file-info">
-                              <span className="detail-file-name">{file.file_name}</span>
-                              <span className="detail-file-meta">
-                                {file.file_extension} • {api.formatBytes(file.file_size_bytes)}
-                              </span>
-                            </div>
-                            {file.download_status === 'success' ? (
-                              <CheckCircle size={16} className="success-icon" />
-                            ) : (
-                              <XCircle size={16} className="error-icon" />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="no-data-message">
-                        <Download size={48} />
-                        <p>No files downloaded from this page</p>
-                      </div>
+                    {/* Files Tab */}
+                    {activeTab === 5 && (
+                      <Stack spacing={2}>
+                        {detailedViewData?.file_assets?.length > 0 ? (
+                          detailedViewData.file_assets.map((file, idx) => (
+                            <Card key={idx} variant="outlined">
+                              <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Avatar sx={{ bgcolor: 'primary.main' }}>
+                                  <Icon name="InsertDriveFile" size={20} />
+                                </Avatar>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                  <Typography variant="body2" noWrap>{file.file_name}</Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                    <Chip label={file.file_extension} size="small" />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {api.formatBytes(file.file_size_bytes)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                                <Chip
+                                  icon={<Icon name={file.download_status === 'success' ? 'CheckCircle' : 'Cancel'} size={12} />}
+                                  label={file.download_status === 'success' ? 'Saved' : 'Failed'}
+                                  color={file.download_status === 'success' ? 'success' : 'error'}
+                                  size="small"
+                                />
+                              </CardContent>
+                            </Card>
+                          ))
+                        ) : (
+                          <Paper sx={{ p: 8, textAlign: 'center' }}>
+                            <Typography color="text.secondary">No files found</Typography>
+                          </Paper>
+                        )}
+                      </Stack>
                     )}
-                  </div>
-                )}
 
-                {/* HTML Structure Tab */}
-                {activeTab === 'structure' && (
-                  <div className="detail-section">
-                    <h4>HTML Structure & Selectors ({detailedViewData?.html_structure?.length || 0})</h4>
-                    {detailedViewData?.html_structure && detailedViewData.html_structure.length > 0 ? (
-                      <div className="html-structure-container">
-                        <div className="html-structure-filters">
-                          <input 
-                            type="text" 
-                            className="html-structure-search"
+                    {/* HTML Structure Tab */}
+                    {activeTab === 6 && (
+                      <Paper>
+                        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                          <TextField
+                            fullWidth
+                            size="small"
                             placeholder="Filter by tag, selector, or content..."
-                            onChange={(e) => {
-                              const searchTerm = e.target.value.toLowerCase();
-                              const items = document.querySelectorAll('.html-structure-item');
-                              items.forEach(item => {
-                                const text = item.textContent.toLowerCase();
-                                item.style.display = text.includes(searchTerm) ? 'flex' : 'none';
-                              });
+                            value={htmlStructureSearch}
+                            onChange={(e) => setHtmlStructureSearch(e.target.value)}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <Icon name="Search" size={18} />
+                                </InputAdornment>
+                              )
                             }}
                           />
-                        </div>
-                        <div className="html-structure-list">
-                          {detailedViewData.html_structure.map((elem, idx) => {
-                            const attrs = elem.attributes ? JSON.parse(elem.attributes) : {};
-                            return (
-                              <div key={idx} className="html-structure-item">
-                                <div className="html-structure-header">
-                                  <span className="html-tag-badge">{elem.tag_name}</span>
-                                  <code className="html-selector">{elem.selector}</code>
-                                </div>
-                                {elem.text_content && (
-                                  <div className="html-content">{elem.text_content}</div>
-                                )}
-                                {(attrs.class || attrs.id) && (
-                                  <div className="html-attributes">
-                                    {attrs.id && <span className="html-attr-id">id: {attrs.id}</span>}
-                                    {attrs.class && <span className="html-attr-class">class: {attrs.class}</span>}
-                                  </div>
-                                )}
-                                {elem.parent_selector && (
-                                  <div className="html-parent">
-                                    Parent: <code>{elem.parent_selector}</code>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="no-data-message">
-                        <Layers size={48} />
-                        <p>No HTML structure data available</p>
-                        <span style={{fontSize: '13px', color: '#5f6368'}}>
-                          This page was scraped before HTML structure extraction was implemented
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Content Preview Tab */}
-                {activeTab === 'content' && (
-                  <div className="detail-section">
-                    <h4>Content Preview</h4>
-                    {detailedViewData?.full_text ? (
-                      <div className="detail-text-preview">
-                        {detailedViewData.full_text}
-                      </div>
-                    ) : (
-                      <div className="no-data-message">
-                        <FileText size={48} />
-                        <p>No text content available</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Browser Fingerprint Tab */}
-                {activeTab === 'fingerprint' && (
-                  <div className="detail-section">
-                    <h4>Browser Fingerprint</h4>
-                    {detailedViewData?.fingerprint ? (
-                      <div className="detail-fingerprint">
-                        <pre>{JSON.stringify(JSON.parse(detailedViewData.fingerprint), null, 2)}</pre>
-                      </div>
-                    ) : (
-                      <div className="no-data-message">
-                        <Shield size={48} />
-                        <p>No fingerprint data available</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-              )}
-            </div>
-          </div>
-        ) : (
-          <>
-
-        {/* Pages View */}
-        {activeView === 'pages' && (
-          <div className="list-view">
-            <div className="view-header-compact">
-              <h1><FileText size={24} /> Scraped Pages ({allPages.length})</h1>
-            </div>
-
-            {/* Search Bar */}
-            <div className="search-filter-bar">
-              <input
-                type="text"
-                placeholder="Search pages by URL or title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="search-input-filter"
-              />
-              {searchQuery && (
-                <button 
-                  className="clear-search-btn"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
-            {searchQuery && (
-              <div className="search-results-info">
-                Found {filteredPages.length} of {allPages.length} pages
-              </div>
-            )}
-
-            {filteredPages.length > 0 ? (
-              <div className="progress-pages-list">
-                {filteredPages.slice(0, visiblePageCount).map((page) => {
-                  const pageFiles = getPageFiles(page.url)
-                  const metadata = metadataContent[page.id]
-                  const isExpanded = expandedMetadata[page.id]
-                  
-                  return (
-                    <div className="progress-page-card" key={page.id}>
-                      {/* Page Header */}
-                      <div className="progress-card-header">
-                        <div className="progress-card-title">
-                          <a href={page.url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink size={16} />
-                            {page.title || 'No title'}
-                          </a>
-                        </div>
-                        <div className="progress-card-meta">
-                          <span className="depth-badge-compact">D{page.depth}</span>
-                          <span className="progress-card-date">
-                            <Clock size={12} />
-                            {page.scraped_at}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="progress-card-url">
-                        {formatUrl(page.url)}
-                      </div>
-
-                      {/* Quick Stats */}
-                      {metadata && (
-                        <div className="progress-card-stats">
-                          <div className="progress-stat-item">
-                            <Image size={12} />
-                            <span>{metadata.media_count || 0}</span>
-                          </div>
-                          <div className="progress-stat-item">
-                            <Link2 size={12} />
-                            <span>{metadata.internal_links_count || 0}</span>
-                          </div>
-                          <div className="progress-stat-item">
-                            <ExternalLink size={12} />
-                            <span>{metadata.external_links_count || 0}</span>
-                          </div>
-                          {pageFiles.length > 0 && (
-                            <div className="progress-stat-item">
-                              <Download size={12} />
-                              <span>{pageFiles.length}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Expanded Metadata */}
-                      {isExpanded && metadata && (
-                        <div className="progress-card-details">
-                          {metadata.description && metadata.description !== 'No description' && (
-                            <div className="detail-section-compact">
-                              <h4>Description</h4>
-                              <p>{metadata.description}</p>
-                            </div>
-                          )}
-
-                          <div className="detail-section-compact">
-                            <h4>Technical Details</h4>
-                            <div className="detail-items-compact">
-                              <div className="detail-row-compact">
-                                <span className="detail-label-compact">Proxy:</span>
-                                <span>{metadata.proxy_used || 'Direct'}</span>
-                              </div>
-                              <div className="detail-row-compact">
-                                <span className="detail-label-compact">Authenticated:</span>
-                                <span>{metadata.authenticated ? 'Yes' : 'No'}</span>
-                              </div>
-                              <div className="detail-row-compact">
-                                <span className="detail-label-compact">Timestamp:</span>
-                                <span>{new Date(metadata.timestamp * 1000).toLocaleString()}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {metadata.headers && Object.values(metadata.headers).some(arr => arr && arr.length > 0) && (
-                            <div className="detail-section-compact">
-                              <h4>Headers</h4>
-                              <div className="headers-list-compact">
-                                {Object.entries(metadata.headers).map(([tag, values]) => (
-                                  values && values.length > 0 && (
-                                    <div key={tag} className="header-group">
-                                      <span className="header-tag-badge">{tag}</span>
-                                      <div className="header-values">
-                                        {values.map((val, idx) => (
-                                          <span key={idx} className="header-value">{val}</span>
-                                        ))}
-                                      </div>
-                                    </div>
+                        </Box>
+                        <Box sx={{ maxHeight: 600, overflow: 'auto', p: 2 }}>
+                          <Stack spacing={2}>
+                            {detailedViewData?.html_structure?.length > 0 ? (
+                              detailedViewData.html_structure
+                                .filter(elem => {
+                                  if (!htmlStructureSearch) return true
+                                  const search = htmlStructureSearch.toLowerCase()
+                                  return (
+                                    elem.tag_name?.toLowerCase().includes(search) ||
+                                    elem.selector?.toLowerCase().includes(search) ||
+                                    elem.text_content?.toLowerCase().includes(search)
                                   )
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Files Section */}
-                      {pageFiles.length > 0 && (
-                        <div className="progress-card-files">
-                          <h4><Download size={14} /> Files ({pageFiles.length})</h4>
-                          <div className="files-list-compact">
-                            {pageFiles.map((file, idx) => (
-                              <div key={idx} className="file-item-row">
-                                <span className="file-badge-compact">{file.file_extension}</span>
-                                <span className="file-name-text">{file.file_name}</span>
-                                <span className="file-size-text">{api.formatBytes(file.file_size_bytes)}</span>
-                                {file.download_status === 'success' ? (
-                                  <CheckCircle size={14} className="success-icon" />
-                                ) : (
-                                  <XCircle size={14} className="error-icon" />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="progress-card-actions">
-                        <button 
-                          className="progress-toggle-btn"
-                          onClick={() => toggleMetadataExpand(page.id)}
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp size={14} />
-                              Less Details
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown size={14} />
-                              {metadata ? 'More Details' : 'Load Details'}
-                            </>
-                          )}
-                        </button>
-                        <button 
-                          className="progress-view-btn"
-                          onClick={() => handleViewDetails(page)}
-                        >
-                          <Eye size={14} />
-                          View Full Details
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-                
-                {/* Load More Button */}
-                {filteredPages.length > visiblePageCount && (
-                  <div className="load-more-container">
-                    <button 
-                      className="load-more-btn"
-                      onClick={() => setVisiblePageCount(prev => prev + 20)}
-                    >
-                      Load More ({filteredPages.length - visiblePageCount} remaining)
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="no-data-card">
-                <FileText size={48} />
-                <h3>No pages yet</h3>
-                <p>{status?.running ? 'Pages will appear here as they are scraped' : 'No pages scraped'}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Files View */}
-        {activeView === 'files' && (
-          <div className="list-view">
-            <div className="view-header-compact">
-              <h1><Package size={24} /> Downloaded Files ({allFiles.length})</h1>
-            </div>
-
-            {allFiles.length > 0 ? (
-              <div className="files-grouped-view">
-                {Object.entries(groupedFiles).map(([fileType, files]) => {
-                  const isCollapsed = collapsedFileTypes[fileType]
-                  const successCount = files.filter(f => f.download_status === 'success').length
-                  const totalSize = files.reduce((sum, f) => sum + (f.file_size_bytes || 0), 0)
-                  
-                  return (
-                    <div key={fileType} className="file-type-group">
-                      <div 
-                        className="file-type-header"
-                        onClick={() => toggleFileTypeCollapse(fileType)}
-                      >
-                        <div className="file-type-info">
-                          {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
-                          <span className="file-badge-large">{fileType}</span>
-                          <span className="file-count">{files.length} files</span>
-                          <span className="file-success-count">
-                            <CheckCircle size={14} /> {successCount} successful
-                          </span>
-                          <span className="file-total-size">
-                            {api.formatBytes(totalSize)}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {!isCollapsed && (
-                        <div className="file-type-content">
-                          <table>
-                            <thead>
-                              <tr>
-                                <th>File</th>
-                                <th>Size</th>
-                                <th>Status</th>
-                                <th>Date</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {files.map((file, idx) => (
-                                <tr key={idx}>
-                                  <td className="file-cell-compact">
-                                    <File size={14} />
-                                    {file.file_name}
-                                  </td>
-                                  <td className="size-cell-compact">{api.formatBytes(file.file_size_bytes)}</td>
-                                  <td>
-                                    {file.download_status === 'success' ? (
-                                      <span className="status-badge-compact success">
-                                        <CheckCircle size={12} /> Success
-                                      </span>
-                                    ) : (
-                                      <span className="status-badge-compact failed">
-                                        <XCircle size={12} /> Failed
-                                      </span>
+                                })
+                                .map((elem, idx) => (
+                                  <Paper key={idx} variant="outlined" sx={{ p: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                      <Chip label={elem.tag_name} color="primary" size="small" />
+                                      <Typography variant="caption" fontFamily="monospace" color="text.secondary" noWrap sx={{ flex: 1 }}>
+                                        {elem.selector}
+                                      </Typography>
+                                    </Box>
+                                    {elem.text_content && (
+                                      <Typography variant="body2" sx={{ pl: 2, borderLeft: 2, borderColor: 'primary.main', mb: 1 }}>
+                                        {elem.text_content}
+                                      </Typography>
                                     )}
-                                  </td>
-                                  <td className="date-cell-compact">{file.downloaded_at}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                                  </Paper>
+                                ))
+                            ) : (
+                              <Box sx={{ p: 8, textAlign: 'center' }}>
+                                <Icon name="Layers" size={48} />
+                                <Typography color="text.secondary" sx={{ mt: 2 }}>No HTML structure data available</Typography>
+                              </Box>
+                            )}
+                          </Stack>
+                        </Box>
+                      </Paper>
+                    )}
+
+                    {/* Content Tab */}
+                    {activeTab === 7 && (
+                      <Paper sx={{ p: 3 }}>
+                        {detailedViewData?.full_text ? (
+                          <Typography 
+                            variant="body2" 
+                            component="pre" 
+                            sx={{ 
+                              whiteSpace: 'pre-wrap', 
+                              fontFamily: 'inherit',
+                              maxHeight: 600,
+                              overflow: 'auto'
+                            }}
+                          >
+                            {detailedViewData.full_text}
+                          </Typography>
+                        ) : (
+                          <Box sx={{ p: 8, textAlign: 'center' }}>
+                            <Icon name="Description" size={48} />
+                            <Typography color="text.secondary" sx={{ mt: 2 }}>No text content available</Typography>
+                          </Box>
+                        )}
+                      </Paper>
+                    )}
+
+                    {/* Fingerprint Tab */}
+                    {activeTab === 8 && (
+                      <Paper sx={{ p: 3, bgcolor: 'grey.900' }}>
+                        <Typography 
+                          component="pre" 
+                          variant="caption"
+                          sx={{ 
+                            color: 'grey.100',
+                            fontFamily: 'monospace',
+                            overflow: 'auto'
+                          }}
+                        >
+                          {JSON.stringify(JSON.parse(detailedViewData.fingerprint || '{}'), null, 2)}
+                        </Typography>
+                        {!detailedViewData.fingerprint && (
+                          <Typography color="text.secondary" textAlign="center">
+                            No fingerprint data
+                          </Typography>
+                        )}
+                      </Paper>
+                    )}
+                  </Box>
+                )}
+              </Box>
             ) : (
-              <div className="no-data-card">
-                <Package size={48} />
-                <h3>No files yet</h3>
-                <p>{status?.running ? 'Files will appear here as they are downloaded' : 'No files downloaded'}</p>
-              </div>
+              /* Main List Views */
+              <Box>
+                {/* Search Bar */}
+                <TextField
+                  fullWidth
+                  placeholder={activeView === 'pages' ? "Search pages by URL or title..." : "Search files..."}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  sx={{ mb: 3 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Icon name="Search" size={18} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: searchQuery && (
+                      <InputAdornment position="end">
+                        <Button
+                          variant="icon"
+                          iconOnly
+                          size="small"
+                          onClick={() => setSearchQuery('')}
+                        >
+                          <Icon name="Close" size={16} />
+                        </Button>
+                      </InputAdornment>
+                    )
+                  }}
+                />
+
+                {/* Search Results Info */}
+                {searchQuery && (
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    Found {filteredPages.length} of {allPages.length} pages
+                  </Alert>
+                )}
+
+                {/* Pages View */}
+                {activeView === 'pages' && (
+                  <Stack spacing={3}>
+                    {filteredPages.length > 0 ? (
+                      filteredPages.slice(0, visiblePageCount).map((page) => {
+                        const pageFiles = getPageFiles(page.url)
+                        const metadata = metadataContent[page.id]
+                        const isExpanded = expandedMetadata[page.id]
+
+                        return (
+                          <Card key={page.id} variant="outlined">
+                            <CardContent>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+                                <Box sx={{ flex: 1, minWidth: 0, mr: 2 }}>
+                                  <Typography 
+                                    variant="h6" 
+                                    component="a"
+                                    href={page.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    sx={{ 
+                                      textDecoration: 'none',
+                                      color: 'inherit',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 1,
+                                      '&:hover': { color: 'primary.main' }
+                                    }}
+                                  >
+                                    {page.title || 'No Title'}
+                                    <Icon name="OpenInNew" size={14} />
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary" fontFamily="monospace" noWrap>
+                                    {formatUrl(page.url)}
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                                    <Chip label={`Depth ${page.depth}`} size="small" />
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <Icon name="AccessTime" size={12} /> {page.scraped_at}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                                <Stack spacing={1}>
+                                  <Button
+                                    variant="primary"
+                                    onClick={() => handleViewDetails(page)}
+                                    size="small"
+                                  >
+                                    <Icon name="Visibility" size="small" /> View Details
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => toggleMetadataExpand(page.id)}
+                                    size="small"
+                                  >
+                                    <Icon name={isExpanded ? 'ExpandLess' : 'ExpandMore'} size="small" /> {isExpanded ? 'Less' : 'More'}
+                                  </Button>
+                                </Stack>
+                              </Box>
+
+                              {/* Quick Stats */}
+                              {metadata && (
+                                <Grid container spacing={2} sx={{ py: 2, borderTop: 1, borderBottom: 1, borderColor: 'divider' }}>
+                                  <Grid item xs={3}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <Icon name="Image" size={14} /> {metadata.media_count || 0} Images
+                                    </Typography>
+                                  </Grid>
+                                  <Grid item xs={3}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <Icon name="Link" size={14} /> {metadata.internal_links_count || 0} Internal
+                                    </Typography>
+                                  </Grid>
+                                  <Grid item xs={3}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <Icon name="OpenInNew" size={14} /> {metadata.external_links_count || 0} External
+                                    </Typography>
+                                  </Grid>
+                                  {pageFiles.length > 0 && (
+                                    <Grid item xs={3}>
+                                      <Typography variant="caption" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <Icon name="Download" size={14} /> {pageFiles.length} Files
+                                      </Typography>
+                                    </Grid>
+                                  )}
+                                </Grid>
+                              )}
+
+                              {/* Expanded Content */}
+                              <Collapse in={isExpanded}>
+                                {metadata && (
+                                  <Box sx={{ mt: 2 }}>
+                                    {metadata.description && metadata.description !== 'No description' && (
+                                      <Box sx={{ mb: 2 }}>
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                          DESCRIPTION
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                          {metadata.description}
+                                        </Typography>
+                                      </Box>
+                                    )}
+
+                                    {pageFiles.length > 0 && (
+                                      <Box>
+                                        <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom>
+                                          DOWNLOADED FILES
+                                        </Typography>
+                                        <Stack spacing={1} sx={{ mt: 1 }}>
+                                          {pageFiles.map((file, idx) => (
+                                            <Paper key={idx} variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                              <Icon name="InsertDriveFile" size={16} />
+                                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                <Typography variant="caption" noWrap>{file.file_name}</Typography>
+                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                  {file.file_extension} • {api.formatBytes(file.file_size_bytes)}
+                                                </Typography>
+                                              </Box>
+                                              <Chip
+                                                icon={<Icon name={file.download_status === 'success' ? 'CheckCircle' : 'Cancel'} size={10} />}
+                                                label={file.download_status}
+                                                color={file.download_status === 'success' ? 'success' : 'error'}
+                                                size="small"
+                                              />
+                                            </Paper>
+                                          ))}
+                                        </Stack>
+                                      </Box>
+                                    )}
+                                  </Box>
+                                )}
+                              </Collapse>
+                            </CardContent>
+                          </Card>
+                        )
+                      })
+                    ) : (
+                      <Paper sx={{ p: 8, textAlign: 'center' }}>
+                        <Typography color="text.secondary">No pages found</Typography>
+                      </Paper>
+                    )}
+
+                    {/* Load More Button */}
+                    {filteredPages.length > visiblePageCount && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setVisiblePageCount(prev => prev + 20)}
+                        fullWidth
+                      >
+                        Load More ({filteredPages.length - visiblePageCount} remaining)
+                      </Button>
+                    )}
+                  </Stack>
+                )}
+
+                {/* Files View */}
+                {activeView === 'files' && (
+                  <Stack spacing={3}>
+                    {Object.entries(groupedFiles).map(([fileType, files]) => (
+                      <Card key={fileType} variant="outlined">
+                        <CardContent>
+                          <Box 
+                            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                            onClick={() => toggleFileTypeCollapse(fileType)}
+                          >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Chip label={fileType} color="primary" />
+                              <Typography variant="body2" color="text.secondary">
+                                {files.length} files
+                              </Typography>
+                            </Box>
+                            <Button variant="icon" iconOnly size="small">
+                              <Icon name={collapsedFileTypes[fileType] ? 'ExpandMore' : 'ExpandLess'} size={18} />
+                            </Button>
+                          </Box>
+
+                          <Collapse in={!collapsedFileTypes[fileType]}>
+                            <Stack spacing={1} sx={{ mt: 2 }}>
+                              {files.map((file, idx) => (
+                                <Paper key={idx} variant="outlined" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Icon name="InsertDriveFile" size={16} />
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant="body2" noWrap>{file.file_name}</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {api.formatBytes(file.file_size_bytes)}
+                                    </Typography>
+                                  </Box>
+                                  <Chip
+                                    icon={<Icon name={file.download_status === 'success' ? 'CheckCircle' : 'Cancel'} size={10} />}
+                                    label={file.download_status}
+                                    color={file.download_status === 'success' ? 'success' : 'error'}
+                                    size="small"
+                                  />
+                                </Paper>
+                              ))}
+                            </Stack>
+                          </Collapse>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                    {Object.keys(groupedFiles).length === 0 && (
+                      <Paper sx={{ p: 8, textAlign: 'center' }}>
+                        <Typography color="text.secondary">No files found</Typography>
+                      </Paper>
+                    )}
+                  </Stack>
+                )}
+              </Box>
             )}
-          </div>
-        )}
-        </>
-        )}
-      </main>
-    </div>
-    <Footer />
-  </>
+          </Container>
+        </Box>
+      </Box>
+
+      {/* Image Viewer Modal */}
+      {imageViewerOpen && currentImage && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: 'rgba(0, 0, 0, 0.9)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 4
+          }}
+          onClick={closeImageViewer}
+        >
+          <Button
+            variant="icon"
+            iconOnly
+            onClick={closeImageViewer}
+            sx={{ position: 'absolute', top: 16, right: 16, color: 'white' }}
+          >
+            <Icon name="Close" size={24} />
+          </Button>
+          <Box
+            component="img"
+            src={currentImage.src}
+            alt={currentImage.alt}
+            sx={{
+              maxWidth: '90%',
+              maxHeight: '90%',
+              objectFit: 'contain'
+            }}
+          />
+        </Box>
+      )}
+    </Box>
   )
 }
 

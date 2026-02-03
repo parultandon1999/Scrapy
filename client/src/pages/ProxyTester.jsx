@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Breadcrumb from '../components/mui/Breadcrumb'
+// import Footer from '../components/Footer'
+import Breadcrumb from '../components/mui/breadcrumbs/Breadcrumb'
 import {
   Globe, CheckCircle, XCircle, Clock, AlertCircle, X,
   Play, FileText, Download, RefreshCw, Link, TrendingUp, BarChart3, Upload,
   Shuffle, ArrowRight, Zap, FileJson
 } from 'lucide-react'
 import * as api from '../services/api'
-import { ProxyResultsSkeleton, ProxyListSkeleton, InlineButtonSkeleton } from '../components/SkeletonLoader'
+import { ProxyResultsSkeleton, ProxyListSkeleton, InlineButtonSkeleton } from '../components/mui/skeletons/SkeletonLoader'
 import '../styles/ProxyTester.css'
 
 function ProxyTester({ darkMode, toggleDarkMode }) {
@@ -741,7 +741,7 @@ function ProxyTester({ darkMode, toggleDarkMode }) {
         </div>
       )}
 
-      <Footer />
+      {/* <Footer /> */}
     </>
   )
 }

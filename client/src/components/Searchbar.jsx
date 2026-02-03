@@ -1,8 +1,26 @@
 import { useState } from 'react'
-import '../styles/SearchBar.css'
+import {
+  Box,
+  Paper,
+  List,
+  ListItemButton,
+  Typography,
+  Collapse,
+} from '@mui/material'
+import Input from './mui/inputs/Input'
+import Icon from './mui/icons/Icon'
 
-function SearchBar({ value, onChange, placeholder, disabled, onSubmit, error, valid, recentUrls = [], onSelectRecent, loadingRecent }) {
-  const [showDropdown, setShowDropdown] = useState(false)
+function SearchBar({ 
+  value, 
+  onChange, 
+  placeholder, 
+  disabled, 
+  onSubmit, 
+  error, 
+  valid, 
+  recentUrls = [], 
+  onSelectRecent,
+}) {
   const [isFocused, setIsFocused] = useState(false)
 
   const handleSubmit = (e) => {
@@ -12,21 +30,11 @@ function SearchBar({ value, onChange, placeholder, disabled, onSubmit, error, va
     }
   }
 
-  const getInputClassName = () => {
-    let className = 'search-input'
-    if (value && error) {
-      className += ' error'
-    } else if (value && valid) {
-      className += ' valid'
-    }
-    return className
-  }
-
   const handleSelectUrl = (url) => {
     if (onSelectRecent) {
       onSelectRecent(url)
     }
-    setShowDropdown(false)
+    setIsFocused(false)
   }
 
   const formatDate = (timestamp) => {
@@ -38,103 +46,129 @@ function SearchBar({ value, onChange, placeholder, disabled, onSubmit, error, va
     const diffDays = Math.floor(diffMs / 86400000)
 
     if (diffMins < 60) {
-      return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`
+      return `${diffMins}m`
     } else if (diffHours < 24) {
-      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`
+      return `${diffHours}h`
     } else if (diffDays < 7) {
-      return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`
+      return `${diffDays}d`
     } else {
-      return date.toLocaleDateString()
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
   }
 
-  const shouldShowDropdown = (isFocused || showDropdown) && recentUrls.length > 0 && !value
+  const shouldShowDropdown = isFocused && recentUrls.length > 0 && !value
 
   return (
-    <form className="search-form" onSubmit={handleSubmit} role="search">
-      <div 
-        className="search-box"
-        onMouseEnter={() => setShowDropdown(true)}
-        onMouseLeave={() => setShowDropdown(false)}
-      >
-        <label htmlFor="url-input" className="sr-only">
-          Enter URL to scrape
-        </label>
-        <input
-          id="url-input"
+    <Box 
+      component="form" 
+      onSubmit={handleSubmit}
+      sx={{ width: '100%', maxWidth: 600, position: 'relative' }}
+    >
+      <Box sx={{ position: 'relative' }}>
+        <Input
           type="url"
-          className={getInputClassName()}
           placeholder={placeholder || "Enter URL to scrape..."}
           value={value}
           onChange={onChange}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-          required
           disabled={disabled}
-          aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={error ? 'url-error' : valid ? 'url-valid' : undefined}
-          aria-autocomplete="list"
-          aria-controls={shouldShowDropdown ? 'recent-urls-list' : undefined}
-          aria-expanded={shouldShowDropdown}
+          error={!!error}
+          helperText={error || ''}
+          fullWidth
+          size="medium"
+          icon={valid && !error ? () => <Icon name="CheckCircle" size={20} /> : null}
+          iconPosition="end"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 50,
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              transition: 'all 0.2s',
+              boxShadow: '0 1px 6px rgba(32,33,36,0.08)',
+              '& fieldset': {
+                border: 'none',
+              },
+              '&:hover': {
+                boxShadow: '0 1px 6px rgba(32,33,36,0.18)',
+                borderColor: 'divider',
+              },
+              '&.Mui-focused': {
+                boxShadow: '0 1px 6px rgba(32,33,36,0.28)',
+                borderColor: 'divider',
+              },
+              '&.Mui-error': {
+                borderColor: 'error.main',
+                boxShadow: '0 1px 6px rgba(234,67,53,0.2)',
+              },
+            },
+            '& .MuiOutlinedInput-input': {
+              py: 1.5,
+              px: 2.5,
+            },
+          }}
         />
-        {error && (
-          <span id="url-error" className="url-error-message" role="alert">
-            {error}
-          </span>
-        )}
-        {valid && !error && (
-          <span id="url-valid" className="url-valid-indicator" aria-label="Valid URL">
-            ✓
-          </span>
-        )}
-        
+
         {/* Recent URLs Dropdown */}
-        {shouldShowDropdown && (
-          <div 
-            id="recent-urls-list"
-            className="recent-urls-dropdown"
-            role="listbox"
-            aria-label="Recent URLs"
+        <Collapse in={shouldShowDropdown}>
+          <Paper
+            elevation={2}
+            sx={{
+              position: 'absolute',
+              top: 'calc(100% + 4px)',
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+              maxHeight: 200,
+              overflow: 'hidden',
+              borderRadius: 2,
+            }}
           >
-            <div className="dropdown-header">
-              <span className="dropdown-title">Recent URLs</span>
-              {loadingRecent && (
-                <span className="dropdown-loading" role="status" aria-live="polite">
-                  Loading...
-                </span>
-              )}
-            </div>
-            <ul className="recent-urls-list">
+            {/* List */}
+            <List
+              disablePadding
+              sx={{
+                maxHeight: 200,
+                overflowY: 'auto',
+              }}
+            >
               {recentUrls.map((item, index) => (
-                <li 
-                  key={index} 
-                  className="recent-url-item"
+                <ListItemButton
+                  key={index}
                   onClick={() => handleSelectUrl(item.url)}
-                  role="option"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      handleSelectUrl(item.url)
-                    }
+                  sx={{
+                    py: 1,
+                    px: 2,
+                    borderBottom: index < recentUrls.length - 1 ? 1 : 0,
+                    borderColor: 'divider',
                   }}
-                  aria-label={`${item.url}, ${item.pageCount} pages, scraped ${formatDate(item.lastScraped)}`}
                 >
-                  <div className="recent-url-main">
-                    <span className="recent-url-icon" aria-hidden="true">🌐</span>
-                    <span className="recent-url-text">{item.url}</span>
-                  </div>
-                  <div className="recent-url-meta">
-                    <span className="recent-url-pages">{item.pageCount} pages</span>
-                    <span className="recent-url-time">{formatDate(item.lastScraped)}</span>
-                  </div>
-                </li>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                    <Icon name="Language" size={16} />
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.875rem',
+                      }}
+                    >
+                      {item.url}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                      {formatDate(item.lastScraped)}
+                    </Typography>
+                  </Box>
+                </ListItemButton>
               ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </form>
+            </List>
+          </Paper>
+        </Collapse>
+      </Box>
+    </Box>
   )
 }
 

@@ -33,24 +33,6 @@ body.dark-mode a:focus-visible {
   box-shadow: 0 0 0 4px rgba(138, 180, 248, 0.2);
 }
 
-/* Input focus */
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid #1a73e8;
-  outline-offset: 2px;
-  border-color: #1a73e8;
-  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
-}
-
-body.dark-mode input:focus-visible,
-body.dark-mode textarea:focus-visible,
-body.dark-mode select:focus-visible {
-  outline-color: #8ab4f8;
-  border-color: #8ab4f8;
-  box-shadow: 0 0 0 3px rgba(138, 180, 248, 0.1);
-}
-
 /* Skip to main content link */
 .skip-to-main {
   position: absolute;

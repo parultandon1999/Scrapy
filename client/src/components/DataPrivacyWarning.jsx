@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import Button from './mui/Button'
+import Button from './mui/buttons/Button'
 import { AlertTriangle, X, Shield, Lock, Eye } from 'lucide-react'
 import '../styles/DataPrivacyWarning.css'
 

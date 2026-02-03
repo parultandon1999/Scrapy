@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Breadcrumb from '../components/mui/Breadcrumb'
+// import Footer from '../components/Footer'
+import Breadcrumb from '../components/mui/breadcrumbs/Breadcrumb'
 import {
   Settings, Clock, Shield, Download, Globe, Eye, EyeOff,
   AlertCircle, X, ToggleRight, Upload, Save, Zap, Target, Ghost, Info, FileDown
 } from 'lucide-react'
-import ToggleSwitch from '../components/mui/ToggleSwitch'
+import Input from '../components/mui/inputs/Input'
 import * as api from '../services/api'
-import { ConfigSectionSkeleton, ConfigPageSkeleton, InlineButtonSkeleton } from '../components/SkeletonLoader'
+import { ConfigSectionSkeleton, ConfigPageSkeleton, InlineButtonSkeleton } from '../components/mui/skeletons/SkeletonLoader'
 import '../styles/Config.css'
 
 function Config({ darkMode, toggleDarkMode }) {
@@ -474,8 +474,10 @@ function Config({ darkMode, toggleDarkMode }) {
 
   const renderBooleanControl = (section, key, value) => (
     <div className="config-control">
-      <ToggleSwitch
-        checked={value}
+      <Input
+        type="switch"
+        label=""
+        value={value}
         onChange={(e) => handleValueChange(section, key, e.target.checked)}
       />
     </div>
@@ -624,7 +626,7 @@ function Config({ darkMode, toggleDarkMode }) {
             <ConfigPageSkeleton />
           </main>
         </div>
-        <Footer />
+        {/* <Footer /> */}
       </>
     )
   }
@@ -832,7 +834,7 @@ function Config({ darkMode, toggleDarkMode }) {
         </div>
       )}
 
-      <Footer />
+      {/* <Footer /> */}
     </>
   )
 }

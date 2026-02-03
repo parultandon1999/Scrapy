@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Breadcrumb from '../components/mui/Breadcrumb'
+// import Footer from '../components/Footer'
+import Breadcrumb from '../components/mui/breadcrumbs/Breadcrumb'
 import {
   Search, Copy, CheckCircle, XCircle, AlertCircle, X,
   FileCode, MousePointer, FormInput, TestTube, Plus, Minus, Image, Sparkles, Shield,
   BookmarkPlus, Library, Trash2, Star, Edit2, Save
 } from 'lucide-react'
 import * as api from '../services/api'
-import { SelectorResultsSkeleton, SelectorAnalysisSkeleton, InlineButtonSkeleton } from '../components/SkeletonLoader'
+import { SelectorResultsSkeleton, SelectorAnalysisSkeleton, InlineButtonSkeleton } from '../components/mui/skeletons/SkeletonLoader'
 import '../styles/SelectorFinder.css'
 
 function SelectorFinder({ darkMode, toggleDarkMode }) {
@@ -1668,7 +1668,7 @@ function SelectorFinder({ darkMode, toggleDarkMode }) {
       </div>
     )}
 
-    <Footer />
+    {/* <Footer /> */}
   </>
   )
 }

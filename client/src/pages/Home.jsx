@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Play, Settings } from 'lucide-react'
+import {
+  Box,
+  Container,
+  Typography,
+  Stack,
+  Alert,
+  Fade,
+} from '@mui/material'
 import { startScraper, getScrapedUrls } from '../services/api'
 import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Button from '../components/mui/Button'
+import Button from '../components/mui/buttons/Button'
+import Icon from '../components/mui/icons/Icon'
 import Tour from '../components/Tour'
 import { homeTourSteps } from '../utils/tourHelpers'
 import AdvancedOptionsModal from '../components/AdvancedOptionsHome'
 import SearchBar from '../components/Searchbar'
-import '../styles/Home.css'
 
 function Home({ darkMode, toggleDarkMode }) {
   const navigate = useNavigate()
@@ -24,14 +30,12 @@ function Home({ darkMode, toggleDarkMode }) {
   const [recentUrls, setRecentUrls] = useState([])
   const [loadingRecent, setLoadingRecent] = useState(false)
 
-  // Load recent URLs from API on component mount
   useEffect(() => {
     const fetchRecentUrls = async () => {
       setLoadingRecent(true)
       try {
         const response = await getScrapedUrls()
         if (response.urls && response.urls.length > 0) {
-          // Get top 5 most recent URLs
           const recent = response.urls.slice(0, 5).map(item => ({
             url: item.start_url,
             pageCount: item.page_count,
@@ -67,7 +71,7 @@ function Home({ darkMode, toggleDarkMode }) {
       setUrlValid(true)
       return true
     } catch {
-      setUrlError('Please enter a valid URL (e.g., https://example.com)')
+      setUrlError('Please enter a valid URL')
       setUrlValid(false)
       return false
     }
@@ -94,7 +98,6 @@ function Home({ darkMode, toggleDarkMode }) {
     setLoadingStep('Validating URL...')
 
     try {
-      // Step 1: Validating
       await new Promise(resolve => setTimeout(resolve, 500))
       
       setLoadingStep('Initializing scraper...')
@@ -120,7 +123,6 @@ function Home({ darkMode, toggleDarkMode }) {
       if (advancedOptions.success_indicator) payload.success_indicator = advancedOptions.success_indicator
       if (advancedOptions.manual_login_mode !== undefined) payload.manual_login_mode = advancedOptions.manual_login_mode
 
-      // Step 2: Starting
       setLoadingStep('Starting scraper...')
       
       const response = await startScraper(payload)
@@ -156,69 +158,159 @@ function Home({ darkMode, toggleDarkMode }) {
   }
 
   return (
-    <>
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Tour 
         steps={homeTourSteps}
         onComplete={() => console.log('Tour completed')}
         onSkip={() => console.log('Tour skipped')}
       />
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
-      <div className="home">
-        {/* Main content - centered */}
-        <main className="main">
-        <div className="logo">
-          <h1>Scrapy</h1>
-        </div>
-        <SearchBar 
-          value={url}
-          onChange={handleUrlChange}
-          disabled={isLoading}
-          onSubmit={handleSubmit}
-          error={urlError}
-          valid={urlValid}
-          recentUrls={recentUrls}
-          onSelectRecent={handleSelectRecentUrl}
-          loadingRecent={loadingRecent}
-        />
-        
-        <div className="buttons">
-          <Button
-            variant="primary"
-            icon={Play}
-            disabled={isLoading || !url || !urlValid}
-            loading={isLoading}
-            onClick={handleSubmit}
+      
+      <Box
+        component="main"
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          mt: { xs: -2, md: -16 },
+          px: { xs: 2, md: 0 },
+        }}
+      >
+        <Container maxWidth="md" sx={{ textAlign: 'center' }}>
+          <Typography
+            variant="h1"
+            sx={{
+              fontSize: { xs: '3.5rem', md: '5.5rem' },
+              fontWeight: 300,
+              letterSpacing: '-0.02em',
+              mb: { xs: 3, md: 4 },
+              color: 'text.primary',
+            }}
           >
-            {isLoading ? loadingStep : 'Start Scraping'}
-          </Button>
-          <Button
-            variant="secondary"
-            icon={Settings}
-            onClick={() => setShowAdvancedModal(true)}
-            disabled={isLoading}
+            Scrapy
+          </Typography>
+          
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <SearchBar 
+              value={url}
+              onChange={handleUrlChange}
+              disabled={isLoading}
+              onSubmit={handleSubmit}
+              error={urlError}
+              valid={urlValid}
+              recentUrls={recentUrls}
+              onSelectRecent={handleSelectRecentUrl}
+              loadingRecent={loadingRecent}
+            />
+          </Box>
+          
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            sx={{
+              justifyContent: 'center',
+              maxWidth: { xs: 400, sm: 'none' },
+              mx: 'auto',
+            }}
           >
-            Advanced Options
-            {hasAdvancedOptions() && <span className="options-badge pulse">●</span>}
-          </Button>
-        </div>
+            <Button
+              variant="primary"
+              disabled={isLoading || !url || !urlValid}
+              onClick={handleSubmit}
+              size="medium"
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 400,
+                px: 3,
+                py: 1,
+                borderRadius: 50,
+                boxShadow: 'none',
+                '&:hover': {
+                  boxShadow: 1,
+                },
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <Icon name="HourglassEmpty" size={18} sx={{ animation: 'spin 1s linear infinite' }} />
+                  {loadingStep}
+                </>
+              ) : (
+                <>
+                  <Icon name="PlayArrow" size={18} />
+                  Start Scraping
+                </>
+              )}
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowAdvancedModal(true)}
+              disabled={isLoading}
+              size="medium"
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 400,
+                px: 3,
+                py: 1,
+                borderRadius: 50,
+                position: 'relative',
+              }}
+            >
+              <Icon name="Tune" size={18} />
+              Advanced Options
+              {hasAdvancedOptions() && (
+                <Box
+                  component="span"
+                  sx={{
+                    ml: 1,
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: 'success.main',
+                    display: 'inline-block',
+                    animation: 'pulse 2s infinite',
+                    '@keyframes pulse': {
+                      '0%, 100%': { opacity: 1 },
+                      '50%': { opacity: 0.5 },
+                    },
+                  }}
+                />
+              )}
+            </Button>
+          </Stack>
 
-        <AdvancedOptionsModal
-          isOpen={showAdvancedModal}
-          onClose={() => setShowAdvancedModal(false)}
-          onSave={handleSaveOptions}
-          initialOptions={advancedOptions}
-        />
+          <AdvancedOptionsModal
+            isOpen={showAdvancedModal}
+            onClose={() => setShowAdvancedModal(false)}
+            onSave={handleSaveOptions}
+            initialOptions={advancedOptions}
+          />
 
-        {/* Error Message */}
-        {error && (
-          <div className="message error-message">
-            <p>{error}</p>
-          </div>
-        )}
-        </main>
-      </div>
-      <Footer />
-    </>
+          <Fade in={!!error}>
+            <Box sx={{ mt: 3 }}>
+              {error && (
+                <Alert 
+                  severity="error" 
+                  onClose={() => setError(null)}
+                  sx={{ 
+                    maxWidth: 500, 
+                    mx: 'auto',
+                    borderRadius: 2,
+                  }}
+                >
+                  {error}
+                </Alert>
+              )}
+            </Box>
+          </Fade>
+        </Container>
+      </Box>
+    </Box>
   )
 }
 

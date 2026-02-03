@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
-import Breadcrumb from '../components/mui/Breadcrumb'
+// import Footer from '../components/Footer'
+import Breadcrumb from '../components/mui/breadcrumbs/Breadcrumb'
 import { 
   LayoutDashboard, FileText, FolderOpen, Package, 
   HardDrive, Link2, Search, Download, ChevronLeft, 
@@ -18,9 +18,9 @@ import {
   DatabaseFilesSkeleton,
   DatabaseAnalyticsSkeleton,
   ConfigSectionSkeleton 
-} from '../components/SkeletonLoader'
+} from '../components/mui/skeletons/SkeletonLoader'
 import '../styles/Database.css'
-import { useToast } from '../components/mui/useToast'
+import { useToast } from '../components/mui/toasts/useToast'
 
 function Database({ darkMode, toggleDarkMode }) {
   const toast = useToast()
@@ -1955,7 +1955,7 @@ function Database({ darkMode, toggleDarkMode }) {
         )}
       </main>
     </div>
-    <Footer />
+    {/* <Footer /> */}
   </>
   )
 }
