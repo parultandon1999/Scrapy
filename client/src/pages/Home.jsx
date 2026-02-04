@@ -88,6 +88,19 @@ function Home({ darkMode, toggleDarkMode }) {
     validateUrl(selectedUrl)
   }
 
+  const handleDeleteRecentUrl = async (urlToDelete) => {
+    try {
+      // Remove from local state immediately for better UX
+      setRecentUrls(prev => prev.filter(item => item.url !== urlToDelete))
+      
+      // Optionally: Call API to delete the session from database
+      // await deleteSession(urlToDelete)
+    } catch (err) {
+      console.error('Failed to delete recent URL:', err)
+      // Optionally show error toast
+    }
+  }
+
   const handleSubmit = async () => {
     if (!validateUrl(url)) {
       return
@@ -202,6 +215,7 @@ function Home({ darkMode, toggleDarkMode }) {
               valid={urlValid}
               recentUrls={recentUrls}
               onSelectRecent={handleSelectRecentUrl}
+              onDeleteRecent={handleDeleteRecentUrl}
               loadingRecent={loadingRecent}
             />
           </Box>

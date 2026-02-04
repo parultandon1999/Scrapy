@@ -5,6 +5,8 @@ import {
   List,
   ListItemButton,
   Typography,
+  IconButton,
+  Avatar,
 } from '@mui/material'
 import Input from './mui/inputs/Input'
 import Icon from './mui/icons/Icon'
@@ -19,6 +21,7 @@ function SearchBar({
   valid, 
   recentUrls = [], 
   onSelectRecent,
+  onDeleteRecent,
 }) {
   const [isFocused, setIsFocused] = useState(false)
 
@@ -36,22 +39,19 @@ function SearchBar({
     setIsFocused(false)
   }
 
-  const formatDate = (timestamp) => {
-    const date = new Date(timestamp * 1000)
-    const now = new Date()
-    const diffMs = now - date
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
+  const handleDeleteUrl = (e, url) => {
+    e.stopPropagation()
+    if (onDeleteRecent) {
+      onDeleteRecent(url)
+    }
+  }
 
-    if (diffMins < 60) {
-      return `${diffMins}m`
-    } else if (diffHours < 24) {
-      return `${diffHours}h`
-    } else if (diffDays < 7) {
-      return `${diffDays}d`
-    } else {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const getFaviconUrl = (url) => {
+    try {
+      const urlObj = new URL(url)
+      return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`
+    } catch {
+      return null
     }
   }
 
@@ -123,7 +123,7 @@ function SearchBar({
               left: 0,
               right: 0,
               zIndex: 1000,
-              maxHeight: 200,
+              maxHeight: 240,
               overflow: 'hidden',
               borderRadius: 2,
             }}
@@ -131,8 +131,25 @@ function SearchBar({
             <List
               disablePadding
               sx={{
-                maxHeight: 200,
+                maxHeight: 240,
                 overflowY: 'auto',
+                // Custom scrollbar styling
+                '&::-webkit-scrollbar': {
+                  width: '8px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  backgroundColor: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  backgroundColor: '#b2b2b2ff',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    backgroundColor: '#b2b2b2ff',
+                  },
+                },
+                // Firefox support
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#b2b2b2ff transparent',
               }}
             >
               {recentUrls.map((item, index) => (
@@ -140,14 +157,27 @@ function SearchBar({
                   key={index}
                   onClick={() => handleSelectUrl(item.url)}
                   sx={{
-                    py: 1,
+                    py: 0.5,
                     px: 2,
                     borderBottom: index < recentUrls.length - 1 ? 1 : 0,
                     borderColor: 'divider',
+                    '&:hover .delete-icon': {
+                      opacity: 1,
+                    },
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                    <Icon name="Language" size={16} />
+                    <Avatar
+                      src={getFaviconUrl(item.url)}
+                      alt="favicon"
+                      sx={{
+                        width: 20,
+                        height: 20,
+                        bgcolor: 'transparent',
+                      }}
+                    >
+                      <Icon name="Language" size={16} />
+                    </Avatar>
                     <Typography
                       variant="body2"
                       sx={{
@@ -160,9 +190,17 @@ function SearchBar({
                     >
                       {item.url}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                      {formatDate(item.lastScraped)}
-                    </Typography>
+                    <IconButton
+                      className="delete-icon"
+                      size="medium"
+                      onClick={(e) => handleDeleteUrl(e, item.url)}
+                      sx={{
+                        opacity: 0,
+                        transition: 'opacity 0.2s',
+                      }}
+                    >
+                      <Icon name="Close" size={16} />
+                    </IconButton>
                   </Box>
                 </ListItemButton>
               ))}

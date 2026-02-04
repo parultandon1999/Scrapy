@@ -113,9 +113,16 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
       onClose={onClose} 
       maxWidth="sm" 
       fullWidth
+      BackdropProps={{
+        sx: {
+          backgroundColor: 'transparent',
+        }
+      }}
       PaperProps={{
         sx: {
-          maxHeight: '70vh'
+          maxHeight: '70vh',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          border: '1px solid rgba(0, 0, 0, 0.32)'
         }
       }}
     >
@@ -128,13 +135,32 @@ function AdvancedOptionsModal({ isOpen, onClose, onSave, initialOptions }) {
       </DialogTitle>
 
       {/* Body */}
-      <DialogContent dividers sx={{ py: 2.5, px: 3 }}>
+      <DialogContent 
+        dividers sx={{ 
+          py: 2.5, 
+          px: 3,
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',  // Track color (or use a color like '#f1f1f1')
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#b2b2b2ff',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: '#555',
+            },
+          }
+        }}
+      >
         {/* Scraper Settings */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600, fontSize: '0.875rem' }}>
             <Icon name="Tune" size={16} /> Scraper Settings
           </Typography>
           
+
           <Grid container spacing={2}>
             <Grid item xs={6}>
               <Input
