@@ -2,23 +2,16 @@ import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
-import './styles/design-tokens.css'
-import './styles/global.css'
-import './styles/accessibility.css'
-import './styles/mobile.css'
-import './styles/micro-interactions.css'
 import './index.css'
 import Home from './pages/Home'
 import ScrapingProgress from './pages/ScrapingProgress'
-import Database from './pages/Database'
+import Database from './pages/database/Database'
 import History from './pages/History'
 import Config from './pages/Config'
-import SelectorFinder from './pages/SelectorFinder'
+import SelectorFinder from './pages/selector-finder/SelectorFinder'
 import ProxyTester from './pages/ProxyTester'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import TermsOfService from './pages/TermsOfService'
-import ButtonTest from './pages/ButtonTest'
-import Showcase from './pages/Showcase'
 import ErrorBoundary from './components/ErrorBoundary'
 import OfflineBanner from './components/OfflineBanner'
 import DataPrivacyWarning from './components/DataPrivacyWarning'
@@ -76,8 +69,6 @@ function App() {
               <Route path="/proxy-tester" element={<ProxyTester darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/terms" element={<TermsOfService darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-              <Route path="/button-test" element={<ButtonTest />} />
-              <Route path="/showcase" element={<Showcase darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
             </Routes>
           </Router>
         </ToastProvider>

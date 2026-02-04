@@ -1,10 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, ChevronRight, ChevronLeft, Check, Sparkles } from 'lucide-react'
-import '../styles/Tour.css'
+import {
+  Box,
+  Typography,
+  Dialog,
+  DialogContent,
+  Paper,
+  LinearProgress,
+  Fade,
+  IconButton,
+} from '@mui/material'
+import Button from './mui/buttons/Button'
+import Icon from './mui/icons/Icon'
 
 function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
-  const [currentStep, setCurrentStep] = useState(-1) // -1 for welcome screen
+  const [currentStep, setCurrentStep] = useState(-1)
   const [isActive, setIsActive] = useState(() => {
+    if (typeof window === 'undefined') return false
     const tourCompleted = localStorage.getItem('tourCompleted')
     return !tourCompleted && showWelcome
   })
@@ -13,6 +24,7 @@ function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
   const tooltipRef = useRef(null)
 
   useEffect(() => {
+    if (!isActive) return
     if (currentStep < 0 || currentStep >= steps.length) return
 
     const updatePositions = () => {
@@ -24,59 +36,42 @@ function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
       const rect = element.getBoundingClientRect()
       setSpotlightRect(rect)
 
-      // Calculate tooltip position
-      const tooltipWidth = 400
+      const tooltipWidth = 320
       const tooltipHeight = 200
-      const padding = 20
+      const padding = 16
 
-      let top = 0
-      let left = 0
-      let position = step.placement || 'bottom'
+      let top = rect.bottom + padding
+      let left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
 
-      switch (position) {
-        case 'bottom':
-          top = rect.bottom + padding
-          left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
-          break
-        case 'top':
-          top = rect.top - tooltipHeight - padding
-          left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
-          break
-        case 'left':
-          top = rect.top + (rect.height / 2) - (tooltipHeight / 2)
-          left = rect.left - tooltipWidth - padding
-          break
-        case 'right':
-          top = rect.top + (rect.height / 2) - (tooltipHeight / 2)
-          left = rect.right + padding
-          break
-        default:
-          top = rect.bottom + padding
-          left = rect.left + (rect.width / 2) - (tooltipWidth / 2)
-      }
-
-      // Keep tooltip in viewport
       if (left < 10) left = 10
-      if (left + tooltipWidth > window.innerWidth - 10) {
-        left = window.innerWidth - tooltipWidth - 10
-      }
       if (top < 10) top = 10
-      if (top + tooltipHeight > window.innerHeight - 10) {
-        top = window.innerHeight - tooltipHeight - 10
+      
+      const windowWidth = window.innerWidth
+      if (left + tooltipWidth > windowWidth) {
+        left = windowWidth - tooltipWidth - 20
       }
 
-      setTooltipPosition({ top, left, position })
+      setTooltipPosition({ top, left })
     }
 
     updatePositions()
+    
     window.addEventListener('resize', updatePositions)
     window.addEventListener('scroll', updatePositions)
     
+    let resizeObserver
+    const element = document.querySelector(steps[currentStep].target)
+    if (element) {
+      resizeObserver = new ResizeObserver(updatePositions)
+      resizeObserver.observe(element)
+    }
+
     return () => {
       window.removeEventListener('resize', updatePositions)
       window.removeEventListener('scroll', updatePositions)
+      if (resizeObserver) resizeObserver.disconnect()
     }
-  }, [currentStep, steps])
+  }, [currentStep, steps, isActive])
 
   const handleStart = () => {
     setCurrentStep(0)
@@ -113,106 +108,138 @@ function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
   // Welcome screen
   if (currentStep === -1) {
     return (
-      <>
-        <div className="tour-overlay" onClick={handleSkip} />
-        <div className="tour-welcome-modal">
-          <div className="tour-welcome-icon">
-            <Sparkles size={40} color="#fff" />
-          </div>
-          <h2 className="tour-welcome-title">Welcome to Web Scraper!</h2>
-          <p className="tour-welcome-description">
-            Let us show you around and help you get started with the key features. 
-            This quick tour will only take a minute.
-          </p>
-          <div className="tour-welcome-actions">
-            <button className="tour-welcome-btn tour-welcome-btn-skip" onClick={handleSkip}>
-              Skip Tour
-            </button>
-            <button className="tour-welcome-btn tour-welcome-btn-start" onClick={handleStart}>
-              <Sparkles size={20} />
-              Start Tour
-            </button>
-          </div>
-        </div>
-      </>
+      <Dialog 
+        open={true} 
+        onClose={handleSkip}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogContent sx={{ textAlign: 'center', py: 4 }}>
+          <Box
+            sx={{
+              width: 64,
+              height: 64,
+              mx: 'auto',
+              mb: 3,
+              bgcolor: 'primary.main',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="AutoAwesome" size={32} sx={{ color: 'white' }} />
+          </Box>
+          
+          <Typography variant="h6" fontWeight={600} sx={{ mb: 1.5 }}>
+            Welcome to Web Scraper
+          </Typography>
+          
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Quick tour of key features. Takes just a minute.
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button variant="outline" onClick={handleSkip} fullWidth>
+              Skip
+            </Button>
+            <Button variant="primary" onClick={handleStart} fullWidth>
+              <Icon name="AutoAwesome" size={18} />
+              Start
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
     )
   }
 
   const step = steps[currentStep]
-  if (!step) return null
+  if (!step || !spotlightRect) return null
 
   return (
     <>
-      <div className="tour-overlay" />
-      
-      {spotlightRect && (
-        <div 
-          className="tour-spotlight"
-          style={{
-            top: spotlightRect.top - 4,
-            left: spotlightRect.left - 4,
-            width: spotlightRect.width + 8,
-            height: spotlightRect.height + 8
-          }}
-        />
-      )}
-
-      <div 
-        ref={tooltipRef}
-        className={`tour-tooltip position-${tooltipPosition.position || 'bottom'}`}
-        style={{
-          top: tooltipPosition.top,
-          left: tooltipPosition.left
+      {/* Spotlight overlay */}
+      <Box
+        sx={{
+          position: 'fixed',
+          top: spotlightRect.top - 4,
+          left: spotlightRect.left - 4,
+          width: spotlightRect.width + 8,
+          height: spotlightRect.height + 8,
+          zIndex: 9999,
+          borderRadius: 1,
+          border: '2px solid',
+          borderColor: 'primary.main',
+          pointerEvents: 'none',
+          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
+          transition: 'all 0.3s ease-out',
         }}
-      >
-        <div className="tour-tooltip-header">
-          <h3 className="tour-tooltip-title">
-            {step.icon && <span>{step.icon}</span>}
-            {step.title}
-          </h3>
-          <button className="tour-tooltip-close" onClick={handleSkip}>
-            <X size={20} />
-          </button>
-        </div>
+      />
 
-        <div className="tour-tooltip-content">
-          {step.content}
-        </div>
+      {/* Tooltip */}
+      <Fade in={true}>
+        <Paper
+          ref={tooltipRef}
+          elevation={8}
+          sx={{
+            position: 'fixed',
+            top: tooltipPosition.top,
+            left: tooltipPosition.left,
+            width: 320,
+            zIndex: 10000,
+            p: 2,
+          }}
+        >
+          {/* Header */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Typography variant="subtitle2" fontWeight={600}>
+              {step.title}
+            </Typography>
+            <IconButton size="small" onClick={handleSkip}>
+              <Icon name="Close" size={16} />
+            </IconButton>
+          </Box>
 
-        <div className="tour-tooltip-footer">
-          <div className="tour-progress">
-            <span>{currentStep + 1} of {steps.length}</span>
-            <div className="tour-progress-dots">
-              {steps.map((_, index) => (
-                <div 
-                  key={index} 
-                  className={`tour-progress-dot ${index === currentStep ? 'active' : ''}`}
-                />
-              ))}
-            </div>
-          </div>
+          {/* Content */}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {step.content}
+          </Typography>
 
-          <div className="tour-actions">
+          {/* Progress */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+              {currentStep + 1} of {steps.length}
+            </Typography>
+            <LinearProgress 
+              variant="determinate" 
+              value={((currentStep + 1) / steps.length) * 100}
+              sx={{ height: 4, borderRadius: 2 }}
+            />
+          </Box>
+
+          {/* Actions */}
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
             {currentStep > 0 && (
-              <button className="tour-btn tour-btn-back" onClick={handleBack}>
-                <ChevronLeft size={16} />
+              <Button variant="outline" size="small" onClick={handleBack}>
+                <Icon name="ChevronLeft" size={16} />
                 Back
-              </button>
+              </Button>
             )}
+            
             {currentStep < steps.length - 1 ? (
-              <button className="tour-btn tour-btn-next" onClick={handleNext}>
+              <Button variant="primary" size="small" onClick={handleNext}>
                 Next
-                <ChevronRight size={16} />
-              </button>
+                <Icon name="ChevronRight" size={16} />
+              </Button>
             ) : (
-              <button className="tour-btn tour-btn-finish" onClick={handleFinish}>
-                <Check size={16} />
+              <Button variant="success" size="small" onClick={handleFinish}>
+                <Icon name="Check" size={16} />
                 Finish
-              </button>
+              </Button>
             )}
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Paper>
+      </Fade>
     </>
   )
 }

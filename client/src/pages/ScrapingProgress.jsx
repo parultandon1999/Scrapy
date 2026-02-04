@@ -424,11 +424,11 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
 
       <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
-        {/* Sidebar */}
+        {/* Compact Sidebar */}
         <Paper 
           elevation={0}
           sx={{ 
-            width: { xs: '100%', md: 320 },
+            width: { xs: '100%', md: 260 },
             borderRight: 1,
             borderColor: 'divider',
             overflowY: 'auto',
@@ -436,146 +436,128 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             flexDirection: 'column'
           }}
         >
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Icon name="Timeline" size="small" />
+          <Box sx={{ p: 2 }}>
+            <Typography variant="subtitle1" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600 }}>
+              <Icon name="Timeline" size={18} />
               Progress
             </Typography>
 
             {status && (
-              <Stack spacing={3}>
-                {/* Status Badge */}
-                <Box>
-                  <Chip
-                    icon={getStatusIconName() ? <Icon name={getStatusIconName()} size={14} /> : undefined}
-                    label={getStatusText()}
-                    color={getStatusColor()}
-                    size="small"
-                  />
-                </Box>
+              <Stack spacing={2}>
+                {/* Compact Status Badge */}
+                <Chip
+                  icon={getStatusIconName() ? <Icon name={getStatusIconName()} size={12} /> : undefined}
+                  label={getStatusText()}
+                  color={getStatusColor()}
+                  size="small"
+                  sx={{ width: 'fit-content' }}
+                />
 
-                {/* Progress Bar */}
+                {/* Compact Progress Bar */}
                 {status.max_pages > 0 && (
                   <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {status.pages_scraped} / {status.max_pages}
+                      </Typography>
+                      <Typography variant="caption" fontWeight="medium">
+                        {Math.round((status.pages_scraped / status.max_pages) * 100)}%
+                      </Typography>
+                    </Box>
                     <LinearProgress 
                       variant="determinate" 
                       value={(status.pages_scraped / status.max_pages) * 100}
-                      sx={{ height: 8, borderRadius: 1 }}
+                      sx={{ height: 6, borderRadius: 1 }}
                     />
-                    <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', mt: 0.5 }}>
-                      {Math.round((status.pages_scraped / status.max_pages) * 100)}% Complete
-                    </Typography>
                   </Box>
                 )}
 
-                {/* Stats Grid */}
-                <Grid container spacing={1.5}>
+                {/* Compact Stats Grid */}
+                <Grid container spacing={1}>
                   <Grid item xs={6}>
-                    <Paper variant="outlined" sx={{ p: 1.5 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                        <Icon name="Description" size={10} /> Scraped
-                      </Typography>
-                      <Typography variant="body2" fontWeight="medium">
-                        {status.pages_scraped} <Typography component="span" variant="caption" color="text.secondary">/ {status.max_pages}</Typography>
-                      </Typography>
+                    <Paper variant="outlined" sx={{ p: 1, textAlign: 'center' }}>
+                      <Icon name="Layers" size={14} sx={{ color: 'text.secondary', mb: 0.25 }} />
+                      <Typography variant="h6" fontSize="1rem">{status.queue_size}</Typography>
+                      <Typography variant="caption" color="text.secondary">Queue</Typography>
                     </Paper>
                   </Grid>
                   <Grid item xs={6}>
-                    <Paper variant="outlined" sx={{ p: 1.5 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                        <Icon name="Layers" size={10} /> Queue
-                      </Typography>
-                      <Typography variant="body2" fontWeight="medium">{status.queue_size}</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Paper variant="outlined" sx={{ p: 1.5 }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                        <Icon name="CheckCircle" size={10} /> Visited
-                      </Typography>
-                      <Typography variant="body2" fontWeight="medium">{status.visited}</Typography>
+                    <Paper variant="outlined" sx={{ p: 1, textAlign: 'center' }}>
+                      <Icon name="CheckCircle" size={14} sx={{ color: 'text.secondary', mb: 0.25 }} />
+                      <Typography variant="h6" fontSize="1rem">{status.visited}</Typography>
+                      <Typography variant="caption" color="text.secondary">Visited</Typography>
                     </Paper>
                   </Grid>
                   {status.downloads?.successful > 0 && (
-                    <Grid item xs={6}>
-                      <Paper variant="outlined" sx={{ p: 1.5 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                          <Icon name="Download" size={10} /> Files
-                        </Typography>
+                    <Grid item xs={12}>
+                      <Paper variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Icon name="Download" size={14} />
+                          <Typography variant="caption">Files</Typography>
+                        </Box>
                         <Typography variant="body2" fontWeight="medium">{status.downloads.successful}</Typography>
                       </Paper>
                     </Grid>
                   )}
                 </Grid>
 
-                {/* ETA */}
-                {status.running && !status.is_paused && (
-                  <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.50' }}>
-                    <Stack spacing={1}>
-                      {scrapingRate > 0 && (
-                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Icon name="Timeline" size="small" />
-                          {scrapingRate.toFixed(2)} pages/sec
-                        </Typography>
-                      )}
-                      {eta && (
-                        <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Icon name="AccessTime" size="small" />
-                          ETA: {formatETA(eta)}
-                        </Typography>
-                      )}
-                    </Stack>
+                {/* Compact ETA */}
+                {status.running && !status.is_paused && (scrapingRate > 0 || eta) && (
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'info.50' }}>
+                    {scrapingRate > 0 && (
+                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: eta ? 0.5 : 0 }}>
+                        <Icon name="Timeline" size={14} />
+                        {scrapingRate.toFixed(2)} p/s
+                      </Typography>
+                    )}
+                    {eta && (
+                      <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Icon name="AccessTime" size={14} />
+                        ETA: {formatETA(eta)}
+                      </Typography>
+                    )}
                   </Paper>
                 )}
 
-                {/* File Type Badges */}
+                {/* Compact File Type Badges */}
                 {status.file_types && Object.keys(status.file_types).length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                    {Object.entries(status.file_types).map(([ext, count]) => (
-                      <Badge
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {Object.entries(status.file_types).slice(0, 6).map(([ext, count]) => (
+                      <Chip
                         key={ext}
-                        variant="chip"
-                        content={`${ext} (${count})`}
-                        color="primary"
+                        label={`${ext} (${count})`}
                         size="small"
+                        sx={{ fontSize: '0.65rem', height: 20 }}
                       />
                     ))}
+                    {Object.keys(status.file_types).length > 6 && (
+                      <Chip
+                        label={`+${Object.keys(status.file_types).length - 6}`}
+                        size="small"
+                        sx={{ fontSize: '0.65rem', height: 20 }}
+                      />
+                    )}
                   </Box>
                 )}
 
-                {/* Controls */}
+                {/* Compact Controls */}
                 {status.running && !isHistoryView && (
-                  <Stack spacing={1} sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                    <Grid container spacing={1}>
+                  <Stack spacing={0.75} sx={{ pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
+                    <Grid container spacing={0.75}>
                       <Grid item xs={6}>
                         {!status.is_paused ? (
-                          <Button
-                            variant="warning"
-                            onClick={handlePause}
-                            fullWidth
-                            size="small"
-                          >
-                            <Icon name="Pause" size="small" /> Pause
+                          <Button variant="warning" onClick={handlePause} fullWidth size="small">
+                            <Icon name="Pause" size={14} />
                           </Button>
                         ) : (
-                          <Button
-                            variant="success"
-                            onClick={handleResume}
-                            fullWidth
-                            size="small"
-                          >
-                            <Icon name="PlayArrow" size="small" /> Resume
+                          <Button variant="success" onClick={handleResume} fullWidth size="small">
+                            <Icon name="PlayArrow" size={14} />
                           </Button>
                         )}
                       </Grid>
                       <Grid item xs={6}>
-                        <Button
-                          variant="danger"
-                          onClick={handleStop}
-                          fullWidth
-                          size="small"
-                        >
-                          <Icon name="Close" size="small" /> Stop
+                        <Button variant="danger" onClick={handleStop} fullWidth size="small">
+                          <Icon name="Close" size={14} />
                         </Button>
                       </Grid>
                     </Grid>
@@ -587,7 +569,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                       fullWidth
                       size="small"
                     >
-                      <Icon name="Download" size="small" /> {isExporting ? 'Exporting...' : 'Export Data'}
+                      <Icon name="Download" size={14} /> Export
                     </Button>
                   </Stack>
                 )}
@@ -602,36 +584,42 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                     fullWidth
                     size="small"
                   >
-                    <Icon name="Download" size="small" /> {isExporting ? 'Exporting...' : 'Export Data'}
+                    <Icon name="Download" size={14} /> Export
                   </Button>
                 )}
               </Stack>
             )}
 
-            {/* Navigation Tabs */}
-            <Box sx={{ mt: 4 }}>
+            {/* Compact Navigation Tabs */}
+            <Box sx={{ mt: 2 }}>
               <List disablePadding>
                 <ListItemButton
                   selected={activeView === 'pages'}
                   onClick={() => setActiveView('pages')}
-                  sx={{ borderRadius: 1, mb: 0.5 }}
+                  sx={{ borderRadius: 1, mb: 0.5, py: 0.75 }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <Icon name="Description" size="small" />
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Icon name="Description" size={16} />
                   </ListItemIcon>
-                  <ListItemText primary="Pages" />
-                  <Chip label={allPages.length} size="small" />
+                  <ListItemText 
+                    primary="Pages" 
+                    primaryTypographyProps={{ variant: 'body2' }}
+                  />
+                  <Chip label={allPages.length} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
                 </ListItemButton>
                 <ListItemButton
                   selected={activeView === 'files'}
                   onClick={() => setActiveView('files')}
-                  sx={{ borderRadius: 1 }}
+                  sx={{ borderRadius: 1, py: 0.75 }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <Icon name="Inventory" size="small" />
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Icon name="Inventory" size={16} />
                   </ListItemIcon>
-                  <ListItemText primary="Files" />
-                  <Chip label={allFiles.length} size="small" />
+                  <ListItemText 
+                    primary="Files" 
+                    primaryTypographyProps={{ variant: 'body2' }}
+                  />
+                  <Chip label={allFiles.length} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
                 </ListItemButton>
               </List>
             </Box>
@@ -648,7 +636,7 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             bgcolor: 'background.default'
           }}
         >
-          {/* Breadcrumb Header */}
+          {/* Compact Header */}
           <Paper 
             elevation={0}
             sx={{ 
@@ -657,8 +645,8 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
               zIndex: 10,
               borderBottom: 1,
               borderColor: 'divider',
-              px: 3,
-              py: 2,
+              px: 2,
+              py: 1.5,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -678,31 +666,27 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
               <Alert 
                 severity="error" 
                 onClose={() => setError(null)}
-                sx={{ py: 0 }}
+                sx={{ py: 0, fontSize: '0.75rem' }}
               >
                 {error}
               </Alert>
             )}
           </Paper>
 
-          <Container maxWidth="xl" sx={{ py: 4 }}>
+          <Container maxWidth="xl" sx={{ py: 2 }}>
             {/* Detailed View Mode */}
             {detailedViewPage ? (
               <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                  <Button
-                    variant="icon"
-                    iconOnly
-                    onClick={closeDetailedView}
-                  >
-                    <Icon name="ArrowBack" size="small" />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                  <Button variant="icon" iconOnly onClick={closeDetailedView} size="small">
+                    <Icon name="ArrowBack" size={18} />
                   </Button>
-                  <Box>
-                    <Typography variant="h5" fontWeight="light">
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="h6" fontWeight="light" noWrap>
                       {detailedViewPage.title || 'Untitled Page'}
                     </Typography>
                     <Typography 
-                      variant="body2" 
+                      variant="caption" 
                       color="primary"
                       component="a"
                       href={detailedViewPage.url}
@@ -710,28 +694,29 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                       rel="noopener noreferrer"
                       sx={{ display: 'flex', alignItems: 'center', gap: 0.5, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
                     >
-                      {detailedViewPage.url} <Icon name="OpenInNew" size={12} />
+                      {detailedViewPage.url} <Icon name="OpenInNew" size={10} />
                     </Typography>
                   </Box>
                 </Box>
 
-                {/* Detail Tabs */}
-                <Paper sx={{ mb: 3 }}>
+                {/* Compact Detail Tabs */}
+                <Paper sx={{ mb: 2 }}>
                   <Tabs 
                     value={activeTab} 
                     onChange={(e, newValue) => setActiveTab(newValue)}
                     variant="scrollable"
                     scrollButtons="auto"
+                    sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, py: 1 } }}
                   >
-                    <Tab icon={<Icon name="Description" size={16} />} label="Overview" iconPosition="start" />
-                    <Tab icon={<Icon name="Visibility" size={16} />} label="Screenshot" iconPosition="start" />
-                    <Tab icon={<Icon name="Tag" size={16} />} label="Headers" iconPosition="start" />
-                    <Tab icon={<Icon name="Link" size={16} />} label="Links" iconPosition="start" />
-                    <Tab icon={<Icon name="Image" size={16} />} label="Images" iconPosition="start" />
-                    <Tab icon={<Icon name="Download" size={16} />} label="Files" iconPosition="start" />
-                    <Tab icon={<Icon name="Layers" size={16} />} label="HTML Structure" iconPosition="start" />
-                    <Tab icon={<Icon name="Description" size={16} />} label="Content" iconPosition="start" />
-                    <Tab icon={<Icon name="Security" size={16} />} label="Fingerprint" iconPosition="start" />
+                    <Tab icon={<Icon name="Description" size={14} />} label="Overview" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Visibility" size={14} />} label="Screenshot" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Tag" size={14} />} label="Headers" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Link" size={14} />} label="Links" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Image" size={14} />} label="Images" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Download" size={14} />} label="Files" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Layers" size={14} />} label="HTML" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Description" size={14} />} label="Content" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
+                    <Tab icon={<Icon name="Security" size={14} />} label="Fingerprint" iconPosition="start" sx={{ fontSize: '0.75rem' }} />
                   </Tabs>
                 </Paper>
 
@@ -739,41 +724,41 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                   <ScrapingProgressSkeleton />
                 ) : (
                   <Box>
-                    {/* Overview Tab */}
+                    {/* Compact Overview Tab */}
                     {activeTab === 0 && (
-                      <Grid container spacing={3}>
+                      <Grid container spacing={2}>
                         <Grid item xs={12} md={6}>
-                          <Paper sx={{ p: 3 }}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          <Paper sx={{ p: 2 }}>
+                            <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom>
                               METADATA
                             </Typography>
-                            <Stack spacing={2} sx={{ mt: 2 }}>
-                              <Box>
+                            <Stack spacing={1} sx={{ mt: 1 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="caption" color="text.secondary">Scraped At</Typography>
-                                <Typography variant="body2">{detailedViewPage.scraped_at}</Typography>
+                                <Typography variant="caption">{detailedViewPage.scraped_at}</Typography>
                               </Box>
-                              <Box>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="caption" color="text.secondary">Depth Level</Typography>
-                                <Typography variant="body2">Level {detailedViewPage.depth}</Typography>
+                                <Typography variant="caption">Level {detailedViewPage.depth}</Typography>
                               </Box>
-                              <Box>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="caption" color="text.secondary">Proxy</Typography>
-                                <Typography variant="body2">{detailedViewData.proxy_used || 'Direct'}</Typography>
+                                <Typography variant="caption">{detailedViewData.proxy_used || 'Direct'}</Typography>
                               </Box>
-                              <Box>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Typography variant="caption" color="text.secondary">Authenticated</Typography>
-                                <Typography variant="body2">{detailedViewData.authenticated ? 'Yes' : 'No'}</Typography>
+                                <Typography variant="caption">{detailedViewData.authenticated ? 'Yes' : 'No'}</Typography>
                               </Box>
                             </Stack>
                           </Paper>
                         </Grid>
 
                         <Grid item xs={12} md={6}>
-                          <Paper sx={{ p: 3 }}>
-                            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                          <Paper sx={{ p: 2 }}>
+                            <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom>
                               STATS
                             </Typography>
-                            <Grid container spacing={2} sx={{ mt: 1 }}>
+                            <Grid container spacing={1} sx={{ mt: 0.5 }}>
                               {[
                                 { label: 'Images', value: detailedViewData.media?.length || 0, icon: 'Image' },
                                 { label: 'Int. Links', value: detailedViewData.links?.filter(l => l.link_type === 'internal').length || 0, icon: 'Link' },
@@ -781,13 +766,11 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
                                 { label: 'Files', value: detailedViewData.file_assets?.length || 0, icon: 'Download' },
                               ].map((stat, i) => (
                                 <Grid item xs={6} key={i}>
-                                  <Paper variant="outlined" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                                    <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
-                                      <Icon name={stat.icon} size={16} />
-                                    </Avatar>
+                                  <Paper variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Icon name={stat.icon} size={14} color="primary" />
                                     <Box>
-                                      <Typography variant="h6">{stat.value}</Typography>
-                                      <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
+                                      <Typography variant="body2" fontWeight="medium">{stat.value}</Typography>
+                                      <Typography variant="caption" color="text.secondary" fontSize="0.65rem">{stat.label}</Typography>
                                     </Box>
                                   </Paper>
                                 </Grid>
@@ -798,11 +781,11 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
                         {detailedViewData?.description && detailedViewData.description !== 'No description' && (
                           <Grid item xs={12}>
-                            <Paper sx={{ p: 3 }}>
-                              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            <Paper sx={{ p: 2 }}>
+                              <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom>
                                 DESCRIPTION
                               </Typography>
-                              <Typography variant="body2" sx={{ mt: 1 }}>
+                              <Typography variant="body2" sx={{ mt: 1, fontSize: '0.875rem' }}>
                                 {detailedViewData.description}
                               </Typography>
                             </Paper>
@@ -894,45 +877,150 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
 
                     {/* Images Tab */}
                     {activeTab === 4 && (
-                      <Grid container spacing={2}>
+                      <Box>
                         {detailedViewData?.media?.length > 0 ? (
-                          detailedViewData.media.map((img, idx) => (
-                            <Grid item xs={6} sm={4} md={3} key={idx}>
-                              <Paper
-                                sx={{
-                                  position: 'relative',
-                                  paddingTop: '100%',
-                                  overflow: 'hidden',
-                                  cursor: 'pointer',
-                                  '&:hover img': { transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => openImageViewer(img)}
-                              >
-                                <Box
-                                  component="img"
-                                  src={api.getProxyImageUrl(img.src)}
-                                  alt={img.alt || ''}
-                                  sx={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                    transition: 'transform 0.2s'
-                                  }}
-                                />
-                              </Paper>
+                          <>
+                            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body2" color="text.secondary">
+                                {detailedViewData.media.length} images found
+                              </Typography>
+                              <Chip 
+                                label="Click to enlarge" 
+                                size="small" 
+                                icon={<Icon name="ZoomIn" size={14} />}
+                              />
+                            </Box>
+                            <Grid container spacing={2}>
+                              {detailedViewData.media.map((img, idx) => {
+                                const imageSrc = api.getProxyImageUrl(img.src)
+                                return (
+                                  <Grid item xs={6} sm={4} md={3} key={idx}>
+                                    <Paper
+                                      elevation={2}
+                                      sx={{
+                                        position: 'relative',
+                                        paddingTop: '100%',
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': { 
+                                          boxShadow: 6,
+                                          transform: 'translateY(-4px)',
+                                          '& img': { transform: 'scale(1.1)' },
+                                          '& .image-overlay': { opacity: 1 }
+                                        }
+                                      }}
+                                      onClick={() => openImageViewer({ src: imageSrc, alt: img.alt || 'Image' })}
+                                    >
+                                      <Box
+                                        component="img"
+                                        src={imageSrc}
+                                        alt={img.alt || 'Image'}
+                                        loading="lazy"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none'
+                                          const parent = e.target.parentElement
+                                          if (parent && !parent.querySelector('.error-placeholder')) {
+                                            const errorDiv = document.createElement('div')
+                                            errorDiv.className = 'error-placeholder'
+                                            errorDiv.style.cssText = `
+                                              position: absolute;
+                                              top: 0;
+                                              left: 0;
+                                              width: 100%;
+                                              height: 100%;
+                                              display: flex;
+                                              align-items: center;
+                                              justify-content: center;
+                                              background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+                                              color: #999;
+                                              font-size: 12px;
+                                              text-align: center;
+                                              padding: 16px;
+                                              flex-direction: column;
+                                              gap: 8px;
+                                            `
+                                            errorDiv.innerHTML = `
+                                              <div style="font-size: 32px;">🖼️</div>
+                                              <div style="font-weight: 500;">Image unavailable</div>
+                                              <div style="font-size: 10px; opacity: 0.7; word-break: break-all;">${img.src?.substring(0, 50)}...</div>
+                                            `
+                                            parent.appendChild(errorDiv)
+                                          }
+                                        }}
+                                        sx={{
+                                          position: 'absolute',
+                                          top: 0,
+                                          left: 0,
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover',
+                                          transition: 'transform 0.3s ease',
+                                          bgcolor: 'grey.200'
+                                        }}
+                                      />
+                                      
+                                      {/* Hover Overlay */}
+                                      <Box
+                                        className="image-overlay"
+                                        sx={{
+                                          position: 'absolute',
+                                          top: 0,
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 0,
+                                          bgcolor: 'rgba(0,0,0,0.5)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          opacity: 0,
+                                          transition: 'opacity 0.2s',
+                                          pointerEvents: 'none'
+                                        }}
+                                      >
+                                        <Icon name="ZoomIn" size={32} sx={{ color: 'white' }} />
+                                      </Box>
+
+                                      {/* Alt Text Badge */}
+                                      {img.alt && (
+                                        <Box
+                                          sx={{
+                                            position: 'absolute',
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            bgcolor: 'rgba(0,0,0,0.75)',
+                                            color: 'white',
+                                            px: 1,
+                                            py: 0.5,
+                                            fontSize: '0.65rem',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            backdropFilter: 'blur(4px)'
+                                          }}
+                                        >
+                                          {img.alt}
+                                        </Box>
+                                      )}
+                                    </Paper>
+                                  </Grid>
+                                )
+                              })}
                             </Grid>
-                          ))
+                          </>
                         ) : (
-                          <Grid item xs={12}>
-                            <Paper sx={{ p: 8, textAlign: 'center' }}>
-                              <Typography color="text.secondary">No images found</Typography>
-                            </Paper>
-                          </Grid>
+                          <Paper sx={{ p: 8, textAlign: 'center' }}>
+                            <Icon name="Image" size={48} sx={{ color: 'text.disabled', mb: 2 }} />
+                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                              No images found
+                            </Typography>
+                            <Typography variant="body2" color="text.disabled">
+                              This page doesn't contain any images
+                            </Typography>
+                          </Paper>
                         )}
-                      </Grid>
+                      </Box>
                     )}
 
                     {/* Files Tab */}
@@ -1339,12 +1427,13 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             left: 0,
             right: 0,
             bottom: 0,
-            bgcolor: 'rgba(0, 0, 0, 0.9)',
+            bgcolor: 'rgba(0, 0, 0, 0.95)',
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            p: 4
+            p: 4,
+            backdropFilter: 'blur(4px)'
           }}
           onClick={closeImageViewer}
         >
@@ -1352,18 +1441,69 @@ function ScrapingProgress({ darkMode, toggleDarkMode }) {
             variant="icon"
             iconOnly
             onClick={closeImageViewer}
-            sx={{ position: 'absolute', top: 16, right: 16, color: 'white' }}
+            sx={{ 
+              position: 'absolute', 
+              top: 16, 
+              right: 16, 
+              color: 'white',
+              bgcolor: 'rgba(255,255,255,0.1)',
+              '&:hover': {
+                bgcolor: 'rgba(255,255,255,0.2)'
+              }
+            }}
           >
             <Icon name="Close" size={24} />
           </Button>
+          
+          {currentImage.alt && (
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 32,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                bgcolor: 'rgba(0,0,0,0.8)',
+                color: 'white',
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                maxWidth: '80%',
+                textAlign: 'center'
+              }}
+            >
+              <Typography variant="body2">{currentImage.alt}</Typography>
+            </Box>
+          )}
+
           <Box
             component="img"
             src={currentImage.src}
-            alt={currentImage.alt}
+            alt={currentImage.alt || 'Image'}
+            onError={(e) => {
+              e.target.style.display = 'none'
+              const errorDiv = document.createElement('div')
+              errorDiv.style.cssText = `
+                color: white;
+                text-align: center;
+                padding: 32px;
+                background: rgba(255,255,255,0.1);
+                border-radius: 8px;
+              `
+              errorDiv.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 16px;">🖼️</div>
+                <div style="font-size: 18px; margin-bottom: 8px;">Image could not be loaded</div>
+                <div style="font-size: 14px; opacity: 0.7;">${currentImage.src}</div>
+              `
+              e.target.parentElement.appendChild(errorDiv)
+            }}
+            onClick={(e) => e.stopPropagation()}
             sx={{
               maxWidth: '90%',
               maxHeight: '90%',
-              objectFit: 'contain'
+              objectFit: 'contain',
+              borderRadius: 1,
+              boxShadow: 24,
+              cursor: 'default'
             }}
           />
         </Box>

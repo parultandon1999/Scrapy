@@ -5,7 +5,6 @@ import {
   List,
   ListItemButton,
   Typography,
-  Collapse,
 } from '@mui/material'
 import Input from './mui/inputs/Input'
 import Icon from './mui/icons/Icon'
@@ -71,7 +70,7 @@ function SearchBar({
           value={value}
           onChange={onChange}
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+          onBlur={() => setIsFocused(false)}
           disabled={disabled}
           error={!!error}
           helperText={error || ''}
@@ -111,9 +110,13 @@ function SearchBar({
         />
 
         {/* Recent URLs Dropdown */}
-        <Collapse in={shouldShowDropdown}>
+        {shouldShowDropdown && (
           <Paper
             elevation={2}
+            // IMPORTANT: e.preventDefault() prevents the input from blurring 
+            // when you click the dropdown, ensuring the click registers 
+            // while still allowing instant close on outside clicks.
+            onMouseDown={(e) => e.preventDefault()}
             sx={{
               position: 'absolute',
               top: 'calc(100% + 4px)',
@@ -125,7 +128,6 @@ function SearchBar({
               borderRadius: 2,
             }}
           >
-            {/* List */}
             <List
               disablePadding
               sx={{
@@ -166,7 +168,7 @@ function SearchBar({
               ))}
             </List>
           </Paper>
-        </Collapse>
+        )}
       </Box>
     </Box>
   )

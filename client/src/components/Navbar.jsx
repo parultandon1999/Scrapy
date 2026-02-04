@@ -334,17 +334,6 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
               Proxy
             </NavLink>
             <Divider $darkMode={darkMode} />
-            <NavLink
-              href="/showcase"
-              $darkMode={darkMode}
-              $active={currentPage === 'showcase'}
-              $isOpen={isMenuOpen}
-              $index={6}
-              aria-current={currentPage === 'showcase' ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              Showcase
-            </NavLink>
           </Nav>
 
           <MobileMenuBtn

@@ -9,7 +9,6 @@ import {
 import Input from '../components/mui/inputs/Input'
 import * as api from '../services/api'
 import { ConfigSectionSkeleton, ConfigPageSkeleton, InlineButtonSkeleton } from '../components/mui/skeletons/SkeletonLoader'
-import '../styles/Config.css'
 
 function Config({ darkMode, toggleDarkMode }) {
   const [activeSection, setActiveSection] = useState('features')
@@ -473,7 +472,7 @@ function Config({ darkMode, toggleDarkMode }) {
   }
 
   const renderBooleanControl = (section, key, value) => (
-    <div className="config-control">
+    <div className="w-full">
       <Input
         type="switch"
         label=""
@@ -488,7 +487,7 @@ function Config({ darkMode, toggleDarkMode }) {
     const hasError = validationErrors[errorKey]
     
     return (
-      <div className="config-control">
+      <div className="w-full">
         <input
           type="number"
           value={value}
@@ -496,13 +495,22 @@ function Config({ darkMode, toggleDarkMode }) {
             const newValue = parseFloat(e.target.value)
             handleValueChange(section, key, isNaN(newValue) ? 0 : newValue)
           }}
-          className={`config-input-number ${hasError ? 'error' : ''}`}
+          className={`
+            w-[100px] px-3 py-2 
+            bg-white dark:bg-slate-800 
+            border rounded-md text-sm text-slate-900 dark:text-slate-100
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+            disabled:opacity-50 disabled:cursor-not-allowed
+            ${hasError 
+              ? 'border-red-500 bg-red-50 dark:bg-red-900/10' 
+              : 'border-slate-300 dark:border-slate-700'}
+          `}
           disabled={saving}
           step={key.includes('delay') || key.includes('scroll') ? '0.1' : '1'}
         />
         {hasError && (
-          <div className="validation-error">
-            <AlertCircle size={14} />
+          <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1.5 bg-red-50 dark:bg-red-900/20 border-l-2 border-red-500 rounded text-xs text-red-600 dark:text-red-400 animate-in slide-in-from-top-1">
+            <AlertCircle size={14} className="shrink-0" />
             <span>{hasError}</span>
           </div>
         )}
@@ -515,21 +523,30 @@ function Config({ darkMode, toggleDarkMode }) {
     const hasError = validationErrors[errorKey]
     
     return (
-      <div className="config-control">
-        <div className="input-with-icon">
+      <div className="w-full">
+        <div className="relative flex items-center w-full max-w-sm">
           <input
             type={isPassword && !showPasswords ? 'password' : 'text'}
             value={value || ''}
             onChange={(e) => {
               handleValueChange(section, key, e.target.value)
             }}
-            className={`config-input-text ${hasError ? 'error' : ''}`}
+            className={`
+              w-full px-3 py-2 
+              bg-white dark:bg-slate-800 
+              border rounded-md text-sm text-slate-900 dark:text-slate-100
+              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+              disabled:opacity-50 disabled:cursor-not-allowed
+              ${hasError 
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/10' 
+                : 'border-slate-300 dark:border-slate-700'}
+            `}
             placeholder={`Enter ${key}...`}
             disabled={saving}
           />
           {isPassword && (
             <button
-              className="toggle-password-btn"
+              className="absolute right-2.5 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               onClick={() => setShowPasswords(!showPasswords)}
             >
               {showPasswords ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -537,8 +554,8 @@ function Config({ darkMode, toggleDarkMode }) {
           )}
         </div>
         {hasError && (
-          <div className="validation-error">
-            <AlertCircle size={14} />
+          <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1.5 bg-red-50 dark:bg-red-900/20 border-l-2 border-red-500 rounded text-xs text-red-600 dark:text-red-400 animate-in slide-in-from-top-1">
+            <AlertCircle size={14} className="shrink-0" />
             <span>{hasError}</span>
           </div>
         )}
@@ -552,20 +569,27 @@ function Config({ darkMode, toggleDarkMode }) {
     const help = helpText[section]?.[key]
     
     return (
-      <div className="config-item-row" key={key}>
-        <div className="config-item-label">
-          <div className="config-label-with-help">
-            <span className="config-item-key">{key.replace(/_/g, ' ')}</span>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-4 md:p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-sm transition-shadow" key={key}>
+        <div className="flex flex-col gap-1 w-full md:w-auto">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 capitalize">
+              {key.replace(/_/g, ' ')}
+            </span>
             {help && (
-              <div className="help-tooltip">
-                <Info size={14} className="help-icon" />
-                <span className="help-text">{help}</span>
+              <div className="group relative flex items-center">
+                <Info size={14} className="text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 cursor-help transition-colors" />
+                <div className="absolute left-1/2 bottom-full mb-2 -translate-x-1/2 w-64 p-2 bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all pointer-events-none z-50 text-center">
+                  {help}
+                  <div className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-800 dark:border-t-slate-100"></div>
+                </div>
               </div>
             )}
           </div>
-          <span className="config-item-type">{valueType}</span>
+          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-medium">
+            {valueType}
+          </span>
         </div>
-        <div className="config-item-value">
+        <div className="w-full md:w-auto md:min-w-[200px] flex justify-end">
           {valueType === 'boolean' && renderBooleanControl(section, key, value)}
           {valueType === 'number' && renderNumberControl(section, key, value)}
           {valueType === 'string' && renderStringControl(section, key, value, isPassword)}
@@ -618,15 +642,16 @@ function Config({ darkMode, toggleDarkMode }) {
     return (
       <>
         <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="config" />
-        <div className="database-page">
-          <aside className="db-sidebar">
-            <h2><Settings size={20} /> Configuration</h2>
+        <div className="flex flex-col md:flex-row min-h-[calc(100vh-64px)] bg-slate-50 dark:bg-black relative">
+          <aside className="w-full md:w-64 bg-white dark:bg-slate-950 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 sticky top-16 md:top-[68px] z-30 md:h-[calc(100vh-70px)] shrink-0 flex flex-col p-5">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100 mb-6">
+              <Settings size={20} /> Configuration
+            </h2>
           </aside>
-          <main className="db-main">
+          <main className="flex-1 p-8 overflow-y-auto">
             <ConfigPageSkeleton />
           </main>
         </div>
-        {/* <Footer /> */}
       </>
     )
   }
@@ -635,25 +660,52 @@ function Config({ darkMode, toggleDarkMode }) {
     <>
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="config" />
       
-      <div className="database-page">
+      <div className="flex flex-col md:flex-row min-h-[calc(100vh-64px)] bg-slate-50 dark:bg-black relative">
         {/* Sidebar / Mobile Tabs Container */}
-        <aside className="db-sidebar" role="complementary" aria-label="Configuration navigation">
-          <div className="sidebar-header">
-            <h2><Settings size={20} /> Config</h2>
+        <aside 
+          className="
+            w-full md:w-64 
+            bg-white dark:bg-slate-950 
+            border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 
+            sticky top-[60px] md:top-[68px] z-30 
+            md:h-[calc(100vh-70px)] 
+            shrink-0 
+            flex flex-row md:flex-col 
+            overflow-x-auto md:overflow-y-auto 
+            p-3 md:py-6 md:px-0
+          "
+          role="complementary" 
+          aria-label="Configuration navigation"
+        >
+          <div className="hidden md:flex px-5 mb-5 items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+            <Settings size={20} />
+            <h2>Config</h2>
           </div>
           
           {/* Quick Actions */}
-          <div className="sidebar-actions">
-            <button className="sidebar-action-btn" onClick={() => setShowPresetModal(true)} title="Load Preset">
-              <Zap size={16} />
+          <div className="flex md:flex-col gap-2 px-1 md:px-5 mb-0 md:mb-4 border-b-0 md:border-b border-slate-200 dark:border-slate-800 pb-0 md:pb-4 overflow-x-auto md:overflow-visible shrink-0">
+            <button 
+              className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 dark:hover:border-blue-800 transition-colors whitespace-nowrap"
+              onClick={() => setShowPresetModal(true)} 
+              title="Load Preset"
+            >
+              <Zap size={14} />
               <span>Presets</span>
             </button>
-            <button className="sidebar-action-btn" onClick={handleExportConfig} title="Export Config">
-              <FileDown size={16} />
+            <button 
+              className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 dark:hover:border-blue-800 transition-colors whitespace-nowrap"
+              onClick={handleExportConfig} 
+              title="Export Config"
+            >
+              <FileDown size={14} />
               <span>Export</span>
             </button>
-            <button className="sidebar-action-btn" onClick={() => fileInputRef.current?.click()} title="Import Config">
-              <Upload size={16} />
+            <button 
+              className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 dark:hover:border-blue-800 transition-colors whitespace-nowrap"
+              onClick={() => fileInputRef.current?.click()} 
+              title="Import Config"
+            >
+              <Upload size={14} />
               <span>Import</span>
             </button>
             <input
@@ -665,11 +717,17 @@ function Config({ darkMode, toggleDarkMode }) {
             />
           </div>
 
-          <nav className="db-nav">
+          <nav className="flex md:flex-col gap-1 px-1 md:px-3">
             {config && Object.keys(config).map((section) => (
               <button
                 key={section}
-                className={`db-nav-item ${activeSection === section ? 'active' : ''}`}
+                className={`
+                  flex items-center gap-3 px-4 py-2.5 md:py-3 rounded-full md:rounded-lg 
+                  text-sm font-medium transition-colors whitespace-nowrap md:whitespace-normal
+                  ${activeSection === section 
+                    ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 font-semibold' 
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'}
+                `}
                 onClick={() => setActiveSection(section)}
               >
                 {getSectionIcon(section)}
@@ -680,7 +738,7 @@ function Config({ darkMode, toggleDarkMode }) {
         </aside>
 
         {/* Main Content */}
-        <main id="main-content" className="db-main" role="main">
+        <main id="main-content" className="flex-1 p-4 md:p-8 overflow-y-auto min-w-0" role="main">
           <Breadcrumb 
             items={[
               { label: 'Configuration', icon: Settings, path: '/config' },
@@ -695,54 +753,58 @@ function Config({ darkMode, toggleDarkMode }) {
           />
           
           {error && (
-            <div className="db-error">
-              <AlertCircle size={18} />
-              <p>{error}</p>
-              <button onClick={() => setError(null)}><X size={18} /></button>
+            <div className="flex items-center justify-between p-3 mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={18} />
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+              <button onClick={() => setError(null)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-full transition-colors">
+                <X size={18} />
+              </button>
             </div>
           )}
 
           {config && config[activeSection] && (
-            <div className="config-view">
-              <div className="view-header-compact">
+            <div className="max-w-4xl">
+              <div className="mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
                 <div>
-                  <h1>
+                  <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-3 mb-1">
                     {getSectionIcon(activeSection)}
                     {getSectionTitle(activeSection)}
                     {unsavedChanges[activeSection] && (
-                      <span className="unsaved-indicator" title="Unsaved changes">●</span>
+                      <span className="text-amber-500 animate-pulse text-xl leading-none" title="Unsaved changes">●</span>
                     )}
                   </h1>
-                  <p className="section-description">{getSectionDescription(activeSection)}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{getSectionDescription(activeSection)}</p>
                 </div>
               </div>
 
-              <div className="config-section-content">
+              <div className="flex flex-col gap-4 mb-8">
                 {Object.entries(config[activeSection]).map(([key, value]) => 
                   renderConfigItem(activeSection, key, value)
                 )}
               </div>
 
               {/* Action Buttons */}
-              <div className="config-actions">
+              <div className="flex flex-col md:flex-row justify-between items-center gap-3 p-4 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
                 <button
-                  className="btn-reset"
+                  className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-md text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   onClick={() => handleResetToDefaults(activeSection)}
                   disabled={saving || !defaultValues[activeSection]}
                   title="Reset this section to default values"
                 >
                   Reset to Defaults
                 </button>
-                <div className="config-actions-right">
+                <div className="w-full md:w-auto flex flex-col md:flex-row gap-3">
                   <button
-                    className="btn-cancel"
+                    className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     onClick={() => handleCancelSection(activeSection)}
                     disabled={saving || !unsavedChanges[activeSection]}
                   >
                     Cancel
                   </button>
                   <button
-                    className="btn-save"
+                    className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-md text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow transition-all"
                     onClick={() => handleSaveSection(activeSection)}
                     disabled={saving || !unsavedChanges[activeSection] || Object.keys(validationErrors).some(k => k.startsWith(`${activeSection}.`))}
                   >
@@ -751,8 +813,8 @@ function Config({ darkMode, toggleDarkMode }) {
                 </div>
               </div>
 
-              <div className="config-note">
-                <AlertCircle size={16} />
+              <div className="mt-5 p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg flex gap-3 text-blue-700 dark:text-blue-400 text-sm">
+                <AlertCircle size={16} className="shrink-0 mt-0.5" />
                 <div>
                   <strong>Note:</strong> Changes must be saved to take effect. 
                   Some settings may be overridden by job-specific options.
@@ -765,29 +827,37 @@ function Config({ darkMode, toggleDarkMode }) {
 
       {/* Preset Modal */}
       {showPresetModal && (
-        <div className="modal-overlay" onClick={() => setShowPresetModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Load Configuration Preset</h2>
-              <button className="modal-close" onClick={() => setShowPresetModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-in fade-in duration-200" onClick={() => setShowPresetModal(false)}>
+          <div 
+            className="w-full max-w-2xl mx-4 bg-white dark:bg-slate-900 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Load Configuration Preset</h2>
+              <button 
+                className="p-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" 
+                onClick={() => setShowPresetModal(false)}
+              >
                 <X size={20} />
               </button>
             </div>
-            <div className="modal-body">
-              <p className="modal-description">
+            <div className="p-6">
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
                 Choose a preset to quickly configure the scraper for different scenarios.
               </p>
-              <div className="preset-grid">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {Object.entries(presets).map(([key, preset]) => (
                   <button
                     key={key}
-                    className="preset-card"
+                    className="flex flex-col items-center text-center p-5 bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/10 hover:border-blue-500 dark:hover:border-blue-500 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => handleApplyPreset(key)}
                     disabled={saving}
                   >
-                    <div className="preset-icon">{preset.icon}</div>
-                    <h3>{preset.name}</h3>
-                    <p>{preset.description}</p>
+                    <div className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-800 rounded-full text-blue-600 dark:text-blue-400 shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                      {preset.icon}
+                    </div>
+                    <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-2">{preset.name}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{preset.description}</p>
                   </button>
                 ))}
               </div>
@@ -798,37 +868,45 @@ function Config({ darkMode, toggleDarkMode }) {
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="modal-overlay" onClick={() => setShowImportModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Import Configuration</h2>
-              <button className="modal-close" onClick={() => setShowImportModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-in fade-in duration-200" onClick={() => setShowImportModal(false)}>
+          <div 
+            className="w-full max-w-2xl mx-4 bg-white dark:bg-slate-900 rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center px-6 py-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Import Configuration</h2>
+              <button 
+                className="p-1 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors" 
+                onClick={() => setShowImportModal(false)}
+              >
                 <X size={20} />
               </button>
             </div>
-            <div className="modal-body">
-              <p className="modal-description">
+            <div className="p-6 overflow-y-auto flex-1">
+              <p className="text-slate-600 dark:text-slate-400 mb-4">
                 Paste your configuration JSON below or upload a file.
               </p>
               <textarea
-                className="import-textarea"
+                className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg font-mono text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y min-h-[300px]"
                 value={importText}
                 onChange={(e) => setImportText(e.target.value)}
                 placeholder='{"features": {...}, "scraper": {...}}'
-                rows={12}
               />
-              <div className="modal-actions">
-                <button className="btn-cancel" onClick={() => setShowImportModal(false)}>
-                  Cancel
-                </button>
-                <button
-                  className="btn-save"
-                  onClick={handleImportConfig}
-                  disabled={!importText || saving}
-                >
-                  {saving ? <InlineButtonSkeleton /> : 'Import'}
-                </button>
-              </div>
+            </div>
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3 shrink-0">
+              <button 
+                className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-md text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                onClick={() => setShowImportModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+                onClick={handleImportConfig}
+                disabled={!importText || saving}
+              >
+                {saving ? <InlineButtonSkeleton /> : 'Import'}
+              </button>
             </div>
           </div>
         </div>
