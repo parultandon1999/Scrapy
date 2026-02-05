@@ -15,6 +15,7 @@ import Icon from '../components/mui/icons/Icon'
 import Tour from '../components/Tour'
 import { homeTourSteps } from '../utils/tourHelpers'
 import AdvancedOptionsModal from '../components/AdvancedOptionsHome'
+import HistoryModal from '../components/HistoryModal'
 import SearchBar from '../components/Searchbar'
 
 function Home({ darkMode, toggleDarkMode }) {
@@ -29,6 +30,7 @@ function Home({ darkMode, toggleDarkMode }) {
   const [urlValid, setUrlValid] = useState(false)
   const [recentUrls, setRecentUrls] = useState([])
   const [loadingRecent, setLoadingRecent] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
 
   useEffect(() => {
     const fetchRecentUrls = async () => {
@@ -171,13 +173,53 @@ function Home({ darkMode, toggleDarkMode }) {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+    <Box sx={{ minHeight: '95vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       <Tour 
         steps={homeTourSteps}
         onComplete={() => console.log('Tour completed')}
         onSkip={() => console.log('Tour skipped')}
       />
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
+      
+      {/* History Icon Button - Top Right */}
+      <Box
+        onClick={() => setShowHistoryModal(true)}
+        sx={{
+          position: 'fixed',
+          top: { xs: 80, md: 100 },
+          right: { xs: 20, md: 32 },
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: { xs: 44, md: 52 },
+          height: { xs: 44, md: 52 },
+          borderRadius: '50%',
+          bgcolor: 'background.paper',
+          border: 1,
+          borderColor: 'divider',
+          color: 'text.secondary',
+          cursor: 'pointer',
+          backdropFilter: 'blur(8px)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            bgcolor: 'action.hover',
+            color: 'text.primary',
+            transform: 'translateY(-2px)',
+            borderColor: 'primary.main',
+          },
+          '&:active': {
+            transform: 'translateY(0px)',
+          },
+        }}
+        aria-label="View scraping history"
+        title="View History"
+      >
+        <Icon 
+        name="Schedule" 
+        size={{ xs: 22, md: 26 }} 
+      />
+      </Box>
       
       <Box
         component="main"
@@ -303,6 +345,11 @@ function Home({ darkMode, toggleDarkMode }) {
             onClose={() => setShowAdvancedModal(false)}
             onSave={handleSaveOptions}
             initialOptions={advancedOptions}
+          />
+
+          <HistoryModal
+            isOpen={showHistoryModal}
+            onClose={() => setShowHistoryModal(false)}
           />
 
           <Fade in={!!error}>

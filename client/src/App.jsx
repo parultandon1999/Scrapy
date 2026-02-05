@@ -5,8 +5,8 @@ import CssBaseline from '@mui/material/CssBaseline'
 import './index.css'
 import Home from './pages/Home'
 import ScrapingProgress from './pages/ScrapingProgress'
+import PageDetails from './pages/PageDetails'
 import Database from './pages/database/Database'
-import History from './pages/History'
 import Config from './pages/Config'
 import SelectorFinder from './pages/selector-finder/SelectorFinder'
 import ProxyTester from './pages/ProxyTester'
@@ -62,8 +62,8 @@ function App() {
               <Route path="/" element={<Home darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/progress" element={<ScrapingProgress darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/progress/:sessionId" element={<ScrapingProgress darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
+              <Route path="/page-details/:pageId" element={<PageDetails darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/database" element={<Database darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
-              <Route path="/history" element={<History darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/config" element={<Config darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/selector-finder" element={<SelectorFinder darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />
               <Route path="/proxy-tester" element={<ProxyTester darkMode={darkMode} toggleDarkMode={toggleDarkMode} />} />

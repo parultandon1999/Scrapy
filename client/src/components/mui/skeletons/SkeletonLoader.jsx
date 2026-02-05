@@ -1,4 +1,4 @@
-import { Skeleton, Box } from '@mui/material'
+import { Skeleton, Box, Grid, Paper } from '@mui/material'
 
 // Generic Skeleton Components
 
@@ -222,48 +222,123 @@ export function DatabaseAnalyticsSkeleton() {
 
 // History Skeletons
 
-export function HistoryCardSkeleton({ count = 1 }) {
+export function HistorySessionCardGridSkeleton() {
   return (
-    <>
-      {Array.from({ length: count }).map((_, idx) => (
-        <Box key={idx} sx={{ p: 2, mb: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1 }}>
-              <Skeleton width="24px" height="24px" variant="rectangular" />
-              <SkeletonIcon size="16px" />
-              <Skeleton width="60%" height={24} />
-              <SkeletonBadge width="80px" />
-            </Box>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <SkeletonButton key={i} width="32px" height="32px" />
-              ))}
-            </Box>
+    <Paper 
+      elevation={0}
+      variant="outlined"
+      sx={{ height: '100%', position: 'relative' }}
+    >
+      {/* Selection checkbox skeleton */}
+      <Box sx={{ position: 'absolute', top: 8, left: 8 }}>
+        <Skeleton variant="rounded" width={32} height={32} />
+      </Box>
+      
+      <Box sx={{ p: 2, pt: 5 }}>
+        {/* Header */}
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+            <Skeleton width="70%" height={20} />
+            <Skeleton variant="rounded" width={60} height={20} sx={{ borderRadius: 50 }} />
           </Box>
-          <Skeleton width="90%" height={16} sx={{ mb: 2 }} />
-          <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Box key={i} sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                <SkeletonIcon size="12px" />
-                <Skeleton width="60px" height={16} />
-              </Box>
-            ))}
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Skeleton width="120px" height={14} />
-            <Skeleton width="80px" height={14} />
-          </Box>
+          <Skeleton width="50%" height={14} />
         </Box>
-      ))}
-    </>
+
+        {/* Stats Grid */}
+        <Grid container spacing={1} sx={{ mb: 2 }}>
+          {[1, 2, 3, 4].map(i => (
+            <Grid item xs={6} key={i}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Skeleton variant="circular" width={14} height={14} />
+                <Skeleton width="60%" height={14} />
+              </Box>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Skeleton width="100%" height={1} sx={{ my: 1.5 }} />
+
+        {/* Actions */}
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} variant="rounded" width={32} height={32} />
+          ))}
+          <Box sx={{ flex: 1 }} />
+          <Skeleton variant="rounded" width={32} height={32} />
+        </Box>
+      </Box>
+    </Paper>
   )
 }
 
-export function HistorySessionsSkeleton({ count = 6 }) {
+export function HistorySessionCardListSkeleton() {
+  return (
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        {/* Checkbox */}
+        <Skeleton variant="rounded" width={20} height={20} />
+        
+        {/* Avatar */}
+        <Skeleton variant="circular" width={48} height={48} />
+        
+        {/* Content */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Skeleton width="60%" height={20} />
+            <Skeleton variant="rounded" width={60} height={20} sx={{ borderRadius: 50 }} />
+          </Box>
+          <Skeleton width="40%" height={14} />
+        </Box>
+        
+        {/* Stats Chips - Hidden on mobile */}
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1 }}>
+          <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 50 }} />
+          <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 50 }} />
+          <Skeleton variant="rounded" width={80} height={24} sx={{ borderRadius: 50 }} />
+        </Box>
+        
+        {/* Actions */}
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <Skeleton key={i} variant="rounded" width={32} height={32} />
+          ))}
+        </Box>
+      </Box>
+    </Paper>
+  )
+}
+
+export function HistorySessionsSkeleton({ count = 6, viewMode = 'grid' }) {
   return (
     <Box role="status" aria-label="Loading sessions">
-      <HistoryCardSkeleton count={count} />
+      {viewMode === 'grid' ? (
+        <Grid container spacing={2}>
+          {Array.from({ length: count }).map((_, idx) => (
+            <Grid item xs={12} sm={6} md={4} key={idx}>
+              <HistorySessionCardGridSkeleton />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {Array.from({ length: count }).map((_, idx) => (
+            <HistorySessionCardListSkeleton key={idx} />
+          ))}
+        </Box>
+      )}
     </Box>
+  )
+}
+
+export function HistoryCardSkeleton({ count = 1 }) {
+  return (
+    <Grid container spacing={2.5}>
+      {Array.from({ length: count }).map((_, idx) => (
+        <Grid item xs={12} sm={6} md={4} key={idx}>
+          <HistorySessionCardGridSkeleton />
+        </Grid>
+      ))}
+    </Grid>
   )
 }
 

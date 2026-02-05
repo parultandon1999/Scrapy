@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../../components/Navbar'
-import DatabaseSidebar from './DbSidebar'
 import DatabaseViews from './DbViews'
 import * as api from '../../services/api'
 import { useToast } from '../../components/mui/toasts/useToast'
@@ -450,16 +449,6 @@ function Database({ darkMode, toggleDarkMode }) {
         - Desktop (md): Flex row. Sticky sidebar takes space naturally.
       */}
       <div className="flex flex-1 flex-col pb-[70px] md:flex-row md:pb-0">
-        
-        {/* Sidebar Navigation */}
-        <DatabaseSidebar 
-          activeView={activeView}
-          setActiveView={setActiveView}
-          onExport={handleExportData}
-          loading={loading}
-        />
-
-        {/* Main Content Views */}
         <DatabaseViews
           activeView={activeView}
           setActiveView={setActiveView}

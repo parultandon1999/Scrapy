@@ -13,6 +13,7 @@ const Header = styled.header`
   display: flex;
   justify-content: center;
   align-items: center;
+  border-bottom: 1px solid ${props => props.$darkMode ? '#222222' : '#e0e0e0'};
   
   @media (max-width: 768px) {
     justify-content: space-between;
@@ -275,23 +276,11 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
             </NavLink>
             <Divider $darkMode={darkMode} />
             <NavLink
-              href="/history"
-              $darkMode={darkMode}
-              $active={currentPage === 'history'}
-              $isOpen={isMenuOpen}
-              $index={1}
-              aria-current={currentPage === 'history' ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              History
-            </NavLink>
-            <Divider $darkMode={darkMode} />
-            <NavLink
               href="/database"
               $darkMode={darkMode}
               $active={currentPage === 'database'}
               $isOpen={isMenuOpen}
-              $index={2}
+              $index={1}
               aria-current={currentPage === 'database' ? 'page' : undefined}
               onClick={closeMenu}
             >
@@ -303,7 +292,7 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
               $darkMode={darkMode}
               $active={currentPage === 'config'}
               $isOpen={isMenuOpen}
-              $index={3}
+              $index={2}
               aria-current={currentPage === 'config' ? 'page' : undefined}
               onClick={closeMenu}
             >
@@ -315,7 +304,7 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
               $darkMode={darkMode}
               $active={currentPage === 'selector-finder'}
               $isOpen={isMenuOpen}
-              $index={4}
+              $index={3}
               aria-current={currentPage === 'selector-finder' ? 'page' : undefined}
               onClick={closeMenu}
             >
@@ -327,7 +316,7 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
               $darkMode={darkMode}
               $active={currentPage === 'proxy-tester'}
               $isOpen={isMenuOpen}
-              $index={5}
+              $index={4}
               aria-current={currentPage === 'proxy-tester' ? 'page' : undefined}
               onClick={closeMenu}
             >
