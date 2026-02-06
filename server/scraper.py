@@ -8,10 +8,766 @@ import asyncio
 import aiohttp
 import mimetypes
 import logging
+import difflib
+from typing import Dict, List, Optional
+import hashlib
 from urllib.parse import urlparse, urljoin, urlunparse
 from collections import deque
 from playwright.async_api import async_playwright
 import config
+
+logger = logging.getLogger("DiffTracker")
+
+class DiffTracker:
+    """
+    Tracks changes between scrapes of the same URL.
+    
+    Detects changes in:
+    - Page content (title, description, text)
+    - Headers (h1-h6)
+    - Links (added/removed)
+    - Media (images added/removed)
+    - HTML structure
+    - File assets
+    """
+    
+    def __init__(self, db_path: str):
+        """
+        Initialize the DiffTracker.
+        
+        Args:
+            db_path (str): Path to the SQLite database.
+        """
+        self.db_path = db_path
+        self._init_diff_tables()
+    
+    def _init_diff_tables(self):
+        """Create tables for storing diff history."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Main diff snapshots table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS page_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT NOT NULL,
+                snapshot_timestamp REAL NOT NULL,
+                page_id INTEGER,
+                content_hash TEXT,
+                title TEXT,
+                description TEXT,
+                full_text_hash TEXT,
+                header_count INTEGER,
+                link_count INTEGER,
+                media_count INTEGER,
+                file_count INTEGER,
+                FOREIGN KEY (page_id) REFERENCES pages(id)
+            )
+        ''')
+        
+        # Detailed change log
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS change_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT NOT NULL,
+                change_timestamp REAL NOT NULL,
+                previous_snapshot_id INTEGER,
+                current_snapshot_id INTEGER,
+                change_type TEXT,
+                change_category TEXT,
+                change_summary TEXT,
+                change_details TEXT,
+                severity TEXT,
+                FOREIGN KEY (previous_snapshot_id) REFERENCES page_snapshots(id),
+                FOREIGN KEY (current_snapshot_id) REFERENCES page_snapshots(id)
+            )
+        ''')
+        
+        # Content diffs (detailed text changes)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS content_diffs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                change_log_id INTEGER,
+                field_name TEXT,
+                old_value TEXT,
+                new_value TEXT,
+                diff_html TEXT,
+                similarity_score REAL,
+                FOREIGN KEY (change_log_id) REFERENCES change_log(id)
+            )
+        ''')
+        
+        # Link changes
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS link_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                change_log_id INTEGER,
+                link_url TEXT,
+                link_type TEXT,
+                change_action TEXT,
+                FOREIGN KEY (change_log_id) REFERENCES change_log(id)
+            )
+        ''')
+        
+        # Media changes
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS media_changes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                change_log_id INTEGER,
+                media_src TEXT,
+                media_alt TEXT,
+                change_action TEXT,
+                FOREIGN KEY (change_log_id) REFERENCES change_log(id)
+            )
+        ''')
+        
+        # Create indexes for performance
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_snapshots_url ON page_snapshots(url)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp ON page_snapshots(snapshot_timestamp)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_changelog_url ON change_log(url)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_changelog_timestamp ON change_log(change_timestamp)')
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info("Diff tracking tables initialized")
+    
+    def _calculate_hash(self, content: str) -> str:
+        """Calculate SHA256 hash of content."""
+        if not content:
+            return ""
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+    
+    def _calculate_similarity(self, text1: str, text2: str) -> float:
+        """
+        Calculate similarity ratio between two texts.
+        
+        Returns:
+            float: Similarity score between 0.0 and 1.0
+        """
+        if not text1 and not text2:
+            return 1.0
+        if not text1 or not text2:
+            return 0.0
+        
+        return difflib.SequenceMatcher(None, text1, text2).ratio()
+    
+    def _generate_html_diff(self, old_text: str, new_text: str) -> str:
+        """
+        Generate HTML diff showing changes between two texts.
+        
+        Returns:
+            str: HTML string with highlighted changes
+        """
+        if not old_text:
+            old_text = ""
+        if not new_text:
+            new_text = ""
+        
+        diff = difflib.HtmlDiff()
+        html_diff = diff.make_table(
+            old_text.splitlines(),
+            new_text.splitlines(),
+            fromdesc='Previous',
+            todesc='Current',
+            context=True,
+            numlines=3
+        )
+        
+        return html_diff
+    
+    def create_snapshot(self, page_id: int) -> int:
+        """
+        Create a snapshot of the current page state.
+        
+        Args:
+            page_id (int): ID of the page to snapshot
+            
+        Returns:
+            int: Snapshot ID
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        try:
+            # Get page data
+            cursor.execute('SELECT * FROM pages WHERE id = ?', (page_id,))
+            page = cursor.fetchone()
+            
+            if not page:
+                logger.error(f"Page {page_id} not found")
+                return None
+            
+            # Calculate content hashes
+            content_hash = self._calculate_hash(
+                f"{page['title']}|{page['description']}"
+            )
+            full_text_hash = self._calculate_hash(page['full_text'] or "")
+            
+            # Count related items
+            cursor.execute('SELECT COUNT(*) as count FROM headers WHERE page_id = ?', (page_id,))
+            header_count = cursor.fetchone()['count']
+            
+            cursor.execute('SELECT COUNT(*) as count FROM links WHERE page_id = ?', (page_id,))
+            link_count = cursor.fetchone()['count']
+            
+            cursor.execute('SELECT COUNT(*) as count FROM media WHERE page_id = ?', (page_id,))
+            media_count = cursor.fetchone()['count']
+            
+            try:
+                cursor.execute('SELECT COUNT(*) as count FROM file_assets WHERE page_id = ?', (page_id,))
+                file_count = cursor.fetchone()['count']
+            except:
+                file_count = 0
+            
+            # Insert snapshot
+            cursor.execute('''
+                INSERT INTO page_snapshots (
+                    url, snapshot_timestamp, page_id, content_hash,
+                    title, description, full_text_hash,
+                    header_count, link_count, media_count, file_count
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                page['url'],
+                page['timestamp'],
+                page_id,
+                content_hash,
+                page['title'],
+                page['description'],
+                full_text_hash,
+                header_count,
+                link_count,
+                media_count,
+                file_count
+            ))
+            
+            snapshot_id = cursor.lastrowid
+            conn.commit()
+            
+            logger.info(f"Created snapshot {snapshot_id} for page {page_id} ({page['url']})")
+            return snapshot_id
+            
+        except Exception as e:
+            logger.error(f"Error creating snapshot: {e}")
+            conn.rollback()
+            return None
+        finally:
+            conn.close()
+    
+    def detect_changes(self, url: str, current_page_id: int) -> Optional[Dict]:
+        """
+        Detect changes between the current scrape and the previous one.
+        
+        Args:
+            url (str): URL to check for changes
+            current_page_id (int): ID of the current page scrape
+            
+        Returns:
+            dict: Change detection results or None if no previous snapshot
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        try:
+            # Get the most recent previous snapshot
+            cursor.execute('''
+                SELECT * FROM page_snapshots
+                WHERE url = ? AND page_id != ?
+                ORDER BY snapshot_timestamp DESC
+                LIMIT 1
+            ''', (url, current_page_id))
+            
+            previous_snapshot = cursor.fetchone()
+            
+            if not previous_snapshot:
+                logger.info(f"No previous snapshot found for {url}")
+                # Create first snapshot
+                snapshot_id = self.create_snapshot(current_page_id)
+                return {
+                    'is_first_scrape': True,
+                    'snapshot_id': snapshot_id,
+                    'changes_detected': False
+                }
+            
+            # Create current snapshot
+            current_snapshot_id = self.create_snapshot(current_page_id)
+            
+            # Get current page data
+            cursor.execute('SELECT * FROM pages WHERE id = ?', (current_page_id,))
+            current_page = cursor.fetchone()
+            
+            # Detect changes
+            changes = {
+                'is_first_scrape': False,
+                'changes_detected': False,
+                'previous_snapshot_id': previous_snapshot['id'],
+                'current_snapshot_id': current_snapshot_id,
+                'url': url,
+                'timestamp': current_page['timestamp'],
+                'changes': []
+            }
+            
+            # 1. Check content changes
+            content_changes = self._detect_content_changes(
+                cursor, previous_snapshot, current_page, current_page_id
+            )
+            if content_changes:
+                changes['changes'].extend(content_changes)
+                changes['changes_detected'] = True
+            
+            # 2. Check link changes
+            link_changes = self._detect_link_changes(
+                cursor, previous_snapshot['page_id'], current_page_id
+            )
+            if link_changes:
+                changes['changes'].extend(link_changes)
+                changes['changes_detected'] = True
+            
+            # 3. Check media changes
+            media_changes = self._detect_media_changes(
+                cursor, previous_snapshot['page_id'], current_page_id
+            )
+            if media_changes:
+                changes['changes'].extend(media_changes)
+                changes['changes_detected'] = True
+            
+            # 4. Check file changes
+            file_changes = self._detect_file_changes(
+                cursor, previous_snapshot['page_id'], current_page_id
+            )
+            if file_changes:
+                changes['changes'].extend(file_changes)
+                changes['changes_detected'] = True
+            
+            # Log changes to database
+            if changes['changes_detected']:
+                self._log_changes(conn, changes)
+            
+            conn.commit()
+            return changes
+            
+        except Exception as e:
+            logger.error(f"Error detecting changes: {e}")
+            conn.rollback()
+            return None
+        finally:
+            conn.close()
+    
+    def _detect_content_changes(
+        self, cursor, previous_snapshot, current_page, current_page_id
+    ) -> List[Dict]:
+        """Detect changes in page content (title, description, text)."""
+        changes = []
+        
+        # Title change
+        if previous_snapshot['title'] != current_page['title']:
+            similarity = self._calculate_similarity(
+                previous_snapshot['title'] or "",
+                current_page['title'] or ""
+            )
+            changes.append({
+                'type': 'content',
+                'category': 'title',
+                'summary': 'Page title changed',
+                'severity': 'medium',
+                'old_value': previous_snapshot['title'],
+                'new_value': current_page['title'],
+                'similarity': similarity
+            })
+        
+        # Description change
+        if previous_snapshot['description'] != current_page['description']:
+            similarity = self._calculate_similarity(
+                previous_snapshot['description'] or "",
+                current_page['description'] or ""
+            )
+            changes.append({
+                'type': 'content',
+                'category': 'description',
+                'summary': 'Page description changed',
+                'severity': 'low',
+                'old_value': previous_snapshot['description'],
+                'new_value': current_page['description'],
+                'similarity': similarity
+            })
+        
+        # Full text change (using hash for efficiency)
+        if previous_snapshot['full_text_hash'] != self._calculate_hash(current_page['full_text'] or ""):
+            # Get previous full text
+            cursor.execute('SELECT full_text FROM pages WHERE id = ?', (previous_snapshot['page_id'],))
+            prev_page = cursor.fetchone()
+            
+            similarity = self._calculate_similarity(
+                prev_page['full_text'] or "",
+                current_page['full_text'] or ""
+            )
+            
+            # Only log if significant change (< 95% similar)
+            if similarity < 0.95:
+                changes.append({
+                    'type': 'content',
+                    'category': 'full_text',
+                    'summary': f'Page content changed ({similarity*100:.1f}% similar)',
+                    'severity': 'high' if similarity < 0.7 else 'medium',
+                    'old_value': prev_page['full_text'][:500] if prev_page['full_text'] else "",
+                    'new_value': current_page['full_text'][:500] if current_page['full_text'] else "",
+                    'similarity': similarity
+                })
+        
+        # Header count changes
+        if previous_snapshot['header_count'] != current_page['header_count']:
+            cursor.execute('SELECT COUNT(*) as count FROM headers WHERE page_id = ?', (current_page_id,))
+            current_header_count = cursor.fetchone()['count']
+            
+            diff = current_header_count - previous_snapshot['header_count']
+            changes.append({
+                'type': 'structure',
+                'category': 'headers',
+                'summary': f'Header count changed ({diff:+d})',
+                'severity': 'low',
+                'old_value': str(previous_snapshot['header_count']),
+                'new_value': str(current_header_count),
+                'similarity': 1.0
+            })
+        
+        return changes
+    
+    def _detect_link_changes(self, cursor, previous_page_id: int, current_page_id: int) -> List[Dict]:
+        """Detect added and removed links."""
+        changes = []
+        
+        # Get previous links
+        cursor.execute('SELECT url, link_type FROM links WHERE page_id = ?', (previous_page_id,))
+        previous_links = {(row['url'], row['link_type']) for row in cursor.fetchall()}
+        
+        # Get current links
+        cursor.execute('SELECT url, link_type FROM links WHERE page_id = ?', (current_page_id,))
+        current_links = {(row['url'], row['link_type']) for row in cursor.fetchall()}
+        
+        # Find added and removed links
+        added_links = current_links - previous_links
+        removed_links = previous_links - current_links
+        
+        if added_links:
+            changes.append({
+                'type': 'links',
+                'category': 'added',
+                'summary': f'{len(added_links)} new link(s) added',
+                'severity': 'low',
+                'details': [{'url': url, 'type': link_type} for url, link_type in list(added_links)[:10]],
+                'count': len(added_links)
+            })
+        
+        if removed_links:
+            changes.append({
+                'type': 'links',
+                'category': 'removed',
+                'summary': f'{len(removed_links)} link(s) removed',
+                'severity': 'medium',
+                'details': [{'url': url, 'type': link_type} for url, link_type in list(removed_links)[:10]],
+                'count': len(removed_links)
+            })
+        
+        return changes
+    
+    def _detect_media_changes(self, cursor, previous_page_id: int, current_page_id: int) -> List[Dict]:
+        """Detect added and removed media (images)."""
+        changes = []
+        
+        # Get previous media
+        cursor.execute('SELECT src, alt FROM media WHERE page_id = ?', (previous_page_id,))
+        previous_media = {row['src'] for row in cursor.fetchall()}
+        
+        # Get current media
+        cursor.execute('SELECT src, alt FROM media WHERE page_id = ?', (current_page_id,))
+        current_media = {row['src'] for row in cursor.fetchall()}
+        
+        # Find added and removed media
+        added_media = current_media - previous_media
+        removed_media = previous_media - current_media
+        
+        if added_media:
+            changes.append({
+                'type': 'media',
+                'category': 'added',
+                'summary': f'{len(added_media)} new image(s) added',
+                'severity': 'low',
+                'details': list(added_media)[:10],
+                'count': len(added_media)
+            })
+        
+        if removed_media:
+            changes.append({
+                'type': 'media',
+                'category': 'removed',
+                'summary': f'{len(removed_media)} image(s) removed',
+                'severity': 'low',
+                'details': list(removed_media)[:10],
+                'count': len(removed_media)
+            })
+        
+        return changes
+    
+    def _detect_file_changes(self, cursor, previous_page_id: int, current_page_id: int) -> List[Dict]:
+        """Detect added and removed downloadable files."""
+        changes = []
+        
+        try:
+            # Get previous files
+            cursor.execute('SELECT file_url, file_name FROM file_assets WHERE page_id = ?', (previous_page_id,))
+            previous_files = {row['file_url'] for row in cursor.fetchall()}
+            
+            # Get current files
+            cursor.execute('SELECT file_url, file_name FROM file_assets WHERE page_id = ?', (current_page_id,))
+            current_files = {row['file_url'] for row in cursor.fetchall()}
+            
+            # Find added and removed files
+            added_files = current_files - previous_files
+            removed_files = previous_files - current_files
+            
+            if added_files:
+                changes.append({
+                    'type': 'files',
+                    'category': 'added',
+                    'summary': f'{len(added_files)} new file(s) available',
+                    'severity': 'medium',
+                    'details': list(added_files)[:10],
+                    'count': len(added_files)
+                })
+            
+            if removed_files:
+                changes.append({
+                    'type': 'files',
+                    'category': 'removed',
+                    'summary': f'{len(removed_files)} file(s) no longer available',
+                    'severity': 'high',
+                    'details': list(removed_files)[:10],
+                    'count': len(removed_files)
+                })
+        except:
+            pass  # Table might not exist
+        
+        return changes
+    
+    def _log_changes(self, conn, changes: Dict):
+        """Log detected changes to the database."""
+        cursor = conn.cursor()
+        
+        for change in changes['changes']:
+            # Insert into change_log
+            cursor.execute('''
+                INSERT INTO change_log (
+                    url, change_timestamp, previous_snapshot_id, current_snapshot_id,
+                    change_type, change_category, change_summary, change_details, severity
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                changes['url'],
+                changes['timestamp'],
+                changes['previous_snapshot_id'],
+                changes['current_snapshot_id'],
+                change['type'],
+                change['category'],
+                change['summary'],
+                json.dumps(change.get('details', {})),
+                change['severity']
+            ))
+            
+            change_log_id = cursor.lastrowid
+            
+            # Insert detailed content diffs if applicable
+            if change['type'] == 'content' and 'old_value' in change:
+                html_diff = self._generate_html_diff(
+                    change.get('old_value', ''),
+                    change.get('new_value', '')
+                )
+                
+                cursor.execute('''
+                    INSERT INTO content_diffs (
+                        change_log_id, field_name, old_value, new_value,
+                        diff_html, similarity_score
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    change_log_id,
+                    change['category'],
+                    change.get('old_value', ''),
+                    change.get('new_value', ''),
+                    html_diff,
+                    change.get('similarity', 1.0)
+                ))
+            
+            # Insert link changes
+            if change['type'] == 'links' and 'details' in change:
+                for link_detail in change['details']:
+                    cursor.execute('''
+                        INSERT INTO link_changes (
+                            change_log_id, link_url, link_type, change_action
+                        )
+                        VALUES (?, ?, ?, ?)
+                    ''', (
+                        change_log_id,
+                        link_detail.get('url', ''),
+                        link_detail.get('type', ''),
+                        change['category']
+                    ))
+            
+            # Insert media changes
+            if change['type'] == 'media' and 'details' in change:
+                for media_src in change['details']:
+                    cursor.execute('''
+                        INSERT INTO media_changes (
+                            change_log_id, media_src, media_alt, change_action
+                        )
+                        VALUES (?, ?, ?, ?)
+                    ''', (
+                        change_log_id,
+                        media_src,
+                        '',
+                        change['category']
+                    ))
+        
+        conn.commit()
+    
+    def get_change_history(self, url: str, limit: int = 10) -> List[Dict]:
+        """
+        Get change history for a specific URL.
+        
+        Args:
+            url (str): URL to get history for
+            limit (int): Maximum number of changes to return
+            
+        Returns:
+            list: List of change records
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT 
+                    cl.*,
+                    datetime(cl.change_timestamp, 'unixepoch') as change_date,
+                    ps_prev.title as previous_title,
+                    ps_curr.title as current_title
+                FROM change_log cl
+                LEFT JOIN page_snapshots ps_prev ON cl.previous_snapshot_id = ps_prev.id
+                LEFT JOIN page_snapshots ps_curr ON cl.current_snapshot_id = ps_curr.id
+                WHERE cl.url = ?
+                ORDER BY cl.change_timestamp DESC
+                LIMIT ?
+            ''', (url, limit))
+            
+            changes = []
+            for row in cursor.fetchall():
+                change = dict(row)
+                
+                # Get detailed content diffs
+                cursor.execute('''
+                    SELECT * FROM content_diffs WHERE change_log_id = ?
+                ''', (change['id'],))
+                change['content_diffs'] = [dict(r) for r in cursor.fetchall()]
+                
+                # Get link changes
+                cursor.execute('''
+                    SELECT * FROM link_changes WHERE change_log_id = ?
+                ''', (change['id'],))
+                change['link_changes'] = [dict(r) for r in cursor.fetchall()]
+                
+                # Get media changes
+                cursor.execute('''
+                    SELECT * FROM media_changes WHERE change_log_id = ?
+                ''', (change['id'],))
+                change['media_changes'] = [dict(r) for r in cursor.fetchall()]
+                
+                changes.append(change)
+            
+            return changes
+            
+        finally:
+            conn.close()
+    
+    def get_all_monitored_urls(self) -> List[Dict]:
+        """
+        Get all URLs that have been monitored for changes.
+        
+        Returns:
+            list: List of URLs with change statistics
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                SELECT 
+                    url,
+                    COUNT(*) as total_changes,
+                    MAX(change_timestamp) as last_change,
+                    datetime(MAX(change_timestamp), 'unixepoch') as last_change_date,
+                    SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_severity_count,
+                    SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) as medium_severity_count,
+                    SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) as low_severity_count
+                FROM change_log
+                GROUP BY url
+                ORDER BY last_change DESC
+            ''')
+            
+            return [dict(row) for row in cursor.fetchall()]
+            
+        finally:
+            conn.close()
+    
+    def compare_snapshots(self, snapshot_id_1: int, snapshot_id_2: int) -> Dict:
+        """
+        Compare two specific snapshots.
+        
+        Args:
+            snapshot_id_1 (int): First snapshot ID
+            snapshot_id_2 (int): Second snapshot ID
+            
+        Returns:
+            dict: Comparison results
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        try:
+            # Get both snapshots
+            cursor.execute('SELECT * FROM page_snapshots WHERE id = ?', (snapshot_id_1,))
+            snapshot1 = cursor.fetchone()
+            
+            cursor.execute('SELECT * FROM page_snapshots WHERE id = ?', (snapshot_id_2,))
+            snapshot2 = cursor.fetchone()
+            
+            if not snapshot1 or not snapshot2:
+                return {'error': 'Snapshot not found'}
+            
+            comparison = {
+                'snapshot1': dict(snapshot1),
+                'snapshot2': dict(snapshot2),
+                'differences': []
+            }
+            
+            # Compare fields
+            fields = ['title', 'description', 'header_count', 'link_count', 'media_count', 'file_count']
+            for field in fields:
+                if snapshot1[field] != snapshot2[field]:
+                    comparison['differences'].append({
+                        'field': field,
+                        'value1': snapshot1[field],
+                        'value2': snapshot2[field]
+                    })
+            
+            return comparison
+            
+        finally:
+            conn.close()
 
 class Scraper:
     """
@@ -23,7 +779,7 @@ class Scraper:
     - Browser fingerprinting (User-Agent, Viewport, etc.) to avoid detection.
     - Proxy rotation and failure handling.
     - robust authentication (Login with persistence via storage state).
-    - Data extraction (HTML structure, Metadata, JSON-LD, Media).
+    - Data extraction (HTML structure, JSON-LD, Media).
     - Asset downloading (PDFs, Images, etc.).
     - SQLite storage for structured data.
 
@@ -139,6 +895,10 @@ class Scraper:
             'failed': 0,
             'total_bytes': 0
         }
+        
+        # Diff tracking
+        self.diff_tracker = DiffTracker(self.db_path)
+        self.enable_diff_tracking = True  # Can be configured
 
     def _setup_logging(self):
         """
@@ -977,14 +1737,13 @@ class Scraper:
         """
         Main extraction routine for a single page.
         
-        1. Extracts Metadata (Title, Description).
-        2. Extracts JSON-LD structured data.
-        3. Extracts Headers and Body text.
-        4. Extracts Media (Images) and Links.
-        5. Extracts HTML structure using JS injection.
-        6. Downloads linked files if enabled.
-        7. Saves all gathered data to SQLite.
-        8. Saves screenshots and metadata.json to disk.
+        1. Extracts JSON-LD structured data.
+        2. Extracts Headers and Body text.
+        3. Extracts Media (Images) and Links.
+        4. Extracts HTML structure using JS injection.
+        5. Downloads linked files if enabled.
+        6. Saves all gathered data to SQLite.
+        7. Saves screenshots to disk.
 
         Args:
             page (Page): Playwright page object.
@@ -997,7 +1756,6 @@ class Scraper:
         """
         url = page.url
         
-        # --- Metadata Extraction ---
         title = await page.title()
         description = "No description"
         try:
@@ -1153,6 +1911,7 @@ class Scraper:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        page_id = None
         try:
             cursor.execute('''
                 INSERT INTO pages (url, title, description, full_text, depth, timestamp, 
@@ -1214,29 +1973,31 @@ class Scraper:
                      time.time(), file_asset['mime_type']))
             
             conn.commit()
+            
+            # Detect changes if diff tracking is enabled
+            if self.enable_diff_tracking and page_id:
+                try:
+                    change_result = self.diff_tracker.detect_changes(url, page_id)
+                    if change_result and change_result.get('changes_detected'):
+                        self.logger.info(f"Changes detected for {url}: {len(change_result['changes'])} change(s)")
+                        for change in change_result['changes']:
+                            self.logger.info(f"  - {change['summary']} (severity: {change['severity']})")
+                except Exception as e:
+                    self.logger.error(f"Error in diff tracking: {e}")
+            
         except sqlite3.IntegrityError:
-            pass # URL likely already exists
+            # URL already exists - try to get existing page_id for diff tracking
+            cursor.execute('SELECT id FROM pages WHERE url = ?', (url,))
+            existing = cursor.fetchone()
+            if existing and self.enable_diff_tracking:
+                try:
+                    change_result = self.diff_tracker.detect_changes(url, existing[0])
+                    if change_result and change_result.get('changes_detected'):
+                        self.logger.info(f"Changes detected for existing URL {url}")
+                except Exception as e:
+                    self.logger.error(f"Error in diff tracking: {e}")
         finally:
             conn.close()
-
-        # --- Save Metadata JSON & Screenshot ---
-        metadata = {
-            'url': url,
-            'title': title,
-            'description': description,
-            'depth': depth,
-            'timestamp': time.time(),
-            'proxy_used': proxy_used or "Direct",
-            'authenticated': bool(self.storage_state),
-            'headers': headers,
-            'media_count': len(media),
-            'internal_links_count': len(set(internal_links)),
-            'external_links_count': len(set(external_links)),
-            'file_assets': file_assets
-        }
-        
-        with open(os.path.join(folder_path, 'metadata.json'), 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
 
         try:
             await page.screenshot(

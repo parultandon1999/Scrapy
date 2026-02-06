@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Any
 import asyncio
 import json
 import sqlite3
@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 import config
 from scraper import Scraper
+from scraper import DiffTracker
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 import functools
@@ -3049,37 +3050,6 @@ async def get_downloaded_file(filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/metadata/{page_id}")
-async def get_metadata(page_id: int):
-    """Retrieves the JSON metadata file for a specific page."""
-    try:
-        conn = sqlite3.connect(config.get_db_path())
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        cursor.execute('SELECT folder_path FROM pages WHERE id = ?', (page_id,))
-        page = cursor.fetchone()
-        conn.close()
-        
-        if not page or not page['folder_path']:
-            raise HTTPException(status_code=404, detail="Metadata not found")
-        
-        server_dir = os.path.dirname(os.path.abspath(__file__))
-        metadata_path = os.path.join(server_dir, page['folder_path'], 'metadata.json')
-        metadata_path = os.path.normpath(metadata_path)
-        
-        if not os.path.exists(metadata_path):
-            raise HTTPException(status_code=404, detail="Metadata file not found")
-        
-        with open(metadata_path, 'r', encoding='utf-8') as f:
-            metadata = json.load(f)
-        
-        return metadata
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.websocket("/ws/scraper")
 async def websocket_endpoint(websocket: WebSocket):
     """
@@ -3107,3 +3077,353 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+# --- Diff Tracking Endpoints ---
+
+@app.get("/api/diff/monitored-urls")
+async def get_monitored_urls():
+    """
+    Get all URLs that are being monitored for changes.
+    Returns statistics about changes detected for each URL.
+    """
+    try:
+        diff_tracker = DiffTracker(config.get_db_path())
+        urls = diff_tracker.get_all_monitored_urls()
+        
+        return {
+            "monitored_urls": urls,
+            "total_urls": len(urls)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/diff/history/{url:path}")
+async def get_change_history(url: str, limit: int = 20):
+    """
+    Get the complete change history for a specific URL.
+    Shows all detected changes over time with detailed diffs.
+    """
+    try:
+        diff_tracker = DiffTracker(config.get_db_path())
+        history = diff_tracker.get_change_history(url, limit)
+        
+        return {
+            "url": url,
+            "total_changes": len(history),
+            "history": history
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/diff/snapshots/{url:path}")
+async def get_url_snapshots(url: str, limit: int = 10):
+    """
+    Get all snapshots taken for a specific URL.
+    Snapshots represent the state of the page at different points in time.
+    """
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT 
+                id,
+                url,
+                snapshot_timestamp,
+                datetime(snapshot_timestamp, 'unixepoch') as snapshot_date,
+                page_id,
+                content_hash,
+                title,
+                description,
+                header_count,
+                link_count,
+                media_count,
+                file_count
+            FROM page_snapshots
+            WHERE url = ?
+            ORDER BY snapshot_timestamp DESC
+            LIMIT ?
+        ''', (url, limit))
+        
+        snapshots = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return {
+            "url": url,
+            "total_snapshots": len(snapshots),
+            "snapshots": snapshots
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/diff/compare/{snapshot_id_1}/{snapshot_id_2}")
+async def compare_snapshots(snapshot_id_1: int, snapshot_id_2: int):
+    """
+    Compare two specific snapshots to see what changed between them.
+    Useful for analyzing specific time periods.
+    """
+    try:
+        diff_tracker = DiffTracker(config.get_db_path())
+        comparison = diff_tracker.compare_snapshots(snapshot_id_1, snapshot_id_2)
+        
+        return comparison
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/diff/recent-changes")
+async def get_recent_changes(limit: int = 50, severity: Optional[str] = None):
+    """
+    Get the most recent changes across all monitored URLs.
+    Can be filtered by severity (high, medium, low).
+    """
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        query = '''
+            SELECT 
+                cl.*,
+                datetime(cl.change_timestamp, 'unixepoch') as change_date,
+                ps_prev.title as previous_title,
+                ps_curr.title as current_title
+            FROM change_log cl
+            LEFT JOIN page_snapshots ps_prev ON cl.previous_snapshot_id = ps_prev.id
+            LEFT JOIN page_snapshots ps_curr ON cl.current_snapshot_id = ps_curr.id
+        '''
+        
+        params = []
+        if severity:
+            query += ' WHERE cl.severity = ?'
+            params.append(severity)
+        
+        query += ' ORDER BY cl.change_timestamp DESC LIMIT ?'
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        changes = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return {
+            "recent_changes": changes,
+            "total": len(changes),
+            "severity_filter": severity
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/diff/stats")
+async def get_diff_stats():
+    """
+    Get aggregate statistics about change detection across all URLs.
+    """
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Total monitored URLs
+        cursor.execute('SELECT COUNT(DISTINCT url) as count FROM page_snapshots')
+        total_urls = cursor.fetchone()['count']
+        
+        # Total snapshots
+        cursor.execute('SELECT COUNT(*) as count FROM page_snapshots')
+        total_snapshots = cursor.fetchone()['count']
+        
+        # Total changes detected
+        cursor.execute('SELECT COUNT(*) as count FROM change_log')
+        total_changes = cursor.fetchone()['count']
+        
+        # Changes by severity
+        cursor.execute('''
+            SELECT severity, COUNT(*) as count
+            FROM change_log
+            GROUP BY severity
+        ''')
+        changes_by_severity = {row['severity']: row['count'] for row in cursor.fetchall()}
+        
+        # Changes by type
+        cursor.execute('''
+            SELECT change_type, COUNT(*) as count
+            FROM change_log
+            GROUP BY change_type
+        ''')
+        changes_by_type = {row['change_type']: row['count'] for row in cursor.fetchall()}
+        
+        # Changes by category
+        cursor.execute('''
+            SELECT change_category, COUNT(*) as count
+            FROM change_log
+            GROUP BY change_category
+        ''')
+        changes_by_category = {row['change_category']: row['count'] for row in cursor.fetchall()}
+        
+        # Most active URLs (most changes)
+        cursor.execute('''
+            SELECT url, COUNT(*) as change_count
+            FROM change_log
+            GROUP BY url
+            ORDER BY change_count DESC
+            LIMIT 10
+        ''')
+        most_active_urls = [dict(row) for row in cursor.fetchall()]
+        
+        # Recent activity (last 7 days)
+        cursor.execute('''
+            SELECT 
+                date(change_timestamp, 'unixepoch') as date,
+                COUNT(*) as change_count
+            FROM change_log
+            WHERE change_timestamp > strftime('%s', 'now', '-7 days')
+            GROUP BY date
+            ORDER BY date DESC
+        ''')
+        recent_activity = [dict(row) for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return {
+            "total_monitored_urls": total_urls,
+            "total_snapshots": total_snapshots,
+            "total_changes_detected": total_changes,
+            "changes_by_severity": changes_by_severity,
+            "changes_by_type": changes_by_type,
+            "changes_by_category": changes_by_category,
+            "most_active_urls": most_active_urls,
+            "recent_activity": recent_activity
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/diff/content-diff/{change_log_id}")
+async def get_content_diff(change_log_id: int):
+    """
+    Get detailed content diff for a specific change.
+    Returns HTML diff showing exactly what changed.
+    """
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Get change log entry
+        cursor.execute('SELECT * FROM change_log WHERE id = ?', (change_log_id,))
+        change = cursor.fetchone()
+        
+        if not change:
+            raise HTTPException(status_code=404, detail="Change not found")
+        
+        change_dict = dict(change)
+        
+        # Get content diffs
+        cursor.execute('SELECT * FROM content_diffs WHERE change_log_id = ?', (change_log_id,))
+        change_dict['content_diffs'] = [dict(row) for row in cursor.fetchall()]
+        
+        # Get link changes
+        cursor.execute('SELECT * FROM link_changes WHERE change_log_id = ?', (change_log_id,))
+        change_dict['link_changes'] = [dict(row) for row in cursor.fetchall()]
+        
+        # Get media changes
+        cursor.execute('SELECT * FROM media_changes WHERE change_log_id = ?', (change_log_id,))
+        change_dict['media_changes'] = [dict(row) for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return change_dict
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/diff/snapshots/{snapshot_id}")
+async def delete_snapshot(snapshot_id: int):
+    """
+    Delete a specific snapshot and its associated change logs.
+    """
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        cursor = conn.cursor()
+        
+        # Delete associated change logs
+        cursor.execute('''
+            DELETE FROM change_log 
+            WHERE previous_snapshot_id = ? OR current_snapshot_id = ?
+        ''', (snapshot_id, snapshot_id))
+        
+        # Delete the snapshot
+        cursor.execute('DELETE FROM page_snapshots WHERE id = ?', (snapshot_id,))
+        
+        conn.commit()
+        deleted = cursor.rowcount > 0
+        conn.close()
+        
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+        
+        return {"success": True, "message": f"Snapshot {snapshot_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/diff/timeline/{url:path}")
+async def get_change_timeline(url: str):
+    """
+    Get a visual timeline of all changes for a URL.
+    Groups changes by date for easy visualization.
+    """
+    try:
+        conn = sqlite3.connect(config.get_db_path())
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT 
+                date(change_timestamp, 'unixepoch') as date,
+                COUNT(*) as change_count,
+                GROUP_CONCAT(change_summary, ' | ') as summaries,
+                SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) as high_severity,
+                SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) as medium_severity,
+                SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) as low_severity
+            FROM change_log
+            WHERE url = ?
+            GROUP BY date
+            ORDER BY date DESC
+        ''', (url,))
+        
+        timeline = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return {
+            "url": url,
+            "timeline": timeline
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- WebSocket for Real-time Diff Updates ---
+
+@app.websocket("/ws/diff")
+async def websocket_diff_updates(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time change notifications.
+    Clients can subscribe to get notified when changes are detected.
+    """
+    await websocket.accept()
+    websocket_connections.append(websocket)
+    
+    try:
+        while True:
+            # Keep connection alive
+            data = await websocket.receive_text()
+            
+            # Echo back for heartbeat
+            await websocket.send_json({"type": "heartbeat", "status": "connected"})
+    except WebSocketDisconnect:
+        websocket_connections.remove(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        if websocket in websocket_connections:
+            websocket_connections.remove(websocket)
