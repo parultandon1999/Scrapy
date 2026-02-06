@@ -1,28 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import {
-  Box,
-  Container,
-  Grid,
-  Paper,
-  Typography,
-  TextField,
-  InputAdornment,
-  Stack,
-  Chip,
-  Tabs,
-  Tab,
-  Avatar,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Card,
-  CardContent,
-  IconButton,
-  Dialog,
-  DialogContent,
-} from '@mui/material'
 import Navbar from '../components/Navbar'
 import Breadcrumb from '../components/mui/breadcrumbs/Breadcrumb'
 import Button from '../components/mui/buttons/Button'
@@ -91,426 +68,375 @@ function PageDetails({ darkMode, toggleDarkMode }) {
     }
   }, [imageViewerOpen])
 
+  // Tabs Configuration
+  const tabs = [
+    { icon: 'Description', label: 'Overview' },
+    { icon: 'Visibility', label: 'Screenshot' },
+    { icon: 'Tag', label: 'Headers' },
+    { icon: 'Link', label: 'Links' },
+    { icon: 'Image', label: 'Images' },
+    { icon: 'Download', label: 'Files' },
+    { icon: 'Layers', label: 'HTML' },
+    { icon: 'Description', label: 'Content' },
+    { icon: 'Security', label: 'Fingerprint' },
+  ]
+
+  // Helper for Chip styles
+  const Chip = ({ label, icon, color = 'primary', size = 'medium', className = '' }) => {
+    const baseStyles = "inline-flex items-center justify-center rounded-full font-medium border"
+    const sizeStyles = size === 'small' ? "px-2 py-0.5 text-xs h-5" : "px-3 py-1 text-sm h-7"
+    
+    let colorStyles = "bg-gray-100 text-gray-700 border-gray-200"
+    if (color === 'primary') colorStyles = "bg-blue-50 text-blue-700 border-blue-100"
+    if (color === 'success') colorStyles = "bg-green-50 text-green-700 border-green-100"
+    if (color === 'error') colorStyles = "bg-red-50 text-red-700 border-red-100"
+
+    return (
+      <span className={`${baseStyles} ${sizeStyles} ${colorStyles} ${className}`}>
+        {icon && <span className="mr-1 flex items-center">{icon}</span>}
+        {label}
+      </span>
+    )
+  }
+
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-10">
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
 
-      <Container maxWidth="xl" sx={{ py: 3 }}>
-        {/* Header */}
-        <Box sx={{ mb: 3 }}>
+      <div className="container mx-auto px-4 xl:px-8 py-6 max-w-[1600px]">
+        {/* Header Breadcrumb */}
+        <div className="mb-6">
           <Breadcrumb
             items={[
               { label: 'Progress', icon: 'Timeline', onClick: () => navigate(-1) },
               { label: 'Page Details' }
             ]}
           />
-        </Box>
+        </div>
 
         {loading ? (
           <ScrapingProgressSkeleton />
         ) : page ? (
           <>
             {/* Page Header */}
-            <Box sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
                 <Button variant="icon" iconOnly onClick={() => navigate(-1)} size="small">
                   <Icon name="ArrowBack" size={18} />
                 </Button>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="h5" fontWeight={400} noWrap>
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl font-normal text-gray-900 dark:text-white truncate">
                     {page.title || 'Untitled Page'}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="primary"
-                    component="a"
+                  </h1>
+                  <a
                     href={page.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                    className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline mt-0.5 w-fit"
                   >
                     {page.url} <Icon name="OpenInNew" size={12} />
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
+                  </a>
+                </div>
+              </div>
+            </div>
 
-            {/* Tabs */}
-            <Paper sx={{ mb: 3 }}>
-              <Tabs
-                value={activeTab}
-                onChange={(e, newValue) => setActiveTab(newValue)}
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{ minHeight: 48, '& .MuiTab-root': { minHeight: 48, py: 1.5 } }}
-              >
-                <Tab icon={<Icon name="Description" size={16} />} label="Overview" iconPosition="start" />
-                <Tab icon={<Icon name="Visibility" size={16} />} label="Screenshot" iconPosition="start" />
-                <Tab icon={<Icon name="Tag" size={16} />} label="Headers" iconPosition="start" />
-                <Tab icon={<Icon name="Link" size={16} />} label="Links" iconPosition="start" />
-                <Tab icon={<Icon name="Image" size={16} />} label="Images" iconPosition="start" />
-                <Tab icon={<Icon name="Download" size={16} />} label="Files" iconPosition="start" />
-                <Tab icon={<Icon name="Layers" size={16} />} label="HTML" iconPosition="start" />
-                <Tab icon={<Icon name="Description" size={16} />} label="Content" iconPosition="start" />
-                <Tab icon={<Icon name="Security" size={16} />} label="Fingerprint" iconPosition="start" />
-              </Tabs>
-            </Paper>
+            {/* Tabs Navigation */}
+            <div className="mb-6 bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] overflow-hidden">
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex min-w-max border-b border-gray-100 dark:border-[#333741]">
+                  {tabs.map((tab, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setActiveTab(index)}
+                      className={`
+                        flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors relative
+                        ${activeTab === index 
+                          ? 'text-blue-600 dark:text-blue-400' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-[#2A2D35]'
+                        }
+                      `}
+                    >
+                      <Icon name={tab.icon} size={16} />
+                      {tab.label}
+                      {activeTab === index && (
+                        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             {/* Tab Content */}
-            <Box>
+            <div className="animate-in fade-in duration-300">
+              
               {/* Overview Tab */}
               {activeTab === 0 && (
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <Paper sx={{ p: 2 }}>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom>
-                        METADATA
-                      </Typography>
-                      <Stack spacing={1} sx={{ mt: 1 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" color="text.secondary">Scraped At</Typography>
-                          <Typography variant="caption">{page.scraped_at}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" color="text.secondary">Depth Level</Typography>
-                          <Typography variant="caption">Level {page.depth}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" color="text.secondary">Proxy</Typography>
-                          <Typography variant="caption">{detailedViewData.proxy_used || 'Direct'}</Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" color="text.secondary">Authenticated</Typography>
-                          <Typography variant="caption">{detailedViewData.authenticated ? 'Yes' : 'No'}</Typography>
-                        </Box>
-                      </Stack>
-                    </Paper>
-                  </Grid>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* Metadata */}
+                  <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] p-5">
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+                      METADATA
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Scraped At</span>
+                        <span className="text-gray-900 dark:text-gray-200">{page.scraped_at}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Depth Level</span>
+                        <span className="text-gray-900 dark:text-gray-200">Level {page.depth}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Proxy</span>
+                        <span className="text-gray-900 dark:text-gray-200">{detailedViewData.proxy_used || 'Direct'}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Authenticated</span>
+                        <span className="text-gray-900 dark:text-gray-200">{detailedViewData.authenticated ? 'Yes' : 'No'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                  <Grid item xs={12} md={6}>
-                    <Paper sx={{ p: 2 }}>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom>
-                        STATS
-                      </Typography>
-                      <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                        {[
-                          { label: 'Images', value: detailedViewData.media?.length || 0, icon: 'Image' },
-                          { label: 'Int. Links', value: detailedViewData.links?.filter(l => l.link_type === 'internal').length || 0, icon: 'Link' },
-                          { label: 'Ext. Links', value: detailedViewData.links?.filter(l => l.link_type === 'external').length || 0, icon: 'OpenInNew' },
-                          { label: 'Files', value: detailedViewData.file_assets?.length || 0, icon: 'Download' },
-                        ].map((stat, i) => (
-                          <Grid item xs={6} key={i}>
-                            <Paper variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Icon name={stat.icon} size={14} color="primary" />
-                              <Box>
-                                <Typography variant="body2" fontWeight="medium">{stat.value}</Typography>
-                                <Typography variant="caption" color="text.secondary" fontSize="0.65rem">{stat.label}</Typography>
-                              </Box>
-                            </Paper>
-                          </Grid>
-                        ))}
-                      </Grid>
-                    </Paper>
-                  </Grid>
+                  {/* Stats */}
+                  <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] p-5">
+                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+                      STATS
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: 'Images', value: detailedViewData.media?.length || 0, icon: 'Image' },
+                        { label: 'Int. Links', value: detailedViewData.links?.filter(l => l.link_type === 'internal').length || 0, icon: 'Link' },
+                        { label: 'Ext. Links', value: detailedViewData.links?.filter(l => l.link_type === 'external').length || 0, icon: 'OpenInNew' },
+                        { label: 'Files', value: detailedViewData.file_assets?.length || 0, icon: 'Download' },
+                      ].map((stat, i) => (
+                        <div key={i} className="border border-gray-200 dark:border-[#333741] rounded p-3 flex items-center gap-3">
+                          <div className="text-blue-600 dark:text-blue-400">
+                            <Icon name={stat.icon} size={14} />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{stat.value}</div>
+                            <div className="text-[10px] uppercase text-gray-500 dark:text-gray-400">{stat.label}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
+                  {/* Description */}
                   {detailedViewData?.description && detailedViewData.description !== 'No description' && (
-                    <Grid item xs={12}>
-                      <Paper sx={{ p: 2 }}>
-                        <Typography variant="caption" fontWeight="bold" color="text.secondary" gutterBottom>
-                          DESCRIPTION
-                        </Typography>
-                        <Typography variant="body2" sx={{ mt: 1, fontSize: '0.875rem' }}>
-                          {detailedViewData.description}
-                        </Typography>
-                      </Paper>
-                    </Grid>
+                    <div className="col-span-1 md:col-span-2 bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] p-5">
+                      <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
+                        DESCRIPTION
+                      </h3>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {detailedViewData.description}
+                      </p>
+                    </div>
                   )}
-                </Grid>
+                </div>
               )}
 
               {/* Screenshot Tab */}
               {activeTab === 1 && (
-                <Paper sx={{ p: 2 }}>
-                  <Box
-                    component="img"
+                <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] p-4">
+                  <img
                     src={api.getScreenshotUrl(page.id)}
                     alt="Page Screenshot"
-                    sx={{
-                      width: '100%',
-                      height: 'auto',
-                      borderRadius: 1,
-                      cursor: 'zoom-in',
-                      '&:hover': { opacity: 0.95 }
-                    }}
+                    className="w-full h-auto rounded border border-gray-100 dark:border-gray-700 cursor-zoom-in hover:opacity-95 transition-opacity"
                     onClick={() => openImageViewer({
                       src: api.getScreenshotUrl(page.id),
                       alt: `Screenshot of ${page.title}`
                     })}
                   />
-                </Paper>
+                </div>
               )}
 
               {/* Headers Tab */}
               {activeTab === 2 && (
-                <Stack spacing={1}>
+                <div className="space-y-2">
                   {detailedViewData?.headers?.length > 0 ? (
                     detailedViewData.headers.map((header, idx) => (
-                      <Paper key={idx} variant="outlined" sx={{ p: 2, display: 'flex', gap: 2 }}>
+                      <div key={idx} className="bg-white dark:bg-[#1A1D24] rounded-lg border border-gray-200 dark:border-[#333741] p-4 flex gap-4 items-start">
                         <Chip label={header.header_type} color="primary" size="small" />
-                        <Typography variant="body2">{header.header_text}</Typography>
-                      </Paper>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 break-words flex-1">
+                          {header.header_text}
+                        </span>
+                      </div>
                     ))
                   ) : (
-                    <Paper sx={{ p: 8, textAlign: 'center' }}>
-                      <Typography color="text.secondary">No headers found</Typography>
-                    </Paper>
+                    <div className="bg-white dark:bg-[#1A1D24] rounded-lg border border-gray-200 dark:border-[#333741] p-12 text-center text-gray-500">
+                      No headers found
+                    </div>
                   )}
-                </Stack>
+                </div>
               )}
 
               {/* Links Tab */}
               {activeTab === 3 && (
-                <Paper>
+                <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] overflow-hidden">
                   {detailedViewData?.links?.length > 0 ? (
-                    <List sx={{ maxHeight: 600, overflow: 'auto' }}>
+                    <ul className="max-h-[600px] overflow-y-auto divide-y divide-gray-100 dark:divide-[#333741]">
                       {detailedViewData.links.map((link, idx) => (
-                        <ListItem
-                          key={idx}
-                          component="a"
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ textDecoration: 'none', color: 'inherit' }}
-                        >
-                          <ListItemIcon>
+                        <li key={idx}>
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#2A2D35] transition-colors group"
+                          >
                             <Chip
                               icon={<Icon name={link.link_type === 'internal' ? 'Link' : 'OpenInNew'} size={14} />}
                               label={link.link_type}
                               color={link.link_type === 'internal' ? 'primary' : 'success'}
                               size="small"
                             />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={link.url}
-                            primaryTypographyProps={{
-                              variant: 'body2',
-                              noWrap: true,
-                              sx: { '&:hover': { color: 'primary.main' } }
-                            }}
-                          />
-                        </ListItem>
+                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                              {link.url}
+                            </span>
+                          </a>
+                        </li>
                       ))}
-                    </List>
+                    </ul>
                   ) : (
-                    <Box sx={{ p: 8, textAlign: 'center' }}>
-                      <Typography color="text.secondary">No links found</Typography>
-                    </Box>
+                    <div className="p-12 text-center text-gray-500">
+                      No links found
+                    </div>
                   )}
-                </Paper>
+                </div>
               )}
 
               {/* Images Tab */}
               {activeTab === 4 && (
-                <Box>
+                <div>
                   {detailedViewData?.media?.length > 0 ? (
                     <>
-                      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="body2" color="text.secondary">
+                      <div className="flex justify-between items-center mb-4 px-1">
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
                           {detailedViewData.media.length} images found
-                        </Typography>
+                        </span>
                         <Chip
                           label="Click to enlarge"
                           size="small"
                           icon={<Icon name="ZoomIn" size={14} />}
+                          className="bg-gray-50 border-gray-200"
                         />
-                      </Box>
-                      <Grid container spacing={2}>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                         {detailedViewData.media.map((img, idx) => {
                           const imageSrc = api.getProxyImageUrl(img.src)
                           return (
-                            <Grid item xs={6} sm={4} md={3} key={idx}>
-                              <Paper
-                                elevation={2}
-                                sx={{
-                                  position: 'relative',
-                                  paddingTop: '100%',
-                                  overflow: 'hidden',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s',
-                                  '&:hover': {
-                                    boxShadow: 6,
-                                    transform: 'translateY(-4px)',
-                                    '& img': { transform: 'scale(1.1)' },
-                                    '& .image-overlay': { opacity: 1 }
-                                  }
+                            <div
+                              key={idx}
+                              className="group relative bg-white dark:bg-[#1A1D24] rounded-lg border border-gray-200 dark:border-[#333741] overflow-hidden aspect-square cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
+                              onClick={() => openImageViewer({ src: imageSrc, alt: img.alt || 'Image' })}
+                            >
+                              <img
+                                src={imageSrc}
+                                alt={img.alt || 'Image'}
+                                loading="lazy"
+                                className="w-full h-full object-cover bg-gray-100 dark:bg-gray-800 transition-transform duration-300 group-hover:scale-110"
+                                onError={(e) => {
+                                  e.target.style.display = 'none'
+                                  e.target.nextSibling.style.display = 'flex'
                                 }}
-                                onClick={() => openImageViewer({ src: imageSrc, alt: img.alt || 'Image' })}
-                              >
-                                <Box
-                                  component="img"
-                                  src={imageSrc}
-                                  alt={img.alt || 'Image'}
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none'
-                                    const parent = e.target.parentElement
-                                    if (parent && !parent.querySelector('.error-placeholder')) {
-                                      const errorDiv = document.createElement('div')
-                                      errorDiv.className = 'error-placeholder'
-                                      errorDiv.style.cssText = `
-                                        position: absolute;
-                                        top: 0;
-                                        left: 0;
-                                        width: 100%;
-                                        height: 100%;
-                                        display: flex;
-                                        align-items: center;
-                                        justify-content: center;
-                                        background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
-                                        color: #999;
-                                        font-size: 12px;
-                                        text-align: center;
-                                        padding: 16px;
-                                        flex-direction: column;
-                                        gap: 8px;
-                                      `
-                                      errorDiv.innerHTML = `
-                                        <div style="font-size: 32px;">🖼️</div>
-                                        <div style="font-weight: 500;">Image unavailable</div>
-                                      `
-                                      parent.appendChild(errorDiv)
-                                    }
-                                  }}
-                                  sx={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover',
-                                    transition: 'transform 0.3s ease',
-                                    bgcolor: 'grey.200'
-                                  }}
-                                />
+                              />
+                              {/* Error Placeholder */}
+                              <div className="hidden absolute inset-0 flex-col items-center justify-center bg-gray-50 text-gray-400 p-4 text-center">
+                                <span className="text-2xl mb-2">🖼️</span>
+                                <span className="text-xs font-medium">Image unavailable</span>
+                              </div>
 
-                                <Box
-                                  className="image-overlay"
-                                  sx={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    bgcolor: 'rgba(0,0,0,0.5)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    opacity: 0,
-                                    transition: 'opacity 0.2s',
-                                    pointerEvents: 'none'
-                                  }}
-                                >
-                                  <Icon name="ZoomIn" size={32} sx={{ color: 'white' }} />
-                                </Box>
+                              {/* Hover Overlay */}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                <Icon name="ZoomIn" size={32} className="text-white drop-shadow-md" />
+                              </div>
 
-                                {img.alt && (
-                                  <Box
-                                    sx={{
-                                      position: 'absolute',
-                                      bottom: 0,
-                                      left: 0,
-                                      right: 0,
-                                      bgcolor: 'rgba(0,0,0,0.75)',
-                                      color: 'white',
-                                      px: 1,
-                                      py: 0.5,
-                                      fontSize: '0.65rem',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                      backdropFilter: 'blur(4px)'
-                                    }}
-                                  >
-                                    {img.alt}
-                                  </Box>
-                                )}
-                              </Paper>
-                            </Grid>
+                              {/* Alt Text Label */}
+                              {img.alt && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/75 text-white px-2 py-1 text-[10px] truncate backdrop-blur-sm">
+                                  {img.alt}
+                                </div>
+                              )}
+                            </div>
                           )
                         })}
-                      </Grid>
+                      </div>
                     </>
                   ) : (
-                    <Paper sx={{ p: 8, textAlign: 'center' }}>
-                      <Icon name="Image" size={48} sx={{ color: 'text.disabled', mb: 2 }} />
-                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                    <div className="bg-white dark:bg-[#1A1D24] rounded-lg border border-gray-200 dark:border-[#333741] p-12 text-center">
+                      <div className="text-gray-300 dark:text-gray-600 mb-3 flex justify-center">
+                        <Icon name="Image" size={48} />
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-1">
                         No images found
-                      </Typography>
-                      <Typography variant="body2" color="text.disabled">
+                      </h3>
+                      <p className="text-sm text-gray-400 dark:text-gray-600">
                         This page doesn't contain any images
-                      </Typography>
-                    </Paper>
+                      </p>
+                    </div>
                   )}
-                </Box>
+                </div>
               )}
 
               {/* Files Tab */}
               {activeTab === 5 && (
-                <Stack spacing={2}>
+                <div className="space-y-3">
                   {detailedViewData?.file_assets?.length > 0 ? (
                     detailedViewData.file_assets.map((file, idx) => (
-                      <Card key={idx} variant="outlined">
-                        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar sx={{ bgcolor: 'primary.main' }}>
-                            <Icon name="InsertDriveFile" size={20} />
-                          </Avatar>
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" noWrap>{file.file_name}</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                              <Chip label={file.file_extension} size="small" />
-                              <Typography variant="caption" color="text.secondary">
-                                {api.formatBytes(file.file_size_bytes)}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          <Chip
-                            icon={<Icon name={file.download_status === 'success' ? 'CheckCircle' : 'Cancel'} size={12} />}
-                            label={file.download_status === 'success' ? 'Saved' : 'Failed'}
-                            color={file.download_status === 'success' ? 'success' : 'error'}
-                            size="small"
-                          />
-                        </CardContent>
-                      </Card>
+                      <div key={idx} className="bg-white dark:bg-[#1A1D24] rounded-lg border border-gray-200 dark:border-[#333741] p-4 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                          <Icon name="InsertDriveFile" size={20} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {file.file_name}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                              {file.file_extension}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {api.formatBytes(file.file_size_bytes)}
+                            </span>
+                          </div>
+                        </div>
+                        <Chip
+                          icon={<Icon name={file.download_status === 'success' ? 'CheckCircle' : 'Cancel'} size={12} />}
+                          label={file.download_status === 'success' ? 'Saved' : 'Failed'}
+                          color={file.download_status === 'success' ? 'success' : 'error'}
+                          size="small"
+                        />
+                      </div>
                     ))
                   ) : (
-                    <Paper sx={{ p: 8, textAlign: 'center' }}>
-                      <Typography color="text.secondary">No files found</Typography>
-                    </Paper>
+                    <div className="bg-white dark:bg-[#1A1D24] rounded-lg border border-gray-200 dark:border-[#333741] p-12 text-center text-gray-500">
+                      No files found
+                    </div>
                   )}
-                </Stack>
+                </div>
               )}
 
               {/* HTML Structure Tab */}
               {activeTab === 6 && (
-                <Paper>
-                  <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder="Filter by tag, selector, or content..."
-                      value={htmlStructureSearch}
-                      onChange={(e) => setHtmlStructureSearch(e.target.value)}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Icon name="Search" size={18} />
-                          </InputAdornment>
-                        )
-                      }}
-                    />
-                  </Box>
-                  <Box sx={{ maxHeight: 600, overflow: 'auto', p: 2 }}>
-                    <Stack spacing={2}>
+                <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] flex flex-col h-[700px]">
+                  <div className="p-3 border-b border-gray-100 dark:border-[#333741]">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <Icon name="Search" size={18} />
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Filter by tag, selector, or content..."
+                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-transparent text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        value={htmlStructureSearch}
+                        onChange={(e) => setHtmlStructureSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    <div className="space-y-3">
                       {detailedViewData?.html_structure?.length > 0 ? (
                         detailedViewData.html_structure
                           .filter(elem => {
@@ -523,106 +449,90 @@ function PageDetails({ darkMode, toggleDarkMode }) {
                             )
                           })
                           .map((elem, idx) => (
-                            <Paper key={idx} variant="outlined" sx={{ p: 2 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <div key={idx} className="border border-gray-200 dark:border-[#333741] rounded p-3 bg-gray-50 dark:bg-[#1F2229]">
+                              <div className="flex items-center gap-2 mb-2">
                                 <Chip label={elem.tag_name} color="primary" size="small" />
-                                <Typography variant="caption" fontFamily="monospace" color="text.secondary" noWrap sx={{ flex: 1 }}>
+                                <code className="text-xs text-gray-500 dark:text-gray-400 font-mono truncate flex-1">
                                   {elem.selector}
-                                </Typography>
-                              </Box>
+                                </code>
+                              </div>
                               {elem.text_content && (
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 break-words">
                                   {elem.text_content}
-                                </Typography>
+                                </p>
                               )}
-                            </Paper>
+                            </div>
                           ))
                       ) : (
-                        <Typography color="text.secondary" textAlign="center" py={4}>
+                        <div className="text-center py-8 text-gray-500">
                           No HTML structure data available
-                        </Typography>
+                        </div>
                       )}
-                    </Stack>
-                  </Box>
-                </Paper>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Content Tab */}
               {activeTab === 7 && (
-                <Paper sx={{ p: 3 }}>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] p-6">
+                  <pre className="whitespace-pre-wrap font-mono text-sm text-gray-700 dark:text-gray-300 overflow-x-auto">
                     {detailedViewData?.full_text || 'No content available'}
-                  </Typography>
-                </Paper>
+                  </pre>
+                </div>
               )}
 
               {/* Fingerprint Tab */}
               {activeTab === 8 && (
-                <Paper sx={{ p: 3 }}>
+                <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] p-6">
                   {detailedViewData?.fingerprint ? (
-                    <Box component="pre" sx={{ overflow: 'auto', fontSize: '0.875rem' }}>
+                    <pre className="text-sm text-gray-700 dark:text-gray-300 overflow-x-auto custom-scrollbar">
                       {JSON.stringify(JSON.parse(detailedViewData.fingerprint), null, 2)}
-                    </Box>
+                    </pre>
                   ) : (
-                    <Typography color="text.secondary" textAlign="center">
+                    <div className="text-center text-gray-500">
                       No fingerprint data available
-                    </Typography>
+                    </div>
                   )}
-                </Paper>
+                </div>
               )}
-            </Box>
+            </div>
           </>
         ) : (
-          <Paper sx={{ p: 8, textAlign: 'center' }}>
-            <Typography variant="h6" color="text.secondary">
-              Page not found
-            </Typography>
-          </Paper>
+          <div className="bg-white dark:bg-[#1A1D24] rounded-lg shadow-sm border border-gray-200 dark:border-[#333741] p-12 text-center">
+            <h2 className="text-lg font-medium text-gray-500">Page not found</h2>
+          </div>
         )}
-      </Container>
+      </div>
 
       {/* Image Viewer Modal */}
       {imageViewerOpen && currentImage && (
-        <Dialog
-          open={imageViewerOpen}
-          onClose={closeImageViewer}
-          maxWidth="xl"
-          fullWidth
-          PaperProps={{
-            sx: {
-              bgcolor: 'rgba(0,0,0,0.95)',
-              boxShadow: 'none',
-            }
-          }}
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={closeImageViewer}
         >
-          <DialogContent sx={{ p: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-            <IconButton
-              onClick={closeImageViewer}
-              sx={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                color: 'white',
-                bgcolor: 'rgba(0,0,0,0.5)',
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
-              }}
-            >
-              <Icon name="Close" size={24} />
-            </IconButton>
-            <Box
-              component="img"
+          {/* Close Button */}
+          <button
+            onClick={closeImageViewer}
+            className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/50 hover:bg-black/70 rounded-full p-2 transition-colors z-[210]"
+          >
+            <Icon name="Close" size={24} />
+          </button>
+          
+          {/* Image */}
+          <div 
+            className="relative w-full h-full p-4 flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()} // Clicking image area shouldn't close
+          >
+            <img
               src={currentImage.src}
               alt={currentImage.alt}
-              sx={{
-                maxWidth: '100%',
-                maxHeight: '80vh',
-                objectFit: 'contain',
-              }}
+              className="max-w-full max-h-[90vh] object-contain shadow-2xl rounded-sm"
             />
-          </DialogContent>
-        </Dialog>
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }
 

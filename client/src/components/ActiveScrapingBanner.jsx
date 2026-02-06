@@ -14,6 +14,8 @@ function ActiveScrapingBanner() {
   const intervalRef = useRef(null)
   const consecutiveInactiveRef = useRef(0)
   const hideTimeoutRef = useRef(null)
+  
+  // Keep existing dark mode detection logic
   const isDark = document.body.classList.contains('dark-mode')
   const [isHovered, setIsHovered] = useState(false)
 
@@ -117,81 +119,12 @@ function ActiveScrapingBanner() {
     ? (scrapingData.pagesScraped / scrapingData.maxPages) * 100 
     : 0
 
-  // Untitled UI design tokens
-  const styles = {
-    indicator: {
-      position: 'relative',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '40px',
-      height: '40px',
-      borderRadius: '20px',
-      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-      cursor: 'pointer',
-    },
-    indicatorDark: {
-    },
-    indicatorHover: {
-      background: 'rgba(0, 0, 0, 0.05)',
-    },
-    indicatorHoverDark: {
-      background: 'rgba(255, 255, 255, 0.1)',
-    },
-    tooltip: {
-      position: 'absolute',
-      top: 'calc(100% + 8px)',
-      left: '0',
-      minWidth: '180px',
-      padding: '12px',
-      background: '#FFFFFF',
-      border: '1px solid #E4E7EC',
-      borderRadius: '4px',
-      boxShadow: '0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03)',
-      zIndex: '1000',
-      opacity: showTooltip ? 1 : 0,
-      visibility: showTooltip ? 'visible' : 'hidden',
-      transform: showTooltip ? 'translateY(0)' : 'translateY(-4px)',
-      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-      pointerEvents: showTooltip ? 'auto' : 'none',
-      cursor: 'default'
-    },
-    tooltipDark: {
-      background: '#1A1D24',
-      border: '1px solid #333741',
-      boxShadow: '0 12px 16px -4px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3)',
-    },
-    tooltipUrl: {
-      fontSize: '12px',
-      color: '#475467',
-      marginBottom: '8px',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-      lineHeight: '18px',
-      maxWidth: '240px', // Added maxWidth to ensure ellipsis works if parent isn't constrained
-    },
-    tooltipUrlDark: {
-      color: '#98A2B3',
-    },
-    tooltipStats: {
-      fontSize: '12px',
-      color: '#667085',
-      marginBottom: '8px',
-      lineHeight: '18px',
-    },
-    tooltipStatsDark: {
-      color: '#85888E',
-    },
-  }
-
   return (
     <div
-      style={{
-        ...styles.indicator,
-        ...(isDark && styles.indicatorDark),
-        ...(isHovered && (isDark ? styles.indicatorHoverDark : styles.indicatorHover)),
-      }}
+      className={`
+        relative inline-flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 cursor-pointer
+        ${isHovered ? (isDark ? 'bg-white/10' : 'bg-black/5') : ''}
+      `}
       onMouseEnter={() => {
         setIsHovered(true)
         setShowTooltip(true)
@@ -213,10 +146,8 @@ function ActiveScrapingBanner() {
         <Icon 
           name="Pause" 
           size={20}
-          style={{ 
-            cursor: 'pointer',
-            color: isDark ? '#FFA500' : '#FF8C00'
-          }} 
+          className="cursor-pointer"
+          style={{ color: isDark ? '#FFA500' : '#FF8C00' }} 
         />
       ) : (
         <Progress 
@@ -228,94 +159,87 @@ function ActiveScrapingBanner() {
         />
       )}
 
+      {/* Tooltip */}
       <div 
-          style={{
-            ...styles.tooltip,
-            ...(isDark && styles.tooltipDark),
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseEnter={() => {
-            clearTimeout(hideTimeoutRef.current)
-            setShowTooltip(true)
-          }}
-          onMouseLeave={() => {
-            setShowTooltip(false)
-          }}
-        >
-          <div style={{
-            ...styles.tooltipUrl,
-            ...(isDark && styles.tooltipUrlDark),
-          }}>
-            {scrapingData.url}
-          </div>
-          <div style={{
-            ...styles.tooltipStats,
-            ...(isDark && styles.tooltipStatsDark),
-          }}>
-            {scrapingData.pagesScraped} / {scrapingData.maxPages} pages scraped
-          </div>
-          {scrapingData.maxPages > 0 && (
-            <div style={{ marginBottom: '8px' }}>
-              <Progress 
-                type="linear"
-                variant="determinate"
-                value={progress}
-                color="success"
-                size="small"
-              />
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-            <Button
-              variant={scrapingData.isPaused ? 'success' : 'warning'}
-              size="small"
-              // REDUCED HEIGHT: Changed padding and added explicit height/minHeight
-              style={{ 
-                padding: '4px 10px', 
-                fontSize: '11px', 
-                height: '26px', 
-                minHeight: 'auto',
-                lineHeight: '1' ,
-                boxShadow: 'none',
-                borderRadius: '4px'
-              }}
-              onClick={async (e) => {
-                e.stopPropagation()
-                try {
-                  if (scrapingData.isPaused) {
-                    await api.resumeScraper()
-                  } else {
-                    await api.pauseScraper()
-                  }
-                } catch (error) {
-                  console.error('Failed to toggle scraper:', error)
-                }
-              }}
-            >
-              {scrapingData.isPaused ? 'Resume' : 'Pause'}
-            </Button>
-            <Button
-              variant="primary"
-              size="small"
-              // REDUCED HEIGHT: Changed padding and added explicit height/minHeight
-              style={{ 
-                padding: '4px 12px', 
-                fontSize: '11px', 
-                height: '26px', 
-                minHeight: 'auto',
-                lineHeight: '1' ,
-                boxShadow: 'none',
-                borderRadius: '4px'
-              }}
-              onClick={(e) => {
-                e.stopPropagation()
-                handleClick()
-              }}
-            >
-              Progress
-            </Button>
-          </div>
+        className={`
+          absolute top-[calc(100%+8px)] left-0 min-w-[180px] p-3 rounded-md border shadow-lg z-[1000]
+          transition-all duration-200 ease-out cursor-default
+          ${isDark 
+            ? 'bg-[#1A1D24] border-[#333741] shadow-[0_12px_16px_-4px_rgba(0,0,0,0.4)]' 
+            : 'bg-white border-[#E4E7EC] shadow-[0_12px_16px_-4px_rgba(16,24,40,0.08)]'}
+          ${showTooltip 
+            ? 'opacity-100 visible translate-y-0 pointer-events-auto' 
+            : 'opacity-0 invisible -translate-y-1 pointer-events-none'}
+        `}
+        onClick={(e) => e.stopPropagation()}
+        onMouseEnter={() => {
+          clearTimeout(hideTimeoutRef.current)
+          setShowTooltip(true)
+        }}
+        onMouseLeave={() => {
+          setShowTooltip(false)
+        }}
+      >
+        <div className={`
+          text-xs mb-2 overflow-hidden text-ellipsis whitespace-nowrap leading-[18px] max-w-[240px]
+          ${isDark ? 'text-[#98A2B3]' : 'text-[#475467]'}
+        `}>
+          {scrapingData.url}
         </div>
+        
+        <div className={`
+          text-xs mb-2 leading-[18px]
+          ${isDark ? 'text-[#85888E]' : 'text-[#667085]'}
+        `}>
+          {scrapingData.pagesScraped} / {scrapingData.maxPages} pages scraped
+        </div>
+
+        {scrapingData.maxPages > 0 && (
+          <div className="mb-2">
+            <Progress 
+              type="linear"
+              variant="determinate"
+              value={progress}
+              color="success"
+              size="small"
+            />
+          </div>
+        )}
+
+        <div className="flex gap-2 mt-2">
+          <Button
+            variant={scrapingData.isPaused ? 'success' : 'warning'}
+            size="small"
+            className="px-2.5 py-1 text-[11px] h-[26px] min-h-0 leading-none shadow-none rounded"
+            onClick={async (e) => {
+              e.stopPropagation()
+              try {
+                if (scrapingData.isPaused) {
+                  await api.resumeScraper()
+                } else {
+                  await api.pauseScraper()
+                }
+              } catch (error) {
+                console.error('Failed to toggle scraper:', error)
+              }
+            }}
+          >
+            {scrapingData.isPaused ? 'Resume' : 'Pause'}
+          </Button>
+          
+          <Button
+            variant="primary"
+            size="small"
+            className="px-3 py-1 text-[11px] h-[26px] min-h-0 leading-none shadow-none rounded"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleClick()
+            }}
+          >
+            Progress
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

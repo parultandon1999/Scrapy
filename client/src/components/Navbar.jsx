@@ -1,204 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import styled from 'styled-components'
 import ActiveScrapingBanner from './ActiveScrapingBanner'
 import Icon from './mui/icons/Icon'
-
-const Header = styled.header`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: ${props => props.$darkMode ? '#000000' : '#ffffff'};
-  padding: 0.1rem 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-bottom: 1px solid ${props => props.$darkMode ? '#222222' : '#e0e0e0'};
-  
-  @media (max-width: 768px) {
-    justify-content: space-between;
-    padding: 0.1rem 1.5rem;
-    z-index: 104;
-  }
-`
-
-const NavContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 3rem;
-
-  @media (max-width: 768px) {
-    gap: 0;
-  }
-`
-
-const LeftSection = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  
-  @media (max-width: 768px) {
-    order: 1;
-  }
-`
-
-const ThemeToggle = styled.button`
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${props => props.$darkMode ? '#555555' : '#aaaaaa'};
-  transition: color 0.2s ease;
-  
-  @media (max-width: 768px) {
-    order: 1;
-  }
-`
-
-const MobileMenuBtn = styled.button`
-  display: none;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
-  color: ${props => props.$darkMode ? '#555555' : '#aaaaaa'};
-  transition: color 0.2s ease;
-  position: relative;
-  z-index: 105;
-
-  @media (max-width: 768px) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    order: 3;
-  }
-`
-
-const Nav = styled.nav`
-  display: flex;
-  gap: 0;
-  align-items: center;
-
-  @media (max-width: 768px) {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: ${props => props.$darkMode ? '#000000' : '#ffffff'};
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 0;
-    padding: 0;
-    opacity: ${props => props.$isOpen ? '1' : '0'};
-    visibility: ${props => props.$isOpen ? 'visible' : 'hidden'};
-    pointer-events: ${props => props.$isOpen ? 'auto' : 'none'};
-    transition: opacity 0.2s ease, visibility 0.2s ease;
-    z-index: 102;
-  }
-`
-
-const NavLink = styled.a`
-  text-decoration: none;
-  color: ${props => props.$darkMode ? '#555555' : '#aaaaaa'};
-  padding: 0.5rem 1.25rem;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  transition: color 0.2s ease;
-  white-space: nowrap;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  position: relative;
-
-  ${props => props.$active && `
-    color: ${props.$darkMode ? '#ffffff' : '#000000'};
-    
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 0.25rem;
-      left: 1.25rem;
-      right: 1.25rem;
-      height: 1px;
-      background: ${props.$darkMode ? '#ffffff' : '#000000'};
-    }
-  `}
-
-  @media (max-width: 768px) {
-    width: auto;
-    padding: 1.5rem 2rem;
-    font-size: 1.5rem;
-    text-align: center;
-    font-weight: 300;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    z-index: 103;
-    position: relative;
-    opacity: ${props => props.$isOpen ? '1' : '0'};
-    transition: opacity 0.3s ease, color 0.2s ease;
-    transition-delay: ${props => props.$index ? `${props.$index * 0.03}s` : '0s'};
-    
-    &::after {
-      display: none;
-    }
-    
-    ${props => props.$active && `
-      color: ${props.$darkMode ? '#ffffff' : '#000000'};
-      font-weight: 400;
-    `}
-  }
-`
-
-const Divider = styled.div`
-  width: 1px;
-  height: 12px;
-  background: ${props => props.$darkMode ? '#222222' : '#e0e0e0'};
-  
-  @media (max-width: 768px) {
-    display: none;
-  }
-`
-
-const Overlay = styled.div`
-  display: none;
-
-  @media (max-width: 768px) {
-    display: ${props => props.$isOpen ? 'block' : 'none'};
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: ${props => props.$darkMode ? '#000000' : '#ffffff'};
-    z-index: 101;
-    animation: fadeIn 0.2s ease;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-`
-
-const SrOnly = styled.span`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-`
 
 function Navbar({ darkMode, toggleDarkMode, currentPage }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -240,94 +42,109 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
 
   return (
     <>
-      <Overlay $isOpen={isMenuOpen} $darkMode={darkMode} onClick={closeMenu} />
-      <Header role="banner" ref={navRef} $darkMode={darkMode}>
-        <NavContainer>
-          <LeftSection>
-            <ThemeToggle
+      {/* Mobile Overlay */}
+      <div 
+        className={`
+          md:hidden fixed inset-0 z-[101] bg-black/50 transition-opacity duration-200
+          ${isMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}
+        `}
+        onClick={closeMenu}
+      />
+
+      <header 
+        ref={navRef}
+        role="banner"
+        className={`
+          fixed top-0 left-0 right-0 py-0.5 flex justify-center items-center border-b z-[104]
+          ${darkMode ? 'bg-black border-[#222]' : 'bg-white border-[#e0e0e0]'}
+          max-md:justify-between max-md:px-6
+        `}
+      >
+        <div className="flex items-center gap-12 max-md:gap-0">
+          
+          {/* Left Section: Theme Toggle & Banner */}
+          <div className="flex items-center gap-6 max-md:order-1">
+            <button
               onClick={toggleDarkMode}
-              $darkMode={darkMode}
+              className={`
+                bg-transparent border-none cursor-pointer p-2 flex items-center justify-center transition-colors duration-200
+                ${darkMode ? 'text-[#555]' : 'text-[#aaa]'}
+              `}
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
               aria-pressed={darkMode}
             >
               {darkMode ? <Icon name="LightMode" size={16} /> : <Icon name="DarkMode" size={16} />}
-              <SrOnly>{darkMode ? "Light mode" : "Dark mode"}</SrOnly>
-            </ThemeToggle>
+              <span className="sr-only">{darkMode ? "Light mode" : "Dark mode"}</span>
+            </button>
             <ActiveScrapingBanner />
-          </LeftSection>
+          </div>
 
-          <Nav
+          {/* Navigation Links */}
+          <nav
             id="main-navigation"
-            $isOpen={isMenuOpen}
-            $darkMode={darkMode}
             role="navigation"
             aria-label="Main navigation"
+            className={`
+              flex gap-0 items-center
+              max-md:fixed max-md:inset-0 max-md:flex-col max-md:justify-center max-md:gap-0 max-md:p-0 max-md:z-[102]
+              max-md:transition-all max-md:duration-200
+              ${isMenuOpen ? 'max-md:opacity-100 max-md:visible max-md:pointer-events-auto' : 'max-md:opacity-0 max-md:invisible max-md:pointer-events-none'}
+              ${darkMode ? 'max-md:bg-black' : 'max-md:bg-white'}
+            `}
           >
-            <NavLink
-              href="/"
-              $darkMode={darkMode}
-              $active={currentPage === 'home'}
-              $isOpen={isMenuOpen}
-              $index={0}
-              aria-current={currentPage === 'home' ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              Home
-            </NavLink>
-            <Divider $darkMode={darkMode} />
-            <NavLink
-              href="/database"
-              $darkMode={darkMode}
-              $active={currentPage === 'database'}
-              $isOpen={isMenuOpen}
-              $index={1}
-              aria-current={currentPage === 'database' ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              Database
-            </NavLink>
-            <Divider $darkMode={darkMode} />
-            <NavLink
-              href="/config"
-              $darkMode={darkMode}
-              $active={currentPage === 'config'}
-              $isOpen={isMenuOpen}
-              $index={2}
-              aria-current={currentPage === 'config' ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              Config
-            </NavLink>
-            <Divider $darkMode={darkMode} />
-            <NavLink
-              href="/selector-finder"
-              $darkMode={darkMode}
-              $active={currentPage === 'selector-finder'}
-              $isOpen={isMenuOpen}
-              $index={3}
-              aria-current={currentPage === 'selector-finder' ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              Selector
-            </NavLink>
-            <Divider $darkMode={darkMode} />
-            <NavLink
-              href="/proxy-tester"
-              $darkMode={darkMode}
-              $active={currentPage === 'proxy-tester'}
-              $isOpen={isMenuOpen}
-              $index={4}
-              aria-current={currentPage === 'proxy-tester' ? 'page' : undefined}
-              onClick={closeMenu}
-            >
-              Proxy
-            </NavLink>
-            <Divider $darkMode={darkMode} />
-          </Nav>
+            {[
+              { path: '/', label: 'Home', id: 'home' },
+              { path: '/database', label: 'Database', id: 'database' },
+              { path: '/config', label: 'Config', id: 'config' },
+              { path: '/selector-finder', label: 'Selector', id: 'selector-finder' },
+              { path: '/proxy-tester', label: 'Proxy', id: 'proxy-tester' },
+            ].map((link, index) => (
+              <div key={link.id} className="flex items-center max-md:w-full max-md:justify-center flex-col md:flex-row">
+                <a
+                  href={link.path}
+                  onClick={closeMenu}
+                  aria-current={currentPage === link.id ? 'page' : undefined}
+                  className={`
+                    no-underline py-2 px-5 text-[13px] font-normal tracking-wider uppercase relative transition-colors duration-200 whitespace-nowrap
+                    max-md:w-auto max-md:py-6 max-md:px-8 max-md:text-2xl max-md:text-center max-md:font-light max-md:tracking-widest
+                    max-md:transition-opacity max-md:delay-[${index * 30}ms]
+                    ${currentPage === link.id 
+                      ? (darkMode ? 'text-white' : 'text-black') 
+                      : (darkMode ? 'text-[#555]' : 'text-[#aaa]')
+                    }
+                    ${isMenuOpen ? 'max-md:opacity-100' : 'max-md:opacity-0'}
+                  `}
+                >
+                  {link.label}
+                  {/* Desktop Underline Indicator */}
+                  {currentPage === link.id && (
+                    <span 
+                      className={`
+                        hidden md:block absolute bottom-1 left-5 right-5 h-px
+                        ${darkMode ? 'bg-white' : 'bg-black'}
+                      `}
+                    />
+                  )}
+                </a>
+                
+                {/* Desktop Divider */}
+                {index < 4 && (
+                  <div className={`
+                    hidden md:block w-px h-3
+                    ${darkMode ? 'bg-[#222]' : 'bg-[#e0e0e0]'}
+                  `} />
+                )}
+              </div>
+            ))}
+          </nav>
 
-          <MobileMenuBtn
+          {/* Mobile Menu Button */}
+          <button
             onClick={toggleMenu}
-            $darkMode={darkMode}
+            className={`
+              hidden max-md:flex items-center justify-center order-3 bg-transparent border-none cursor-pointer p-2 relative z-[105] transition-colors duration-200
+              ${darkMode ? 'text-[#555]' : 'text-[#aaa]'}
+            `}
             aria-label="Toggle navigation menu"
             aria-expanded={isMenuOpen}
             aria-controls="main-navigation"
@@ -337,9 +154,10 @@ function Navbar({ darkMode, toggleDarkMode, currentPage }) {
             ) : (
               <Icon name="Menu" size={20} aria-hidden="true" />
             )}
-          </MobileMenuBtn>
-        </NavContainer>
-      </Header>
+          </button>
+
+        </div>
+      </header>
     </>
   )
 }

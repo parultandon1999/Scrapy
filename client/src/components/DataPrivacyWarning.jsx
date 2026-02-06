@@ -1,24 +1,9 @@
 import { useState } from 'react'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Box,
-  Typography,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Alert,
-} from '@mui/material'
 import Button from './mui/buttons/Button'
 import Icon from './mui/icons/Icon'
 
 function DataPrivacyWarning() {
-  // Calculate initial visibility state
   const getInitialVisibility = () => {
-    // Check if running in a browser environment
     if (typeof window === 'undefined') return false
 
     const dismissed = localStorage.getItem('privacy_warning_dismissed')
@@ -46,78 +31,75 @@ function DataPrivacyWarning() {
     window.location.href = '/privacy-policy'
   }
 
+  if (!isOpen) return null
+
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={handleDismiss}
-      maxWidth="sm"
-      fullWidth
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Icon name="Warning" color="warning" />
-          Data Storage & Privacy Notice
-        </Box>
-      </DialogTitle>
+    // Backdrop
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
       
-      <DialogContent>
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Important Security Information
-          </Typography>
-        </Alert>
+      {/* Modal Dialog */}
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+          <div className="text-amber-500">
+            <Icon name="Warning" />
+          </div>
+          <h2 className="text-lg font-medium text-gray-900">Data Storage & Privacy Notice</h2>
+        </div>
+        
+        {/* Content */}
+        <div className="p-6">
+          <div className="bg-amber-50 border border-amber-100 rounded-md p-3 mb-4">
+            <p className="text-sm font-semibold text-amber-900">
+              Important Security Information
+            </p>
+          </div>
 
-        <Typography variant="body2" sx={{ mb: 2 }}>
-          This application stores scraped data locally on your device. 
-          <strong style={{ color: 'var(--warning-color)' }}> Data is not encrypted at rest</strong> and may be accessible to others with access to your device.
-        </Typography>
+          <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+            This application stores scraped data locally on your device. 
+            <strong className="text-amber-600 font-bold"> Data is not encrypted at rest</strong> and may be accessible to others with access to your device.
+          </p>
 
-        <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
-          Security Considerations:
-        </Typography>
+          <p className="text-sm font-bold text-gray-900 mb-2">
+            Security Considerations:
+          </p>
 
-        <List dense>
-          <ListItem>
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <Icon name="Lock" size={18} color="warning" />
-            </ListItemIcon>
-            <ListItemText 
-              primary="Data stored unencrypted in browser and local database"
-              primaryTypographyProps={{ variant: 'body2' }}
-            />
-          </ListItem>
-          
-          <ListItem>
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <Icon name="Visibility" size={18} color="warning" />
-            </ListItemIcon>
-            <ListItemText 
-              primary="Scraped content visible to anyone with device access"
-              primaryTypographyProps={{ variant: 'body2' }}
-            />
-          </ListItem>
-          
-          <ListItem>
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <Icon name="Warning" size={18} color="warning" />
-            </ListItemIcon>
-            <ListItemText 
-              primary="Do not scrape passwords, credit cards, or personal data"
-              primaryTypographyProps={{ variant: 'body2' }}
-            />
-          </ListItem>
-        </List>
-      </DialogContent>
-      
-      <DialogActions>
-        <Button variant="outline" onClick={handleLearnMore}>
-          Learn More
-        </Button>
-        <Button variant="primary" onClick={handleDismiss}>
-          <Icon name="Check" size="small" /> I Understand
-        </Button>
-      </DialogActions>
-    </Dialog>
+          <ul className="space-y-3">
+            <li className="flex items-start gap-3">
+              <div className="min-w-[20px] pt-0.5 text-amber-500">
+                <Icon name="Lock" size={18} />
+              </div>
+              <span className="text-sm text-gray-600">Data stored unencrypted in browser and local database</span>
+            </li>
+            
+            <li className="flex items-start gap-3">
+              <div className="min-w-[20px] pt-0.5 text-amber-500">
+                <Icon name="Visibility" size={18} />
+              </div>
+              <span className="text-sm text-gray-600">Scraped content visible to anyone with device access</span>
+            </li>
+            
+            <li className="flex items-start gap-3">
+              <div className="min-w-[20px] pt-0.5 text-amber-500">
+                <Icon name="Warning" size={18} />
+              </div>
+              <span className="text-sm text-gray-600">Do not scrape passwords, credit cards, or personal data</span>
+            </li>
+          </ul>
+        </div>
+        
+        {/* Actions */}
+        <div className="px-6 py-4 bg-gray-50 flex justify-end gap-2 border-t border-gray-100">
+          <Button variant="outline" onClick={handleLearnMore}>
+            Learn More
+          </Button>
+          <Button variant="primary" onClick={handleDismiss}>
+            <Icon name="Check" size="small" /> I Understand
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 

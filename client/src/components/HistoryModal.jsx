@@ -1,35 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Box,
-  Grid,
-  Paper,
-  Typography,
-  TextField,
-  InputAdornment,
-  Stack,
-  Alert,
-  Chip,
-  Select,
-  MenuItem,
-  Divider,
-  IconButton,
-  ToggleButtonGroup,
-  ToggleButton,
-  Tooltip,
-  Avatar,
-} from '@mui/material'
 import * as api from '../services/api'
 import Button from './mui/buttons/Button'
 import Icon from './mui/icons/Icon'
 import { useToast } from './mui/toasts/useToast'
 import { HistorySessionsSkeleton } from './mui/skeletons/SkeletonLoader'
-
-// Skeleton Component for Loading States - REMOVED, NOW USING MUI SKELETON FROM SkeletonLoader.jsx
 
 function HistoryModal({ isOpen, onClose }) {
   const navigate = useNavigate()
@@ -41,7 +16,6 @@ function HistoryModal({ isOpen, onClose }) {
   const [error, setError] = useState(null)
   const [sortBy, setSortBy] = useState('recent')
   const [filterDomain, setFilterDomain] = useState('')
-  const [activeTab, setActiveTab] = useState(0)
   const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
   const [selectedSessions, setSelectedSessions] = useState([])
   const [filterTag, setFilterTag] = useState('all')
@@ -350,274 +324,234 @@ function HistoryModal({ isOpen, onClose }) {
     return Array.from(tags)
   }
 
+  if (!isOpen) return null
+
   return (
-    <>
-      {/* Main History Modal */}
-      <Dialog 
-        open={isOpen} 
-        onClose={onClose}
-        maxWidth="xl"
-        fullWidth
-        BackdropProps={{ sx: { backgroundColor: 'transparent'} }}
-        fullScreen={window.innerWidth < 600}
-        slotProps={{
-          paper: {
-            sx: {
-              height: { xs: '100vh', sm: '90vh' },
-              maxHeight: { xs: '100vh', sm: '90vh' },
-              m: { xs: 0, sm: 2 },
-              border: '1px solid rgba(0, 0, 0, 0.32)'
-            }
-          }
-        }}
-      >
+    // Main Modal Backdrop
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* Modal Container */}
+      <div className="relative bg-white w-full h-full sm:h-[90vh] sm:max-w-7xl sm:rounded-lg sm:border sm:border-gray-300 shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        
         {/* HEADER */}
-        <DialogTitle sx={{ pb: 1, px: { xs: 2, sm: 3 } }}>
-          {/* Title Row */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box>
-              <Typography variant="h6" fontWeight={500} sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
-                Scraping History
-              </Typography>
-            </Box>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl sm:text-2xl font-medium text-gray-900">
+              Scraping History
+            </h2>
             
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              {/* Bulk Action Icons - Only show when sessions are selected */}
+            <div className="flex items-center gap-1">
+              {/* Bulk Action Icons */}
               {selectedSessions.length > 0 && (
                 <>
-                  <Tooltip title={`Delete ${selectedSessions.length} selected`}>
-                    <IconButton 
-                      onClick={handleBulkDelete} 
-                      size="small" 
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={handleBulkDelete}
                       disabled={bulkActionLoading}
-                      color="error"
+                      title={`Delete ${selectedSessions.length} selected`}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-full transition-colors"
                     >
                       <Icon name="Delete" size={18} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={`Export ${selectedSessions.length} selected`}>
-                    <IconButton 
-                      onClick={handleBulkExport} 
-                      size="small" 
+                    </button>
+                    <button 
+                      onClick={handleBulkExport}
                       disabled={bulkActionLoading}
+                      title={`Export ${selectedSessions.length} selected`}
+                      className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                     >
                       <Icon name="Download" size={18} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={selectedSessions.length === getSortedSessions().length ? 'Deselect all' : 'Select all'}>
-                    <IconButton 
-                      onClick={toggleSelectAll} 
-                      size="small"
+                    </button>
+                    <button 
+                      onClick={toggleSelectAll}
+                      title={selectedSessions.length === getSortedSessions().length ? 'Deselect all' : 'Select all'}
+                      className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                     >
                       <Icon name={selectedSessions.length === getSortedSessions().length ? 'CheckBoxOutlineBlank' : 'CheckBox'} size={18} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Clear selection">
-                    <IconButton 
-                      onClick={() => setSelectedSessions([])} 
-                      size="small"
+                    </button>
+                    <button 
+                      onClick={() => setSelectedSessions([])}
+                      title="Clear selection"
+                      className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
                     >
                       <Icon name="ClearAll" size={18} />
-                    </IconButton>
-                  </Tooltip>
-                  <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: 'center' }} />
+                    </button>
+                    <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                  </div>
                 </>
               )}
               
-              <Tooltip title="Refresh">
-                <IconButton onClick={fetchSessions} size="small" disabled={loading}>
-                  <Icon name="Refresh" size={18} />
-                </IconButton>
-              </Tooltip>
-              <IconButton onClick={onClose} size="small">
+              <button 
+                onClick={fetchSessions} 
+                disabled={loading}
+                title="Refresh"
+                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Icon name="Refresh" size={18} />
+              </button>
+              <button 
+                onClick={onClose}
+                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              >
                 <Icon name="Close" size={18} />
-              </IconButton>
-            </Stack>
-          </Box>
+              </button>
+            </div>
+          </div>
 
           {/* Error Alert */}
           {error && (
-            <Alert 
-              severity="error" 
-              onClose={() => setError(null)}
-              sx={{ mt: 2 }}
-            >
-              {error}
-            </Alert>
+            <div className="mt-2 bg-red-50 text-red-700 px-4 py-3 rounded text-sm flex justify-between items-center">
+              <span>{error}</span>
+              <button onClick={() => setError(null)}><Icon name="Close" size={16} /></button>
+            </div>
           )}
-        </DialogTitle>
+        </div>
 
-        <Divider />
-
-        {/* Search Bar, Filters, and View Toggle - Below Divider */}
-        <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 1.5, sm: 2 }, bgcolor: 'background.default' }}>
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={{ xs: 1.5, sm: 2 }}
-            alignItems={{ xs: 'stretch', sm: 'center' }}
-            justifyContent="space-between"
-          >
+        {/* Search Bar, Filters, and View Toggle */}
+        <div className="px-4 sm:px-6 py-3 bg-gray-50 border-b border-gray-100">
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+            
             {/* Search and Filters Row */}
-            <Stack direction="row" spacing={1.5} sx={{ flex: 1, flexWrap: 'wrap' }}>
+            <div className="flex flex-1 flex-wrap gap-2">
               {/* Search Bar */}
-              <TextField
-                size="small"
-                placeholder="Search domains..."
-                value={filterDomain}
-                onChange={(e) => setFilterDomain(e.target.value)}
-                sx={{ flex: { xs: 'none', sm: 1 }, width: { xs: 200, sm: 'auto' } }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Icon name="Search" size={16} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: filterDomain && (
-                    <InputAdornment position="end">
-                      <IconButton size="small" onClick={() => setFilterDomain('')}>
-                        <Icon name="Close" size={14} />
-                      </IconButton>
-                    </InputAdornment>
-                  )
-                }}
-              />
+              <div className="relative flex-1 min-w-[200px]">
+                <div className="absolute left-2.5 top-2.5 text-gray-400 pointer-events-none">
+                  <Icon name="Search" size={16} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search domains..."
+                  value={filterDomain}
+                  onChange={(e) => setFilterDomain(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                />
+                {filterDomain && (
+                  <button 
+                    onClick={() => setFilterDomain('')}
+                    className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <Icon name="Close" size={14} />
+                  </button>
+                )}
+              </div>
               
               {/* Tag Filter */}
-              <Select 
-                size="small"
-                value={filterTag} 
+              <select
+                value={filterTag}
                 onChange={(e) => setFilterTag(e.target.value)}
-                sx={{ minWidth: { xs: 90, sm: 120 } }}
+                className="py-2 pl-3 pr-8 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white min-w-[120px]"
               >
-                <MenuItem value="all">All Tags</MenuItem>
-                <MenuItem value="tagged">Tagged</MenuItem>
-                <MenuItem value="untagged">Untagged</MenuItem>
-                {getUniqueTagsList().length > 0 && <Divider />}
+                <option value="all">All Tags</option>
+                <option value="tagged">Tagged</option>
+                <option value="untagged">Untagged</option>
+                {getUniqueTagsList().length > 0 && <option disabled>──────────</option>}
                 {getUniqueTagsList().map(tag => (
-                  <MenuItem key={tag} value={tag}>
-                    <Chip label={tag} size="small" />
-                  </MenuItem>
+                  <option key={tag} value={tag}>{tag}</option>
                 ))}
-              </Select>
+              </select>
 
               {/* Sort Filter */}
-              <Select 
-                size="small"
-                value={sortBy} 
+              <select
+                value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                sx={{ minWidth: { xs: 90, sm: 140 } }}
+                className="py-2 pl-3 pr-8 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white min-w-[140px]"
               >
-                <MenuItem value="recent">Most Recent</MenuItem>
-                <MenuItem value="oldest">Oldest</MenuItem>
-                <MenuItem value="pages">Most Pages</MenuItem>
-                <MenuItem value="size">Largest</MenuItem>
-                <MenuItem value="duration">Longest</MenuItem>
-              </Select>
-            </Stack>
+                <option value="recent">Most Recent</option>
+                <option value="oldest">Oldest</option>
+                <option value="pages">Most Pages</option>
+                <option value="size">Largest</option>
+                <option value="duration">Longest</option>
+              </select>
+            </div>
 
-            {/* Right Side: View Toggle - Hidden on mobile */}
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={(e, newMode) => newMode && setViewMode(newMode)}
-              size="small"
-              sx={{ display: { xs: 'none', sm: 'flex' } }}
-            >
-              <ToggleButton value="grid">
-                <Tooltip title="Grid View">
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Icon name="GridView" size={16} />
-                  </Box>
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="list">
-                <Tooltip title="List View">
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Icon name="ViewList" size={16} />
-                  </Box>
-                </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Stack>
-        </Box>
-
-        {/* CONTENT AREA - Only the session cards */}
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {/* Content Area */}
-          <Box sx={{ flex: 1, overflow: 'auto', p: { xs: 2, sm: 3 } }}>
-            {/* Loading Skeletons */}
-            {loading && <HistorySessionsSkeleton count={6} viewMode={viewMode} />}
-
-            {/* Sessions Grid View */}
-            {!loading && viewMode === 'grid' && getSortedSessions().length > 0 && (
-              <Grid container spacing={{ xs: 1.5, sm: 2 }}>
-                {getSortedSessions().map((session, idx) => (
-                  <Grid item xs={12} sm={6} md={4} key={idx}>
-                    <SessionCardGrid
-                      session={session}
-                      sessionTags={sessionTags}
-                      sessionNotes={sessionNotes}
-                      selectedSessions={selectedSessions}
-                      onToggleSelect={toggleSessionSelection}
-                      onViewProgress={handleViewProgress}
-                      onAddTag={handleAddTag}
-                      onAddNote={handleAddNote}
-                      onExport={handleExportSession}
-                      onDelete={handleDeleteSession}
-                      exportingSession={exportingSession}
-                      getDomain={getDomain}
-                      formatDuration={formatDuration}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-
-            {/* Sessions List View */}
-            {!loading && viewMode === 'list' && getSortedSessions().length > 0 && (
-              <Stack spacing={{ xs: 1, sm: 1 }}>
-                {getSortedSessions().map((session, idx) => (
-                  <SessionCardList
-                    key={idx}
-                    session={session}
-                    sessionTags={sessionTags}
-                    sessionNotes={sessionNotes}
-                    selectedSessions={selectedSessions}
-                    onToggleSelect={toggleSessionSelection}
-                    onViewProgress={handleViewProgress}
-                    onAddTag={handleAddTag}
-                    onAddNote={handleAddNote}
-                    onExport={handleExportSession}
-                    onDelete={handleDeleteSession}
-                    exportingSession={exportingSession}
-                    getDomain={getDomain}
-                    formatDuration={formatDuration}
-                  />
-                ))}
-              </Stack>
-            )}
-
-            {/* Empty State */}
-            {!loading && getSortedSessions().length === 0 && (
-              <Paper 
-                elevation={0}
-                sx={{ 
-                  p: { xs: 4, sm: 8 }, 
-                  textAlign: 'center',
-                  border: '2px dashed',
-                  borderColor: 'divider'
-                }}
+            {/* Right Side: View Toggle (Hidden on mobile) */}
+            <div className="hidden sm:flex border border-gray-300 rounded overflow-hidden">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 transition-colors ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                title="Grid View"
               >
-                <Icon name="Language" size={48} sx={{ color: 'text.disabled', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                  No sessions found
-                </Typography>
-                <Typography variant="body2" color="text.disabled">
-                  {filterDomain || filterTag !== 'all' 
-                    ? 'Try adjusting your filters' 
-                    : 'Start a new scraping job to see history here'}
-                </Typography>
-                {(filterDomain || filterTag !== 'all') && (
+                <Icon name="GridView" size={16} />
+              </button>
+              <div className="w-px bg-gray-300"></div>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                title="List View"
+              >
+                <Icon name="ViewList" size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* CONTENT AREA */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white custom-scrollbar">
+          {/* Loading Skeletons */}
+          {loading && <HistorySessionsSkeleton count={6} viewMode={viewMode} />}
+
+          {/* Sessions Grid View */}
+          {!loading && viewMode === 'grid' && getSortedSessions().length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {getSortedSessions().map((session, idx) => (
+                <SessionCardGrid
+                  key={idx}
+                  session={session}
+                  sessionTags={sessionTags}
+                  sessionNotes={sessionNotes}
+                  selectedSessions={selectedSessions}
+                  onToggleSelect={toggleSessionSelection}
+                  onViewProgress={handleViewProgress}
+                  onAddTag={handleAddTag}
+                  onAddNote={handleAddNote}
+                  onExport={handleExportSession}
+                  onDelete={handleDeleteSession}
+                  exportingSession={exportingSession}
+                  getDomain={getDomain}
+                  formatDuration={formatDuration}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Sessions List View */}
+          {!loading && viewMode === 'list' && getSortedSessions().length > 0 && (
+            <div className="flex flex-col gap-2">
+              {getSortedSessions().map((session, idx) => (
+                <SessionCardList
+                  key={idx}
+                  session={session}
+                  sessionTags={sessionTags}
+                  sessionNotes={sessionNotes}
+                  selectedSessions={selectedSessions}
+                  onToggleSelect={toggleSessionSelection}
+                  onViewProgress={handleViewProgress}
+                  onAddTag={handleAddTag}
+                  onAddNote={handleAddNote}
+                  onExport={handleExportSession}
+                  onDelete={handleDeleteSession}
+                  exportingSession={exportingSession}
+                  getDomain={getDomain}
+                  formatDuration={formatDuration}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && getSortedSessions().length === 0 && (
+            <div className="p-8 sm:p-16 text-center border-2 border-dashed border-gray-200 rounded-lg">
+              <div className="text-gray-300 mb-4 flex justify-center">
+                <Icon name="Language" size={48} />
+              </div>
+              <h3 className="text-lg font-medium text-gray-500 mb-1">
+                No sessions found
+              </h3>
+              <p className="text-sm text-gray-400">
+                {filterDomain || filterTag !== 'all' 
+                  ? 'Try adjusting your filters' 
+                  : 'Start a new scraping job to see history here'}
+              </p>
+              {(filterDomain || filterTag !== 'all') && (
+                <div className="mt-4">
                   <Button
                     variant="outline"
                     size="small"
@@ -625,123 +559,116 @@ function HistoryModal({ isOpen, onClose }) {
                       setFilterDomain('')
                       setFilterTag('all')
                     }}
-                    sx={{ mt: 2 }}
                   >
                     Clear Filters
                   </Button>
-                )}
-              </Paper>
-            )}
-          </Box>
-        </DialogContent>
-      </Dialog>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog 
-        open={!!deleteConfirmModal} 
-        onClose={() => setDeleteConfirmModal(null)}
-        maxWidth="xs"
-        fullWidth
-        BackdropProps={{ sx: { backgroundColor: 'transparent'} }}
-      >
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Icon name="Warning" color="error" />
-            Delete Session
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            This will permanently delete all scraped data for this session. This action cannot be undone.
-          </Typography>
-          <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
-            Type the domain name to confirm:
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            {deleteConfirmModal?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-          </Typography>
-          <TextField
-            fullWidth
-            size="small"
-            value={deleteConfirmInput}
-            onChange={(e) => setDeleteConfirmInput(e.target.value)}
-            placeholder="Enter domain name"
-            autoFocus
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outline" onClick={() => setDeleteConfirmModal(null)}>
-            Cancel
-          </Button>
-          <Button 
-            variant="danger" 
-            onClick={confirmDelete}
-            disabled={deleteConfirmInput !== deleteConfirmModal?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-          >
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+              <div className="text-red-500"><Icon name="Warning" /></div>
+              <h3 className="font-medium text-gray-900">Delete Session</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-4">
+                This will permanently delete all scraped data for this session. This action cannot be undone.
+              </p>
+              <p className="text-sm font-bold text-gray-900 mb-1">
+                Type the domain name to confirm:
+              </p>
+              <span className="block text-xs text-gray-500 mb-2 font-mono bg-gray-50 p-1 rounded">
+                {deleteConfirmModal?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+              </span>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder="Enter domain name"
+                autoFocus
+              />
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmModal(null)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="danger" 
+                onClick={confirmDelete}
+                disabled={deleteConfirmInput !== deleteConfirmModal?.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tag Dialog */}
-      <Dialog 
-        open={!!editingTag} 
-        onClose={() => setEditingTag(null)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Add Tag</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            size="small"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            placeholder="e.g., Production, Testing, Archive"
-            autoFocus
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outline" onClick={() => setEditingTag(null)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={() => saveTag(editingTag)}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {editingTag && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-xs overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="font-medium text-gray-900">Add Tag</h3>
+            </div>
+            <div className="p-6">
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="e.g., Production, Testing"
+                autoFocus
+              />
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingTag(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={() => saveTag(editingTag)}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Note Dialog */}
-      <Dialog 
-        open={!!editingNote} 
-        onClose={() => setEditingNote(null)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Add Note</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            value={noteInput}
-            onChange={(e) => setNoteInput(e.target.value)}
-            placeholder="Add notes about this scraping session..."
-            autoFocus
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outline" onClick={() => setEditingNote(null)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={() => saveNote(editingNote)}>
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+      {editingNote && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="font-medium text-gray-900">Add Note</h3>
+            </div>
+            <div className="p-6">
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                placeholder="Add notes about this scraping session..."
+                autoFocus
+              />
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setEditingNote(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={() => saveNote(editingNote)}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -756,181 +683,115 @@ const SessionCardGrid = ({
   const isSelected = selectedSessions.includes(session.domain)
   
   return (
-    <Paper 
-      elevation={0}
-      variant="outlined"
-      sx={{ 
-        height: '100%',
-        transition: 'all 0.1s ease-in-out',
-        position: 'relative',
-        border: isSelected ? 2 : 1,
-        borderColor: isSelected ? 'primary.main' : 'divider',
-        '&:hover': { 
-          boxShadow: 2,
-          borderColor: 'primary.main'
-        }
-      }}
+    <div 
+      className={`
+        relative h-full bg-white rounded-lg transition-all duration-200 border
+        ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200 hover:border-blue-400 hover:shadow-md'}
+      `}
     >
       {/* Selection Checkbox */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 8,
-          left: 8,
-          zIndex: 1
-        }}
+      <div
+        className="absolute top-2 left-2 z-10"
         onClick={(e) => e.stopPropagation()}
       >
-        <IconButton
-          size="small"
+        <button
           onClick={() => onToggleSelect(session.domain)}
-          sx={{
-            bgcolor: 'background.paper',
-            '&:hover': { bgcolor: 'action.hover' }
-          }}
+          className={`p-1 rounded-full transition-colors ${isSelected ? 'text-blue-600' : 'text-gray-400 hover:text-blue-500 hover:bg-white'}`}
         >
           <Icon 
             name={isSelected ? 'CheckBox' : 'CheckBoxOutlineBlank'} 
             size={20}
-            color={isSelected ? 'primary' : 'action'}
           />
-        </IconButton>
-      </Box>
+        </button>
+      </div>
 
-      <Box sx={{ p: 2, pt: 5, cursor: 'pointer' }} onClick={() => onViewProgress(session.domain)}>
+      <div className="p-4 pt-10 cursor-pointer h-full flex flex-col" onClick={() => onViewProgress(session.domain)}>
         {/* Domain Header */}
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', mb: 0.5, gap: 1 }}>
-            <Tooltip title={session.domain}>
-              <Typography variant="subtitle2" fontWeight={500} noWrap sx={{ flex: 1 }}>
-                {getDomain(session.domain)}
-              </Typography>
-            </Tooltip>
+        <div className="mb-3">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h4 className="text-sm font-medium text-gray-900 truncate" title={session.domain}>
+              {getDomain(session.domain)}
+            </h4>
             {sessionTags[session.domain] && (
-              <Chip 
-                label={sessionTags[session.domain]} 
-                size="small" 
-                color="primary"
-                sx={{ height: 20, fontSize: '0.65rem', flexShrink: 0 }}
-              />
+              <span className="shrink-0 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium uppercase tracking-wide">
+                {sessionTags[session.domain]}
+              </span>
             )}
-          </Box>
-          <Typography 
-            variant="caption" 
-            color="text.secondary"
-            sx={{ display: 'block', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
-          >
+          </div>
+          <span className="text-xs text-gray-500 block">
             {new Date(session.end_time * 1000).toLocaleDateString()} • {formatDuration(session.end_time - session.start_time)}
-          </Typography>
-        </Box>
+          </span>
+        </div>
 
         {/* Note Preview */}
         {sessionNotes[session.domain] && (
-          <Paper 
-            variant="outlined" 
-            sx={{ 
-              p: 1, 
-              mb: 2, 
-              bgcolor: 'action.hover', 
-              borderLeft: 2, 
-              borderColor: 'primary.main' 
-            }}
-          >
-            <Typography 
-              variant="caption" 
-              color="text.secondary" 
-              fontStyle="italic"
-              sx={{
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-                fontSize: { xs: '0.7rem', sm: '0.75rem' }
-              }}
-            >
-              {sessionNotes[session.domain]}
-            </Typography>
-          </Paper>
+          <div className="p-2 mb-3 bg-gray-50 border-l-2 border-blue-400 rounded-r text-xs text-gray-600 italic line-clamp-2">
+            {sessionNotes[session.domain]}
+          </div>
         )}
 
         {/* Stats Grid */}
-        <Grid container spacing={1} sx={{ mb: 2 }}>
-          <Grid item xs={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Icon name="Description" size={14} color="action" />
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                {session.total_pages.toLocaleString()}
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Icon name="Download" size={14} color="action" />
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                {session.total_files.toLocaleString()}
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Icon name="Layers" size={14} color="action" />
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                Depth {session.max_depth}
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Icon name="Storage" size={14} color="action" />
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-                {api.formatBytes(session.total_size)}
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
+        <div className="grid grid-cols-2 gap-2 mb-4 mt-auto">
+          <div className="flex items-center gap-1.5 text-gray-500" title="Total Pages">
+            <Icon name="Description" size={14} />
+            <span className="text-xs">{session.total_pages.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gray-500" title="Total Files">
+            <Icon name="Download" size={14} />
+            <span className="text-xs">{session.total_files.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gray-500" title="Max Depth">
+            <Icon name="Layers" size={14} />
+            <span className="text-xs">Depth {session.max_depth}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gray-500" title="Total Size">
+            <Icon name="Storage" size={14} />
+            <span className="text-xs">{api.formatBytes(session.total_size)}</span>
+          </div>
+        </div>
 
-        <Divider sx={{ my: 1.5 }} />
+        <div className="h-px bg-gray-100 mb-3" />
 
         {/* Actions */}
-        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-          <Tooltip title="Add Tag">
-            <IconButton 
-              size="small" 
-              onClick={() => onAddTag(session.domain)}
-            >
-              <Icon name="Label" size={16} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Add Note">
-            <IconButton 
-              size="small" 
-              onClick={() => onAddNote(session.domain)}
-            >
-              <Icon name="Note" size={16} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Export">
-            <IconButton 
-              size="small" 
-              onClick={(e) => onExport(session.domain, e)}
-              disabled={exportingSession === session.domain}
-            >
-              <Icon name="Download" size={16} />
-            </IconButton>
-          </Tooltip>
-          <Box sx={{ flex: 1 }} />
-          <Tooltip title="Delete">
-            <IconButton 
-              size="small" 
-              color="error"
-              onClick={(e) => onDelete(session.domain, e)}
-            >
-              <Icon name="Delete" size={16} />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </Box>
-    </Paper>
+        <div 
+          className="flex items-center gap-1 text-gray-400" 
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="Add Tag"
+            onClick={() => onAddTag(session.domain)}
+          >
+            <Icon name="Label" size={16} />
+          </button>
+          <button 
+            className="p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+            title="Add Note"
+            onClick={() => onAddNote(session.domain)}
+          >
+            <Icon name="Note" size={16} />
+          </button>
+          <button 
+            className={`p-1.5 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors ${exportingSession === session.domain ? 'opacity-50 cursor-wait' : ''}`}
+            title="Export"
+            onClick={(e) => onExport(session.domain, e)}
+            disabled={exportingSession === session.domain}
+          >
+            <Icon name="Download" size={16} />
+          </button>
+          
+          <div className="flex-1"></div>
+          
+          <button 
+            className="p-1.5 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+            title="Delete"
+            onClick={(e) => onDelete(session.domain, e)}
+          >
+            <Icon name="Delete" size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -943,134 +804,103 @@ const SessionCardList = ({
   const isSelected = selectedSessions.includes(session.domain)
   
   return (
-    <Paper 
-      elevation={0}
-      variant="outlined"
-      sx={{ 
-        transition: 'all 0.1s ease-in-out',
-        border: isSelected ? 2 : 1,
-        borderColor: isSelected ? 'primary.main' : 'divider',
-        '&:hover': { 
-          boxShadow: 1,
-          borderColor: 'primary.main'
-        }
-      }}
+    <div 
+      className={`
+        group relative bg-white rounded-lg transition-all duration-200 border
+        ${isSelected ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200 hover:border-blue-400 hover:shadow-sm'}
+      `}
     >
-      <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-        <Stack direction="row" spacing={{ xs: 1, sm: 2 }} alignItems="center" flexWrap={{ xs: 'wrap', sm: 'nowrap' }}>
-          {/* Selection Checkbox */}
-          <IconButton
-            size="small"
+      <div className="p-3 sm:p-4">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+          
+          {/* Checkbox */}
+          <button
             onClick={() => onToggleSelect(session.domain)}
-            sx={{ flexShrink: 0 }}
+            className={`shrink-0 transition-colors ${isSelected ? 'text-blue-600' : 'text-gray-400 hover:text-blue-500'}`}
           >
             <Icon 
               name={isSelected ? 'CheckBox' : 'CheckBoxOutlineBlank'} 
               size={20}
-              color={isSelected ? 'primary' : 'action'}
             />
-          </IconButton>
+          </button>
 
-          {/* Domain Icon */}
-          <Avatar 
-            sx={{ 
-              width: { xs: 40, sm: 48 }, 
-              height: { xs: 40, sm: 48 }, 
-              bgcolor: 'primary.main',
-              cursor: 'pointer',
-              flexShrink: 0
-            }}
+          {/* Icon */}
+          <div 
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 cursor-pointer"
             onClick={() => onViewProgress(session.domain)}
           >
-            <Icon name="Language" size={{ xs: 20, sm: 24 }} />
-          </Avatar>
+            <Icon name="Language" size={20} />
+          </div>
 
-          {/* Main Content */}
-          <Box 
-            sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+          {/* Main Info */}
+          <div 
+            className="flex-1 min-w-0 cursor-pointer mr-2"
             onClick={() => onViewProgress(session.domain)}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-              <Tooltip title={session.domain}>
-                <Typography variant="subtitle2" fontWeight={500} noWrap sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                  {getDomain(session.domain)}
-                </Typography>
-              </Tooltip>
+            <div className="flex items-center flex-wrap gap-2 mb-1">
+              <h4 className="text-sm font-medium text-gray-900 truncate" title={session.domain}>
+                {getDomain(session.domain)}
+              </h4>
               {sessionTags[session.domain] && (
-                <Chip 
-                  label={sessionTags[session.domain]} 
-                  size="small" 
-                  color="primary"
-                  sx={{ height: 20, fontSize: '0.65rem' }}
-                />
+                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium uppercase tracking-wide">
+                  {sessionTags[session.domain]}
+                </span>
               )}
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
-              {new Date(session.end_time * 1000).toLocaleDateString()} • {formatDuration(session.end_time - session.start_time)}
-            </Typography>
-          </Box>
+            </div>
+            <div className="text-xs text-gray-500 flex items-center gap-2">
+              <span>{new Date(session.end_time * 1000).toLocaleDateString()}</span>
+              <span>•</span>
+              <span>{formatDuration(session.end_time - session.start_time)}</span>
+            </div>
+          </div>
 
-          {/* Stats Chips */}
-          <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0 }}>
-            <Chip 
-              icon={<Icon name="Description" size={12} />}
-              label={session.total_pages.toLocaleString()}
-              size="small"
-              variant="outlined"
-            />
-            <Chip 
-              icon={<Icon name="Download" size={12} />}
-              label={session.total_files.toLocaleString()}
-              size="small"
-              variant="outlined"
-            />
-            <Chip 
-              icon={<Icon name="Storage" size={12} />}
-              label={api.formatBytes(session.total_size)}
-              size="small"
-              variant="outlined"
-            />
-          </Stack>
+          {/* Stats (Desktop only) */}
+          <div className="hidden md:flex items-center gap-3 shrink-0 mr-4">
+            <span className="px-2 py-1 rounded border border-gray-200 text-xs text-gray-600 flex items-center gap-1">
+              <Icon name="Description" size={12} /> {session.total_pages.toLocaleString()}
+            </span>
+            <span className="px-2 py-1 rounded border border-gray-200 text-xs text-gray-600 flex items-center gap-1">
+              <Icon name="Download" size={12} /> {session.total_files.toLocaleString()}
+            </span>
+            <span className="px-2 py-1 rounded border border-gray-200 text-xs text-gray-600 flex items-center gap-1">
+              <Icon name="Storage" size={12} /> {api.formatBytes(session.total_size)}
+            </span>
+          </div>
 
           {/* Actions */}
-          <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0, flexWrap: 'wrap' }}>
-            <Tooltip title="Add Tag">
-              <IconButton 
-                size="small" 
-                onClick={() => onAddTag(session.domain)}
-              >
-                <Icon name="Label" size={18} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Add Note">
-              <IconButton 
-                size="small" 
-                onClick={() => onAddNote(session.domain)}
-              >
-                <Icon name="Note" size={18} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Export">
-              <IconButton 
-                size="small" 
-                onClick={(e) => onExport(session.domain, e)}
-                disabled={exportingSession === session.domain}
-              >
-                <Icon name="Download" size={18} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton 
-                size="small" 
-                color="error"
-                onClick={(e) => onDelete(session.domain, e)}
-              >
-                <Icon name="Delete" size={18} />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-        </Stack>
-      </Box>
-    </Paper>
+          <div className="flex items-center gap-1 ml-auto sm:ml-0">
+            <button 
+              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              title="Add Tag"
+              onClick={() => onAddTag(session.domain)}
+            >
+              <Icon name="Label" size={18} />
+            </button>
+            <button 
+              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              title="Add Note"
+              onClick={() => onAddNote(session.domain)}
+            >
+              <Icon name="Note" size={18} />
+            </button>
+            <button 
+              className={`p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors ${exportingSession === session.domain ? 'opacity-50 cursor-wait' : ''}`}
+              title="Export"
+              onClick={(e) => onExport(session.domain, e)}
+              disabled={exportingSession === session.domain}
+            >
+              <Icon name="Download" size={18} />
+            </button>
+            <button 
+              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              title="Delete"
+              onClick={(e) => onDelete(session.domain, e)}
+            >
+              <Icon name="Delete" size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }

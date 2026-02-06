@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { Box, Typography, Slide } from '@mui/material'
 import Icon from './mui/icons/Icon'
 
 function OfflineBanner({ testOffline = false }) {
@@ -35,46 +34,26 @@ function OfflineBanner({ testOffline = false }) {
   const shouldShowBanner = !isOnline || showReconnected || testOffline
 
   return (
-    <Slide direction="up" in={shouldShowBanner} mountOnEnter unmountOnExit timeout={200}>
-      <Box
-        sx={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 10000,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 1,
-          py: 1,
-          m: 0,
-          bgcolor: (isOnline && !testOffline) ? '#12cc8eff' : '#000000',
-          border: 'none',
-          outline: 'none',
-          boxShadow: 'none',
-          borderRadius: 0,
-        }}
-        role="status"
-        aria-live="polite"
-      >
+    <div 
+      className={`
+        fixed bottom-0 left-0 right-0 z-[10000] flex justify-center items-center gap-2 py-2
+        transition-transform duration-200 ease-out
+        ${shouldShowBanner ? 'translate-y-0' : 'translate-y-full'}
+        ${(isOnline && !testOffline) ? 'bg-[#12cc8eff]' : 'bg-black'}
+      `}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="text-white">
         <Icon 
           name={(isOnline && !testOffline) ? "Wifi" : "WifiOff"} 
           size={16} 
-          sx={{ color: 'white' }} 
         />
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            color: 'white', 
-            fontWeight: 500,
-            fontSize: '0.8rem'
-          }}
-        >
-          {(isOnline && !testOffline) ? 'Back online' : 'No connection'}
-        </Typography>
-      </Box>
-    </Slide>
+      </div>
+      <span className="text-white font-medium text-xs">
+        {(isOnline && !testOffline) ? 'Back online' : 'No connection'}
+      </span>
+    </div>
   )
 }
 

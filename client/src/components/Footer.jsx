@@ -4,11 +4,8 @@ function Footer() {
       className="
         w-full z-[100] box-border
         bg-[#f2f2f2] text-[#70757a] text-center
-        /* Layout: Relative on mobile, Fixed on Desktop (md+) to match original media query */
         relative md:fixed bottom-0 left-0 right-0
-        /* Padding: Smaller on mobile, larger on desktop */
         p-3 md:py-4 md:px-8
-        /* Dark Mode styles */
         dark:bg-[#0a0a0a] dark:text-[#666666] dark:border-t dark:border-[#1a1a1a]
       "
     >

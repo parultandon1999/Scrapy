@@ -1,17 +1,4 @@
 import React from 'react'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Box,
-  Typography,
-  Alert,
-  List,
-  ListItem,
-  ListItemText,
-  Collapse,
-} from '@mui/material'
 import Button from './mui/buttons/Button'
 import Icon from './mui/icons/Icon'
 
@@ -81,7 +68,6 @@ Timestamp: ${new Date().toISOString()}
 
     navigator.clipboard.writeText(errorDetails)
       .then(() => {
-        // Show success feedback
         alert('Error details copied to clipboard')
       })
       .catch(() => {
@@ -94,160 +80,117 @@ Timestamp: ${new Date().toISOString()}
       const isDevelopment = import.meta.env.DEV
 
       return (
-        <Dialog 
-          open={true}
-          maxWidth="sm"
-          fullWidth
-          disableEscapeKeyDown
-        >
-          <DialogTitle>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Icon name="Error" color="error" />
-              Something Went Wrong
-            </Box>
-          </DialogTitle>
-          
-          <DialogContent>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              We're sorry, but something unexpected happened. Don't worry, your data is safe.
-            </Typography>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm flex flex-col overflow-hidden max-h-[90vh]">
+            
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+              <div className="text-red-500">
+                <Icon name="Error" />
+              </div>
+              <h2 className="text-lg font-medium text-gray-900">Something Went Wrong</h2>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 overflow-y-auto">
+              <p className="text-sm text-gray-600 mb-4">
+                We're sorry, but something unexpected happened. Don't worry, your data is safe.
+              </p>
 
-            {this.state.errorCount > 2 && (
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                <Typography variant="body2" fontWeight={600}>
-                  Multiple errors detected. Try reloading the page.
-                </Typography>
-              </Alert>
-            )}
+              {this.state.errorCount > 2 && (
+                <div className="bg-amber-50 border border-amber-100 rounded-md p-3 mb-4">
+                  <p className="text-sm font-semibold text-amber-900">
+                    Multiple errors detected. Try reloading the page.
+                  </p>
+                </div>
+              )}
 
-            <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
-              What can you do?
-            </Typography>
+              <p className="text-sm font-bold text-gray-900 mb-2">
+                What can you do?
+              </p>
 
-            <List dense>
-              <ListItem>
-                <ListItemText>
-                  <Typography variant="body2">
-                    Click 'Try Again' to retry the operation
-                  </Typography>
-                </ListItemText>
-              </ListItem>
-              <ListItem>
-                <ListItemText>
-                  <Typography variant="body2">
-                    Click 'Reload Page' to refresh the entire application
-                  </Typography>
-                </ListItemText>
-              </ListItem>
-              <ListItem>
-                <ListItemText>
-                  <Typography variant="body2">
-                    Click 'Go Home' to return to the home page
-                  </Typography>
-                </ListItemText>
-              </ListItem>
-              <ListItem>
-                <ListItemText>
-                  <Typography variant="body2">
-                    If the problem persists, try clearing your browser cache
-                  </Typography>
-                </ListItemText>
-              </ListItem>
-            </List>
+              <ul className="space-y-2 mb-4">
+                <li className="text-sm text-gray-600 pl-2 border-l-2 border-gray-200">
+                  Click 'Try Again' to retry the operation
+                </li>
+                <li className="text-sm text-gray-600 pl-2 border-l-2 border-gray-200">
+                  Click 'Reload Page' to refresh the entire application
+                </li>
+                <li className="text-sm text-gray-600 pl-2 border-l-2 border-gray-200">
+                  Click 'Go Home' to return to the home page
+                </li>
+                <li className="text-sm text-gray-600 pl-2 border-l-2 border-gray-200">
+                  If the problem persists, try clearing your browser cache
+                </li>
+              </ul>
 
-            {isDevelopment && this.state.error && (
-              <Box sx={{ mt: 2 }}>
-                <Button 
-                  variant="outline" 
-                  size="small"
-                  onClick={this.toggleDetails}
-                  fullWidth
-                >
-                  <Icon name={this.state.showDetails ? "ExpandLess" : "ExpandMore"} size="small" />
-                  {this.state.showDetails ? 'Hide' : 'Show'} Error Details (Dev Mode)
-                </Button>
-
-                <Collapse in={this.state.showDetails}>
-                  <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="caption" fontWeight="bold" display="block" sx={{ mb: 1 }}>
-                      Error Message:
-                    </Typography>
-                    <Box 
-                      component="pre" 
-                      sx={{ 
-                        p: 1.5, 
-                        bgcolor: 'background.paper', 
-                        border: '1px solid', 
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        fontSize: '0.75rem',
-                        color: 'error.main',
-                        overflow: 'auto',
-                        maxHeight: 150,
-                        mb: 2
-                      }}
-                    >
-                      {this.state.error.toString()}
-                    </Box>
-
-                    {this.state.errorInfo && (
-                      <>
-                        <Typography variant="caption" fontWeight="bold" display="block" sx={{ mb: 1 }}>
-                          Component Stack:
-                        </Typography>
-                        <Box 
-                          component="pre" 
-                          sx={{ 
-                            p: 1.5, 
-                            bgcolor: 'background.paper', 
-                            border: '1px solid', 
-                            borderColor: 'divider',
-                            borderRadius: 1,
-                            fontSize: '0.7rem',
-                            color: 'text.secondary',
-                            overflow: 'auto',
-                            maxHeight: 200,
-                            mb: 2
-                          }}
-                        >
-                          {this.state.errorInfo.componentStack}
-                        </Box>
-                      </>
-                    )}
-
+              {isDevelopment && this.state.error && (
+                <div className="mt-4">
+                  <div className="w-full mb-2">
                     <Button 
-                      variant="primary" 
+                      variant="outline" 
                       size="small"
-                      onClick={this.copyErrorDetails}
-                      fullWidth
+                      onClick={this.toggleDetails}
+                      style={{ width: '100%' }}
                     >
-                      <Icon name="ContentCopy" size="small" />
-                      Copy Error Details
+                      <Icon name={this.state.showDetails ? "ExpandLess" : "ExpandMore"} size="small" />
+                      {this.state.showDetails ? 'Hide' : 'Show'} Error Details (Dev Mode)
                     </Button>
-                  </Box>
-                </Collapse>
-              </Box>
-            )}
+                  </div>
 
-            {!isDevelopment && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2, fontStyle: 'italic' }}>
-                If this problem continues, please contact support with details about what you were doing when the error occurred.
-              </Typography>
-            )}
-          </DialogContent>
-          
-          <DialogActions>
-            <Button variant="outline" onClick={this.handleGoHome}>
-              <Icon name="Home" size="small" /> Home
-            </Button>
-            <Button variant="outline" onClick={this.handleReload}>
-              <Icon name="Refresh" size="small" /> Reload
-            </Button>
-            <Button variant="primary" onClick={this.handleReset}>
-              <Icon name="Refresh" size="small" /> Try Again
-            </Button>
-          </DialogActions>
-        </Dialog>
+                  {this.state.showDetails && (
+                    <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200">
+                      <span className="text-xs font-bold block mb-1 text-gray-700">Error Message:</span>
+                      <pre className="p-2 bg-white border border-gray-200 rounded text-xs text-red-600 overflow-auto max-h-[150px] mb-3 whitespace-pre-wrap">
+                        {this.state.error.toString()}
+                      </pre>
+
+                      {this.state.errorInfo && (
+                        <>
+                          <span className="text-xs font-bold block mb-1 text-gray-700">Component Stack:</span>
+                          <pre className="p-2 bg-white border border-gray-200 rounded text-xs text-gray-500 overflow-auto max-h-[200px] mb-3 whitespace-pre-wrap">
+                            {this.state.errorInfo.componentStack}
+                          </pre>
+                        </>
+                      )}
+
+                      <div className="w-full">
+                         <Button 
+                          variant="primary" 
+                          size="small"
+                          onClick={this.copyErrorDetails}
+                          style={{ width: '100%' }}
+                        >
+                          <Icon name="ContentCopy" size="small" />
+                          Copy Error Details
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!isDevelopment && (
+                <p className="text-xs text-gray-500 mt-4 italic">
+                  If this problem continues, please contact support with details about what you were doing when the error occurred.
+                </p>
+              )}
+            </div>
+            
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 flex justify-end gap-2 border-t border-gray-100 flex-wrap">
+              <Button variant="outline" onClick={this.handleGoHome}>
+                <Icon name="Home" size="small" /> Home
+              </Button>
+              <Button variant="outline" onClick={this.handleReload}>
+                <Icon name="Refresh" size="small" /> Reload
+              </Button>
+              <Button variant="primary" onClick={this.handleReset}>
+                <Icon name="Refresh" size="small" /> Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
       )
     }
 

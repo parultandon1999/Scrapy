@@ -1,14 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import {
-  Box,
-  Typography,
-  Dialog,
-  DialogContent,
-  Paper,
-  LinearProgress,
-  Fade,
-  IconButton,
-} from '@mui/material'
 import Button from './mui/buttons/Button'
 import Icon from './mui/icons/Icon'
 
@@ -37,7 +27,6 @@ function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
       setSpotlightRect(rect)
 
       const tooltipWidth = 320
-      const tooltipHeight = 200
       const padding = 16
 
       let top = rect.bottom + padding
@@ -108,48 +97,36 @@ function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
   // Welcome screen
   if (currentStep === -1) {
     return (
-      <Dialog 
-        open={true} 
-        onClose={handleSkip}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogContent sx={{ textAlign: 'center', py: 4 }}>
-          <Box
-            sx={{
-              width: 64,
-              height: 64,
-              mx: 'auto',
-              mb: 3,
-              bgcolor: 'primary.main',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Icon name="AutoAwesome" size={32} sx={{ color: 'white' }} />
-          </Box>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-xs p-6 text-center">
           
-          <Typography variant="h6" fontWeight={600} sx={{ mb: 1.5 }}>
+          <div className="w-16 h-16 mx-auto mb-6 bg-blue-600 rounded-full flex items-center justify-center text-white">
+            <Icon name="AutoAwesome" size={32} />
+          </div>
+          
+          <h2 className="text-xl font-semibold mb-2 text-gray-900">
             Welcome to Web Scraper
-          </Typography>
+          </h2>
           
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <p className="text-sm text-gray-600 mb-6">
             Quick tour of key features. Takes just a minute.
-          </Typography>
+          </p>
           
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button variant="outline" onClick={handleSkip} fullWidth>
-              Skip
-            </Button>
-            <Button variant="primary" onClick={handleStart} fullWidth>
-              <Icon name="AutoAwesome" size={18} />
-              Start
-            </Button>
-          </Box>
-        </DialogContent>
-      </Dialog>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Button variant="outline" onClick={handleSkip} style={{ width: '100%' }}>
+                Skip
+              </Button>
+            </div>
+            <div className="flex-1">
+              <Button variant="primary" onClick={handleStart} style={{ width: '100%' }}>
+                <Icon name="AutoAwesome" size={18} />
+                Start
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -159,87 +136,78 @@ function Tour({ steps, onComplete, onSkip, showWelcome = true }) {
   return (
     <>
       {/* Spotlight overlay */}
-      <Box
-        sx={{
-          position: 'fixed',
+      <div
+        className="fixed z-[9999] rounded pointer-events-none border-2 border-blue-600 shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] transition-all duration-300 ease-out"
+        style={{
           top: spotlightRect.top - 4,
           left: spotlightRect.left - 4,
           width: spotlightRect.width + 8,
           height: spotlightRect.height + 8,
-          zIndex: 9999,
-          borderRadius: 1,
-          border: '2px solid',
-          borderColor: 'primary.main',
-          pointerEvents: 'none',
-          boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
-          transition: 'all 0.3s ease-out',
         }}
       />
 
       {/* Tooltip */}
-      <Fade in={true}>
-        <Paper
-          ref={tooltipRef}
-          elevation={8}
-          sx={{
-            position: 'fixed',
-            top: tooltipPosition.top,
-            left: tooltipPosition.left,
-            width: 320,
-            zIndex: 10000,
-            p: 2,
-          }}
-        >
-          {/* Header */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-            <Typography variant="subtitle2" fontWeight={600}>
-              {step.title}
-            </Typography>
-            <IconButton size="small" onClick={handleSkip}>
-              <Icon name="Close" size={16} />
-            </IconButton>
-          </Box>
+      <div
+        ref={tooltipRef}
+        className="fixed z-[10000] w-[320px] p-4 bg-white rounded-lg shadow-xl animate-in fade-in duration-300"
+        style={{
+          top: tooltipPosition.top,
+          left: tooltipPosition.left,
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-900">
+            {step.title}
+          </h3>
+          <button 
+            onClick={handleSkip}
+            className="text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer p-1"
+          >
+            <Icon name="Close" size={16} />
+          </button>
+        </div>
 
-          {/* Content */}
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {step.content}
-          </Typography>
+        {/* Content */}
+        <p className="text-sm text-gray-600 mb-4">
+          {step.content}
+        </p>
 
-          {/* Progress */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              {currentStep + 1} of {steps.length}
-            </Typography>
-            <LinearProgress 
-              variant="determinate" 
-              value={((currentStep + 1) / steps.length) * 100}
-              sx={{ height: 4, borderRadius: 2 }}
+        {/* Progress Bar */}
+        <div className="mb-4">
+          <span className="text-xs text-gray-500 mb-1 block">
+            {currentStep + 1} of {steps.length}
+          </span>
+          <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-blue-600 transition-all duration-300"
+              style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
             />
-          </Box>
+          </div>
+        </div>
 
-          {/* Actions */}
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            {currentStep > 0 && (
-              <Button variant="outline" size="small" onClick={handleBack}>
-                <Icon name="ChevronLeft" size={16} />
-                Back
-              </Button>
-            )}
-            
-            {currentStep < steps.length - 1 ? (
-              <Button variant="primary" size="small" onClick={handleNext}>
-                Next
-                <Icon name="ChevronRight" size={16} />
-              </Button>
-            ) : (
-              <Button variant="success" size="small" onClick={handleFinish}>
-                <Icon name="Check" size={16} />
-                Finish
-              </Button>
-            )}
-          </Box>
-        </Paper>
-      </Fade>
+        {/* Actions */}
+        <div className="flex gap-2 justify-end">
+          {currentStep > 0 && (
+            <Button variant="outline" size="small" onClick={handleBack}>
+              <Icon name="ChevronLeft" size={16} />
+              Back
+            </Button>
+          )}
+          
+          {currentStep < steps.length - 1 ? (
+            <Button variant="primary" size="small" onClick={handleNext}>
+              Next
+              <Icon name="ChevronRight" size={16} />
+            </Button>
+          ) : (
+            <Button variant="success" size="small" onClick={handleFinish}>
+              <Icon name="Check" size={16} />
+              Finish
+            </Button>
+          )}
+        </div>
+      </div>
     </>
   )
 }

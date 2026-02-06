@@ -1,13 +1,4 @@
 import { useState } from 'react'
-import {
-  Box,
-  Paper,
-  List,
-  ListItemButton,
-  Typography,
-  IconButton,
-  Avatar,
-} from '@mui/material'
 import Input from './mui/inputs/Input'
 import Icon from './mui/icons/Icon'
 
@@ -58,12 +49,11 @@ function SearchBar({
   const shouldShowDropdown = isFocused && recentUrls.length > 0 && !value
 
   return (
-    <Box 
-      component="form" 
+    <form 
       onSubmit={handleSubmit}
-      sx={{ width: '100%', maxWidth: 600, position: 'relative' }}
+      className="w-full max-w-[600px] relative"
     >
-      <Box sx={{ position: 'relative' }}>
+      <div className="relative">
         <Input
           type="url"
           placeholder={placeholder || "Enter URL to scrape..."}
@@ -78,137 +68,70 @@ function SearchBar({
           size="medium"
           icon={valid && !error ? () => <Icon name="CheckCircle" size={20} /> : null}
           iconPosition="end"
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 50,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
-              transition: 'all 0.2s',
-              boxShadow: '0 1px 6px rgba(32,33,36,0.08)',
-              '& fieldset': {
-                border: 'none',
-              },
-              '&:hover': {
-                boxShadow: '0 1px 6px rgba(32,33,36,0.18)',
-                borderColor: 'divider',
-              },
-              '&.Mui-focused': {
-                boxShadow: '0 1px 6px rgba(32,33,36,0.28)',
-                borderColor: 'divider',
-              },
-              '&.Mui-error': {
-                borderColor: 'error.main',
-                boxShadow: '0 1px 6px rgba(234,67,53,0.2)',
-              },
-            },
-            '& .MuiOutlinedInput-input': {
-              py: 1.5,
-              px: 2.5,
-            },
-          }}
+          // We pass styles via className to your custom Input component
+          // Assuming your Input component accepts className or passes props down
+          className={`
+            transition-all duration-200
+            rounded-[50px] bg-white border border-gray-200 shadow-[0_1px_6px_rgba(32,33,36,0.08)]
+            hover:shadow-[0_1px_6px_rgba(32,33,36,0.18)] hover:border-gray-200
+            focus-within:shadow-[0_1px_6px_rgba(32,33,36,0.28)] focus-within:border-gray-200
+            ${error ? 'border-red-500 shadow-[0_1px_6px_rgba(234,67,53,0.2)]' : ''}
+            [&_input]:py-3 [&_input]:px-4
+          `}
         />
 
         {/* Recent URLs Dropdown */}
         {shouldShowDropdown && (
-          <Paper
-            elevation={2}
-            // IMPORTANT: e.preventDefault() prevents the input from blurring 
-            // when you click the dropdown, ensuring the click registers 
-            // while still allowing instant close on outside clicks.
-            onMouseDown={(e) => e.preventDefault()}
-            sx={{
-              position: 'absolute',
-              top: 'calc(100% + 4px)',
-              left: 0,
-              right: 0,
-              zIndex: 1000,
-              maxHeight: 240,
-              overflow: 'hidden',
-              borderRadius: 2,
-            }}
+          <div
+            className="absolute top-[calc(100%+4px)] left-0 right-0 z-[1000] max-h-[240px] overflow-hidden rounded-lg bg-white shadow-md border border-gray-100"
+            onMouseDown={(e) => e.preventDefault()} // Prevents blur
           >
-            <List
-              disablePadding
-              sx={{
-                maxHeight: 240,
-                overflowY: 'auto',
-                // Custom scrollbar styling
-                '&::-webkit-scrollbar': {
-                  width: '8px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  backgroundColor: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  backgroundColor: '#b2b2b2ff',
-                  borderRadius: '4px',
-                  '&:hover': {
-                    backgroundColor: '#b2b2b2ff',
-                  },
-                },
-                // Firefox support
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#b2b2b2ff transparent',
-              }}
-            >
+            <ul className="max-h-[240px] overflow-y-auto custom-scrollbar p-0 m-0 list-none">
               {recentUrls.map((item, index) => (
-                <ListItemButton
+                <li
                   key={index}
                   onClick={() => handleSelectUrl(item.url)}
-                  sx={{
-                    py: 0.5,
-                    px: 2,
-                    borderBottom: index < recentUrls.length - 1 ? 1 : 0,
-                    borderColor: 'divider',
-                    '&:hover .delete-icon': {
-                      opacity: 1,
-                    },
-                  }}
+                  className={`
+                    group flex items-center gap-3 py-2 px-4 cursor-pointer hover:bg-gray-50
+                    ${index < recentUrls.length - 1 ? 'border-b border-gray-100' : ''}
+                  `}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
-                    <Avatar
-                      src={getFaviconUrl(item.url)}
-                      alt="favicon"
-                      sx={{
-                        width: 20,
-                        height: 20,
-                        bgcolor: 'transparent',
+                  {/* Favicon */}
+                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                    <img 
+                      src={getFaviconUrl(item.url)} 
+                      alt=""
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                         e.target.style.display = 'none';
+                         e.target.nextSibling.style.display = 'block';
                       }}
-                    >
-                      <Icon name="Language" size={16} />
-                    </Avatar>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        fontSize: '0.875rem',
-                      }}
-                    >
-                      {item.url}
-                    </Typography>
-                    <IconButton
-                      className="delete-icon"
-                      size="medium"
-                      onClick={(e) => handleDeleteUrl(e, item.url)}
-                      sx={{
-                        opacity: 0,
-                        transition: 'opacity 0.2s',
-                      }}
-                    >
-                      <Icon name="Close" size={16} />
-                    </IconButton>
-                  </Box>
-                </ListItemButton>
+                    />
+                    <div className="hidden text-gray-400">
+                       <Icon name="Language" size={16} />
+                    </div>
+                  </div>
+                  
+                  {/* URL Text */}
+                  <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-sm text-gray-700">
+                    {item.url}
+                  </span>
+                  
+                  {/* Delete Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteUrl(e, item.url)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-400 hover:text-red-500 bg-transparent border-none cursor-pointer"
+                  >
+                    <Icon name="Close" size={16} />
+                  </button>
+                </li>
               ))}
-            </List>
-          </Paper>
+            </ul>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </form>
   )
 }
 

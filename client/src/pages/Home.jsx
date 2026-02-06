@@ -1,13 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Box,
-  Container,
-  Typography,
-  Stack,
-  Alert,
-  Fade,
-} from '@mui/material'
 import { startScraper, getScrapedUrls } from '../services/api'
 import Navbar from '../components/Navbar'
 import Button from '../components/mui/buttons/Button'
@@ -99,7 +91,6 @@ function Home({ darkMode, toggleDarkMode }) {
       // await deleteSession(urlToDelete)
     } catch (err) {
       console.error('Failed to delete recent URL:', err)
-      // Optionally show error toast
     }
   }
 
@@ -173,7 +164,7 @@ function Home({ darkMode, toggleDarkMode }) {
   }
 
   return (
-    <Box sx={{ minHeight: '95vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+    <div className="min-h-[95vh] flex flex-col bg-gray-50 dark:bg-[#0a0a0a] transition-colors duration-200">
       <Tour 
         steps={homeTourSteps}
         onComplete={() => console.log('Tour completed')}
@@ -182,72 +173,42 @@ function Home({ darkMode, toggleDarkMode }) {
       <Navbar darkMode={darkMode} toggleDarkMode={toggleDarkMode} currentPage="home" />
       
       {/* History Icon Button - Top Right */}
-      <Box
+      <button
         onClick={() => setShowHistoryModal(true)}
-        sx={{
-          position: 'fixed',
-          top: { xs: 80, md: 100 },
-          right: { xs: 20, md: 32 },
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: { xs: 44, md: 52 },
-          height: { xs: 44, md: 52 },
-          borderRadius: '50%',
-          bgcolor: 'background.paper',
-          border: 1,
-          borderColor: 'divider',
-          color: 'text.secondary',
-          cursor: 'pointer',
-          backdropFilter: 'blur(8px)',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          '&:hover': {
-            bgcolor: 'action.hover',
-            color: 'text.primary',
-            transform: 'translateY(-2px)',
-            borderColor: 'primary.main',
-          },
-          '&:active': {
-            transform: 'translateY(0px)',
-          },
-        }}
+        className={`
+          fixed top-20 right-5 md:top-[100px] md:right-8 z-[1000]
+          flex items-center justify-center
+          w-11 h-11 md:w-[52px] md:h-[52px]
+          rounded-full bg-white dark:bg-[#1A1D24]
+          border border-gray-200 dark:border-[#333741]
+          text-gray-500 dark:text-gray-400
+          cursor-pointer backdrop-blur-md
+          transition-all duration-300 ease-out
+          hover:bg-gray-50 dark:hover:bg-[#2A2D35]
+          hover:text-gray-900 dark:hover:text-white
+          hover:-translate-y-0.5 hover:border-blue-600 dark:hover:border-blue-500
+          active:translate-y-0
+          shadow-sm
+        `}
         aria-label="View scraping history"
         title="View History"
       >
         <Icon 
-        name="Schedule" 
-        size={{ xs: 22, md: 26 }} 
-      />
-      </Box>
+          name="Schedule" 
+          className="text-[22px] md:text-[26px]" 
+        />
+      </button>
       
-      <Box
-        component="main"
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mt: { xs: -2, md: -16 },
-          px: { xs: 2, md: 0 },
-        }}
-      >
-        <Container maxWidth="md" sx={{ textAlign: 'center' }}>
-          <Typography
-            variant="h1"
-            sx={{
-              fontSize: { xs: '3.5rem', md: '5.5rem' },
-              fontWeight: 300,
-              letterSpacing: '-0.02em',
-              mb: { xs: 3, md: 4 },
-              color: 'text.primary',
-            }}
-          >
-            Scrapy
-          </Typography>
+      <main className="flex-1 flex flex-col items-center justify-center mt-[-16px] md:mt-[-64px] px-4 md:px-0">
+        <div className="w-full max-w-4xl text-center">
           
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+          {/* Title */}
+          <h1 className="text-[3.5rem] md:text-[5.5rem] font-light tracking-tight mb-6 md:mb-8 text-gray-900 dark:text-white">
+            Scrapy
+          </h1>
+          
+          {/* Search Bar Container */}
+          <div className="flex justify-center mb-6 w-full">
             <SearchBar 
               value={url}
               onChange={handleUrlChange}
@@ -260,38 +221,20 @@ function Home({ darkMode, toggleDarkMode }) {
               onDeleteRecent={handleDeleteRecentUrl}
               loadingRecent={loadingRecent}
             />
-          </Box>
+          </div>
           
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1.5}
-            sx={{
-              justifyContent: 'center',
-              maxWidth: { xs: 400, sm: 'none' },
-              mx: 'auto',
-            }}
-          >
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-[400px] sm:max-w-none mx-auto">
             <Button
               variant="primary"
               disabled={isLoading || !url || !urlValid}
               onClick={handleSubmit}
               size="medium"
-              sx={{
-                textTransform: 'none',
-                fontSize: '0.875rem',
-                fontWeight: 400,
-                px: 3,
-                py: 1,
-                borderRadius: 50,
-                boxShadow: 'none',
-                '&:hover': {
-                  boxShadow: 1,
-                },
-              }}
+              className="px-6 py-2 rounded-full shadow-none hover:shadow-md text-sm font-normal min-w-[160px]"
             >
               {isLoading ? (
                 <>
-                  <Icon name="HourglassEmpty" size={18} sx={{ animation: 'spin 1s linear infinite' }} />
+                  <Icon name="HourglassEmpty" size={18} className="animate-spin" />
                   {loadingStep}
                 </>
               ) : (
@@ -307,38 +250,15 @@ function Home({ darkMode, toggleDarkMode }) {
               onClick={() => setShowAdvancedModal(true)}
               disabled={isLoading}
               size="medium"
-              sx={{
-                textTransform: 'none',
-                fontSize: '0.875rem',
-                fontWeight: 400,
-                px: 3,
-                py: 1,
-                borderRadius: 50,
-                position: 'relative',
-              }}
+              className="px-6 py-2 rounded-full text-sm font-normal relative min-w-[180px]"
             >
               <Icon name="Tune" size={18} />
               Advanced Options
               {hasAdvancedOptions() && (
-                <Box
-                  component="span"
-                  sx={{
-                    ml: 1,
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'success.main',
-                    display: 'inline-block',
-                    animation: 'pulse 2s infinite',
-                    '@keyframes pulse': {
-                      '0%, 100%': { opacity: 1 },
-                      '50%': { opacity: 0.5 },
-                    },
-                  }}
-                />
+                <span className="ml-2 w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse" />
               )}
             </Button>
-          </Stack>
+          </div>
 
           <AdvancedOptionsModal
             isOpen={showAdvancedModal}
@@ -352,26 +272,29 @@ function Home({ darkMode, toggleDarkMode }) {
             onClose={() => setShowHistoryModal(false)}
           />
 
-          <Fade in={!!error}>
-            <Box sx={{ mt: 3 }}>
-              {error && (
-                <Alert 
-                  severity="error" 
-                  onClose={() => setError(null)}
-                  sx={{ 
-                    maxWidth: 500, 
-                    mx: 'auto',
-                    borderRadius: 2,
-                  }}
+          {/* Error Alert with Fade Transition */}
+          <div 
+            className={`
+              mt-6 transition-all duration-300 ease-in-out
+              ${error ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'}
+            `}
+          >
+            {error && (
+              <div className="max-w-[500px] mx-auto bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between shadow-sm">
+                <span className="text-sm font-medium">{error}</span>
+                <button 
+                  onClick={() => setError(null)}
+                  className="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-100 transition-colors"
                 >
-                  {error}
-                </Alert>
-              )}
-            </Box>
-          </Fade>
-        </Container>
-      </Box>
-    </Box>
+                  <Icon name="Close" size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+      </main>
+    </div>
   )
 }
 
