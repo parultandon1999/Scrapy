@@ -19,34 +19,14 @@ import config
 logger = logging.getLogger("DiffTracker")
 
 class DiffTracker:
-    """
-    Tracks changes between scrapes of the same URL.
-    
-    Detects changes in:
-    - Page content (title, description, text)
-    - Headers (h1-h6)
-    - Links (added/removed)
-    - Media (images added/removed)
-    - HTML structure
-    - File assets
-    """
-    
     def __init__(self, db_path: str):
-        """
-        Initialize the DiffTracker.
-        
-        Args:
-            db_path (str): Path to the SQLite database.
-        """
         self.db_path = db_path
         self._init_diff_tables()
     
     def _init_diff_tables(self):
-        """Create tables for storing diff history."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Main diff snapshots table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS page_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +45,6 @@ class DiffTracker:
             )
         ''')
         
-        # Detailed change log
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS change_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,7 +62,6 @@ class DiffTracker:
             )
         ''')
         
-        # Content diffs (detailed text changes)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS content_diffs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,7 +75,6 @@ class DiffTracker:
             )
         ''')
         
-        # Link changes
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS link_changes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,7 +86,6 @@ class DiffTracker:
             )
         ''')
         
-        # Media changes
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS media_changes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,7 +97,6 @@ class DiffTracker:
             )
         ''')
         
-        # Create indexes for performance
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_snapshots_url ON page_snapshots(url)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_snapshots_timestamp ON page_snapshots(snapshot_timestamp)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_changelog_url ON change_log(url)')
@@ -133,18 +108,11 @@ class DiffTracker:
         logger.info("Diff tracking tables initialized")
     
     def _calculate_hash(self, content: str) -> str:
-        """Calculate SHA256 hash of content."""
         if not content:
             return ""
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
     
     def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """
-        Calculate similarity ratio between two texts.
-        
-        Returns:
-            float: Similarity score between 0.0 and 1.0
-        """
         if not text1 and not text2:
             return 1.0
         if not text1 or not text2:
@@ -153,12 +121,6 @@ class DiffTracker:
         return difflib.SequenceMatcher(None, text1, text2).ratio()
     
     def _generate_html_diff(self, old_text: str, new_text: str) -> str:
-        """
-        Generate HTML diff showing changes between two texts.
-        
-        Returns:
-            str: HTML string with highlighted changes
-        """
         if not old_text:
             old_text = ""
         if not new_text:
@@ -177,21 +139,11 @@ class DiffTracker:
         return html_diff
     
     def create_snapshot(self, page_id: int) -> int:
-        """
-        Create a snapshot of the current page state.
-        
-        Args:
-            page_id (int): ID of the page to snapshot
-            
-        Returns:
-            int: Snapshot ID
-        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         try:
-            # Get page data
             cursor.execute('SELECT * FROM pages WHERE id = ?', (page_id,))
             page = cursor.fetchone()
             
@@ -199,13 +151,11 @@ class DiffTracker:
                 logger.error(f"Page {page_id} not found")
                 return None
             
-            # Calculate content hashes
             content_hash = self._calculate_hash(
                 f"{page['title']}|{page['description']}"
             )
             full_text_hash = self._calculate_hash(page['full_text'] or "")
             
-            # Count related items
             cursor.execute('SELECT COUNT(*) as count FROM headers WHERE page_id = ?', (page_id,))
             header_count = cursor.fetchone()['count']
             
@@ -221,7 +171,6 @@ class DiffTracker:
             except:
                 file_count = 0
             
-            # Insert snapshot
             cursor.execute('''
                 INSERT INTO page_snapshots (
                     url, snapshot_timestamp, page_id, content_hash,
@@ -257,22 +206,11 @@ class DiffTracker:
             conn.close()
     
     def detect_changes(self, url: str, current_page_id: int) -> Optional[Dict]:
-        """
-        Detect changes between the current scrape and the previous one.
-        
-        Args:
-            url (str): URL to check for changes
-            current_page_id (int): ID of the current page scrape
-            
-        Returns:
-            dict: Change detection results or None if no previous snapshot
-        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         try:
-            # Get the most recent previous snapshot
             cursor.execute('''
                 SELECT * FROM page_snapshots
                 WHERE url = ? AND page_id != ?
@@ -284,7 +222,6 @@ class DiffTracker:
             
             if not previous_snapshot:
                 logger.info(f"No previous snapshot found for {url}")
-                # Create first snapshot
                 snapshot_id = self.create_snapshot(current_page_id)
                 return {
                     'is_first_scrape': True,
@@ -292,14 +229,11 @@ class DiffTracker:
                     'changes_detected': False
                 }
             
-            # Create current snapshot
             current_snapshot_id = self.create_snapshot(current_page_id)
             
-            # Get current page data
             cursor.execute('SELECT * FROM pages WHERE id = ?', (current_page_id,))
             current_page = cursor.fetchone()
             
-            # Detect changes
             changes = {
                 'is_first_scrape': False,
                 'changes_detected': False,
@@ -310,7 +244,6 @@ class DiffTracker:
                 'changes': []
             }
             
-            # 1. Check content changes
             content_changes = self._detect_content_changes(
                 cursor, previous_snapshot, current_page, current_page_id
             )
@@ -318,7 +251,6 @@ class DiffTracker:
                 changes['changes'].extend(content_changes)
                 changes['changes_detected'] = True
             
-            # 2. Check link changes
             link_changes = self._detect_link_changes(
                 cursor, previous_snapshot['page_id'], current_page_id
             )
@@ -326,7 +258,6 @@ class DiffTracker:
                 changes['changes'].extend(link_changes)
                 changes['changes_detected'] = True
             
-            # 3. Check media changes
             media_changes = self._detect_media_changes(
                 cursor, previous_snapshot['page_id'], current_page_id
             )
@@ -334,7 +265,6 @@ class DiffTracker:
                 changes['changes'].extend(media_changes)
                 changes['changes_detected'] = True
             
-            # 4. Check file changes
             file_changes = self._detect_file_changes(
                 cursor, previous_snapshot['page_id'], current_page_id
             )
@@ -342,7 +272,6 @@ class DiffTracker:
                 changes['changes'].extend(file_changes)
                 changes['changes_detected'] = True
             
-            # Log changes to database
             if changes['changes_detected']:
                 self._log_changes(conn, changes)
             
@@ -359,10 +288,8 @@ class DiffTracker:
     def _detect_content_changes(
         self, cursor, previous_snapshot, current_page, current_page_id
     ) -> List[Dict]:
-        """Detect changes in page content (title, description, text)."""
         changes = []
         
-        # Title change
         if previous_snapshot['title'] != current_page['title']:
             similarity = self._calculate_similarity(
                 previous_snapshot['title'] or "",
@@ -378,7 +305,6 @@ class DiffTracker:
                 'similarity': similarity
             })
         
-        # Description change
         if previous_snapshot['description'] != current_page['description']:
             similarity = self._calculate_similarity(
                 previous_snapshot['description'] or "",
@@ -394,9 +320,7 @@ class DiffTracker:
                 'similarity': similarity
             })
         
-        # Full text change (using hash for efficiency)
         if previous_snapshot['full_text_hash'] != self._calculate_hash(current_page['full_text'] or ""):
-            # Get previous full text
             cursor.execute('SELECT full_text FROM pages WHERE id = ?', (previous_snapshot['page_id'],))
             prev_page = cursor.fetchone()
             
@@ -405,7 +329,6 @@ class DiffTracker:
                 current_page['full_text'] or ""
             )
             
-            # Only log if significant change (< 95% similar)
             if similarity < 0.95:
                 changes.append({
                     'type': 'content',
@@ -417,7 +340,6 @@ class DiffTracker:
                     'similarity': similarity
                 })
         
-        # Header count changes
         if previous_snapshot['header_count'] != current_page['header_count']:
             cursor.execute('SELECT COUNT(*) as count FROM headers WHERE page_id = ?', (current_page_id,))
             current_header_count = cursor.fetchone()['count']
@@ -436,18 +358,14 @@ class DiffTracker:
         return changes
     
     def _detect_link_changes(self, cursor, previous_page_id: int, current_page_id: int) -> List[Dict]:
-        """Detect added and removed links."""
         changes = []
         
-        # Get previous links
         cursor.execute('SELECT url, link_type FROM links WHERE page_id = ?', (previous_page_id,))
         previous_links = {(row['url'], row['link_type']) for row in cursor.fetchall()}
         
-        # Get current links
         cursor.execute('SELECT url, link_type FROM links WHERE page_id = ?', (current_page_id,))
         current_links = {(row['url'], row['link_type']) for row in cursor.fetchall()}
         
-        # Find added and removed links
         added_links = current_links - previous_links
         removed_links = previous_links - current_links
         
@@ -474,18 +392,14 @@ class DiffTracker:
         return changes
     
     def _detect_media_changes(self, cursor, previous_page_id: int, current_page_id: int) -> List[Dict]:
-        """Detect added and removed media (images)."""
         changes = []
         
-        # Get previous media
         cursor.execute('SELECT src, alt FROM media WHERE page_id = ?', (previous_page_id,))
         previous_media = {row['src'] for row in cursor.fetchall()}
         
-        # Get current media
         cursor.execute('SELECT src, alt FROM media WHERE page_id = ?', (current_page_id,))
         current_media = {row['src'] for row in cursor.fetchall()}
         
-        # Find added and removed media
         added_media = current_media - previous_media
         removed_media = previous_media - current_media
         
@@ -512,19 +426,15 @@ class DiffTracker:
         return changes
     
     def _detect_file_changes(self, cursor, previous_page_id: int, current_page_id: int) -> List[Dict]:
-        """Detect added and removed downloadable files."""
         changes = []
         
         try:
-            # Get previous files
             cursor.execute('SELECT file_url, file_name FROM file_assets WHERE page_id = ?', (previous_page_id,))
             previous_files = {row['file_url'] for row in cursor.fetchall()}
             
-            # Get current files
             cursor.execute('SELECT file_url, file_name FROM file_assets WHERE page_id = ?', (current_page_id,))
             current_files = {row['file_url'] for row in cursor.fetchall()}
             
-            # Find added and removed files
             added_files = current_files - previous_files
             removed_files = previous_files - current_files
             
@@ -548,16 +458,14 @@ class DiffTracker:
                     'count': len(removed_files)
                 })
         except:
-            pass  # Table might not exist
+            pass
         
         return changes
     
     def _log_changes(self, conn, changes: Dict):
-        """Log detected changes to the database."""
         cursor = conn.cursor()
         
         for change in changes['changes']:
-            # Insert into change_log
             cursor.execute('''
                 INSERT INTO change_log (
                     url, change_timestamp, previous_snapshot_id, current_snapshot_id,
@@ -578,7 +486,6 @@ class DiffTracker:
             
             change_log_id = cursor.lastrowid
             
-            # Insert detailed content diffs if applicable
             if change['type'] == 'content' and 'old_value' in change:
                 html_diff = self._generate_html_diff(
                     change.get('old_value', ''),
@@ -600,7 +507,6 @@ class DiffTracker:
                     change.get('similarity', 1.0)
                 ))
             
-            # Insert link changes
             if change['type'] == 'links' and 'details' in change:
                 for link_detail in change['details']:
                     cursor.execute('''
@@ -615,7 +521,6 @@ class DiffTracker:
                         change['category']
                     ))
             
-            # Insert media changes
             if change['type'] == 'media' and 'details' in change:
                 for media_src in change['details']:
                     cursor.execute('''
@@ -633,16 +538,6 @@ class DiffTracker:
         conn.commit()
     
     def get_change_history(self, url: str, limit: int = 10) -> List[Dict]:
-        """
-        Get change history for a specific URL.
-        
-        Args:
-            url (str): URL to get history for
-            limit (int): Maximum number of changes to return
-            
-        Returns:
-            list: List of change records
-        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -666,19 +561,16 @@ class DiffTracker:
             for row in cursor.fetchall():
                 change = dict(row)
                 
-                # Get detailed content diffs
                 cursor.execute('''
                     SELECT * FROM content_diffs WHERE change_log_id = ?
                 ''', (change['id'],))
                 change['content_diffs'] = [dict(r) for r in cursor.fetchall()]
                 
-                # Get link changes
                 cursor.execute('''
                     SELECT * FROM link_changes WHERE change_log_id = ?
                 ''', (change['id'],))
                 change['link_changes'] = [dict(r) for r in cursor.fetchall()]
                 
-                # Get media changes
                 cursor.execute('''
                     SELECT * FROM media_changes WHERE change_log_id = ?
                 ''', (change['id'],))
@@ -692,12 +584,6 @@ class DiffTracker:
             conn.close()
     
     def get_all_monitored_urls(self) -> List[Dict]:
-        """
-        Get all URLs that have been monitored for changes.
-        
-        Returns:
-            list: List of URLs with change statistics
-        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -723,22 +609,11 @@ class DiffTracker:
             conn.close()
     
     def compare_snapshots(self, snapshot_id_1: int, snapshot_id_2: int) -> Dict:
-        """
-        Compare two specific snapshots.
-        
-        Args:
-            snapshot_id_1 (int): First snapshot ID
-            snapshot_id_2 (int): Second snapshot ID
-            
-        Returns:
-            dict: Comparison results
-        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         try:
-            # Get both snapshots
             cursor.execute('SELECT * FROM page_snapshots WHERE id = ?', (snapshot_id_1,))
             snapshot1 = cursor.fetchone()
             
@@ -754,7 +629,6 @@ class DiffTracker:
                 'differences': []
             }
             
-            # Compare fields
             fields = ['title', 'description', 'header_count', 'link_count', 'media_count', 'file_count']
             for field in fields:
                 if snapshot1[field] != snapshot2[field]:
@@ -770,27 +644,6 @@ class DiffTracker:
             conn.close()
 
 class Scraper:
-    """
-    A production-grade asynchronous web scraper built with Playwright and Python.
-
-    This scraper supports:
-    - Asynchronous crawling with configurable concurrency.
-    - JavaScript rendering and interaction (via Playwright).
-    - Browser fingerprinting (User-Agent, Viewport, etc.) to avoid detection.
-    - Proxy rotation and failure handling.
-    - robust authentication (Login with persistence via storage state).
-    - Data extraction (HTML structure, JSON-LD, Media).
-    - Asset downloading (PDFs, Images, etc.).
-    - SQLite storage for structured data.
-
-    Attributes:
-        start_url (str): The initial URL to start scraping from.
-        base_dir (str): Directory for storing logs, database, and downloaded files.
-        db_path (str): Path to the SQLite database.
-        queue (deque): FIFO queue for managing URLs to visit.
-        visited (set): Set of already visited URLs to prevent cycles.
-    """
-
     def __init__(
         self, start_url, 
         max_pages=None, 
@@ -810,34 +663,11 @@ class Scraper:
         download_file_assets=None,
         max_file_size_mb=None,
     ):
-        """
-        Initialize the Scraper with configuration parameters.
-
-        Args:
-            start_url (str): The URL where the scraping process begins.
-            max_pages (int, optional): Maximum number of pages to scrape. Defaults to config.
-            max_depth (int, optional): Maximum recursion depth for link following. Defaults to config.
-            base_dir (str, optional): Base directory for output. Defaults to config.
-            headless (bool, optional): Whether to run browser in headless mode. Defaults to config.
-            concurrent_limit (int, optional): Number of concurrent browser contexts/workers. Defaults to config.
-            proxy_file (str, optional): Path to a file containing proxy strings. Defaults to config.
-            login_url (str, optional): URL to the login page.
-            username (str, optional): Username for authentication.
-            password (str, optional): Password for authentication.
-            username_selector (str, optional): CSS selector for the username input.
-            password_selector (str, optional): CSS selector for the password input.
-            submit_selector (str, optional): CSS selector for the login submit button.
-            success_indicator (str, optional): Selector that appears only after successful login.
-            auth_state_file (str, optional): Filename to save/load authentication cookies.
-            download_file_assets (bool, optional): Whether to download files (PDF, etc.).
-            max_file_size_mb (int, optional): Max size in MB for downloaded files.
-        """
         self.start_url = self._normalize_url(start_url)
         self.should_stop = False
         self.is_paused = False
         self.domain = urlparse(self.start_url).netloc
         
-        # Load configuration overrides or defaults
         self.max_pages = max_pages if max_pages is not None else config.SCRAPER['max_pages']
         self.max_depth = max_depth if max_depth is not None else config.SCRAPER['max_depth']
         self.base_dir = base_dir if base_dir is not None else config.SCRAPER['base_dir']
@@ -845,13 +675,11 @@ class Scraper:
         self.concurrent_limit = concurrent_limit if concurrent_limit is not None else config.SCRAPER['concurrent_limit']
         self.proxy_file = proxy_file if proxy_file is not None else config.PROXY['proxy_file']
         
-        # File download settings
         self.download_file_assets = download_file_assets if download_file_assets is not None else config.FEATURES['download_file_assets']
         self.max_file_size_mb = max_file_size_mb if max_file_size_mb is not None else config.FILE_DOWNLOAD['max_file_size_mb']
         self.max_file_size_bytes = self.max_file_size_mb * 1024 * 1024
         self.downloadable_extensions = config.FILE_DOWNLOAD['downloadable_extensions']
         
-        # Authentication settings
         self.login_url = login_url if login_url is not None else config.AUTH['login_url']
         self.username = username if username is not None else config.AUTH['username']
         self.password = password if password is not None else config.AUTH['password']
@@ -861,34 +689,28 @@ class Scraper:
         self.success_indicator = success_indicator if success_indicator is not None else config.AUTH['success_indicator']
         self.manual_login_mode = config.AUTH.get('manual_login_mode', False)
         
-        # Auth state storage
         auth_state_filename = auth_state_file if auth_state_file is not None else config.AUTH['auth_state_file']
         self.auth_state_file = os.path.join(self.base_dir, auth_state_filename)
         self.storage_state = None
         
-        # Ensure output directory exists
         if not os.path.exists(self.base_dir):
             os.makedirs(self.base_dir)
 
         self._setup_logging()
 
-        # Proxy management
         self.proxies = self._load_proxies()
         self.proxy_index = 0
         self.proxy_lock = asyncio.Lock()
         self.failed_proxies = set()
         
-        # Database setup
         self.db_path = os.path.join(self.base_dir, "scraped_data.db")
         self._init_database()
         
-        # Queue management
-        self.queue = deque([(self.start_url, 0)]) # Tuple: (URL, Depth)
+        self.queue = deque([(self.start_url, 0)])
         self.visited = set([self.start_url])
         self.pages_scraped = 0
         self.lock = asyncio.Lock()
         
-        # Stats tracking
         self.downloads_stats = {
             'total_attempted': 0,
             'successful': 0,
@@ -896,14 +718,10 @@ class Scraper:
             'total_bytes': 0
         }
         
-        # Diff tracking
         self.diff_tracker = DiffTracker(self.db_path)
-        self.enable_diff_tracking = True  # Can be configured
+        self.enable_diff_tracking = True
 
     def _setup_logging(self):
-        """
-        Configures logging to both console (stdout) and a file (scraper.log).
-        """
         log_dir = os.path.join(self.base_dir, 'logs')
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, 'scraper.log')
@@ -911,9 +729,7 @@ class Scraper:
         self.logger = logging.getLogger('Scraper')
         self.logger.setLevel(logging.INFO)
         
-        # Console Handler
         c_handler = logging.StreamHandler()
-        # File Handler
         f_handler = logging.FileHandler(log_file)
         
         c_handler.setLevel(logging.INFO)
@@ -928,12 +744,6 @@ class Scraper:
             self.logger.addHandler(f_handler)
 
     def _load_proxies(self):
-        """
-        Loads proxy configurations from a file if enabled.
-
-        Returns:
-            list: A list of proxy connection strings, or empty list if disabled/not found.
-        """
         proxies = []
         
         if not config.FEATURES['use_proxies']:
@@ -954,14 +764,6 @@ class Scraper:
         return proxies
 
     async def _get_next_proxy(self):
-        """
-        Retrieves the next available proxy from the list in a round-robin fashion.
-        
-        Thread-safe method using AsyncIO locks. Skips proxies marked as failed.
-
-        Returns:
-            str or None: Proxy string or None if no proxies are available/working.
-        """
         if not self.proxies:
             return None
         
@@ -982,23 +784,11 @@ class Scraper:
             return None
 
     async def _mark_proxy_failed(self, proxy):
-        """
-        Marks a specific proxy as failed so it won't be reused in this session.
-
-        Args:
-            proxy (str): The proxy string to blocklist.
-        """
         async with self.proxy_lock:
             self.failed_proxies.add(proxy)
             self.logger.warning(f"Marked proxy as failed: {proxy}")
 
     def _generate_fingerprint(self):
-        """
-        Generates a random browser fingerprint to avoid bot detection.
-
-        Returns:
-            dict: Dictionary containing viewport, user_agent, timezone, etc.
-        """
         fingerprint = {
             "viewport": random.choice(config.FINGERPRINTS['viewports']),
             "user_agent": random.choice(config.FINGERPRINTS['user_agents']),
@@ -1014,18 +804,6 @@ class Scraper:
         return fingerprint
 
     async def perform_manual_login(self, browser):
-        """
-        Opens a visible browser window for MANUAL login.
-        Useful for sites with CAPTCHA or strong bot detection (Pinterest, Instagram, etc.)
-        
-        User logs in manually, then the session is saved automatically.
-        
-        Args:
-            browser (Browser): The Playwright browser instance.
-            
-        Returns:
-            bool: True if session was saved, False otherwise.
-        """
         self.logger.info("=" * 70)
         self.logger.info("MANUAL LOGIN MODE")
         self.logger.info("=" * 70)
@@ -1036,7 +814,6 @@ class Scraper:
         self.logger.info("=" * 70)
         
         try:
-            # Create context with fingerprint but NO storage state
             fingerprint = self._generate_fingerprint()
             context_options = {
                 "user_agent": fingerprint["user_agent"],
@@ -1050,16 +827,13 @@ class Scraper:
             context = await browser.new_context(**context_options)
             page = await context.new_page()
             
-            # Navigate to login page
             await page.goto(self.login_url, timeout=30000)
             
             self.logger.info("Browser opened. Waiting 60 seconds for you to log in manually...")
             self.logger.info("(You can close this message once you've logged in)")
             
-            # Wait for user to login (60 seconds)
             await asyncio.sleep(60)
             
-            # Save the session state
             self.storage_state = await context.storage_state()
             
             with open(self.auth_state_file, 'w') as f:
@@ -1079,27 +853,12 @@ class Scraper:
             return False
 
     async def perform_login(self, browser):
-        """
-        Handles the authentication process.
-        
-        1. Checks for an existing 'auth_state_file'.
-        2. If found, tests if the session is still valid.
-        3. If invalid or not found, performs a fresh login using credentials.
-        4. Saves the successful session state to disk for future runs.
-
-        Args:
-            browser (Browser): The Playwright browser instance.
-
-        Returns:
-            bool: True if logged in (or session valid), False otherwise.
-        """
         if not self.login_url or not self.username or not self.password:
             self.logger.info("No login credentials provided. Skipping authentication.")
             return False
         
         self.logger.info(f"Starting authentication for {self.username} at {self.login_url}")
         
-        # 1. Attempt to restore session
         if os.path.exists(self.auth_state_file):
             self.logger.info("Found saved authentication state. Testing validity...")
             
@@ -1107,7 +866,6 @@ class Scraper:
                 with open(self.auth_state_file, 'r') as f:
                     self.storage_state = json.load(f)
                 
-                # Test the state in a new context
                 test_context = await browser.new_context(storage_state=self.storage_state)
                 test_page = await test_context.new_page()
                 
@@ -1118,7 +876,6 @@ class Scraper:
                     
                     current_url = test_page.url
                     
-                    # Heuristic: If we are redirected back to login URL, session is likely expired
                     if self.login_url in current_url:
                         self.logger.info("Saved session expired. Need fresh login.")
                         self.storage_state = None
@@ -1137,7 +894,6 @@ class Scraper:
             except Exception as e:
                 self.logger.error(f"Could not load saved auth state: {e}")
         
-        # 2. Perform Fresh Login
         self.logger.info("Performing fresh login...")
         
         try:
@@ -1145,29 +901,23 @@ class Scraper:
             context, _ = await self.create_context(browser)
             page = await context.new_page()
             
-            # Add extra stealth scripts for sites like Pinterest
             await page.add_init_script("""
-                // Remove webdriver property
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
                 });
                 
-                // Mock plugins
                 Object.defineProperty(navigator, 'plugins', {
                     get: () => [1, 2, 3, 4, 5]
                 });
                 
-                // Mock languages
                 Object.defineProperty(navigator, 'languages', {
                     get: () => ['en-US', 'en']
                 });
                 
-                // Chrome runtime
                 window.chrome = {
                     runtime: {}
                 };
                 
-                // Permissions
                 const originalQuery = window.navigator.permissions.query;
                 window.navigator.permissions.query = (parameters) => (
                     parameters.name === 'notifications' ?
@@ -1179,15 +929,12 @@ class Scraper:
             self.logger.info(f"Navigating to login URL: {self.login_url}")
             await page.goto(self.login_url, wait_until="networkidle", timeout=30000)
             
-            # Add human-like delays
             await asyncio.sleep(random.uniform(2, 4))
             
-            # Scroll a bit to simulate human behavior
             await page.evaluate("window.scrollTo(0, 100)")
             await asyncio.sleep(random.uniform(0.5, 1))
             
             self.logger.debug(f"Entering username")
-            # Type slowly like a human
             await page.click(self.username_selector)
             await asyncio.sleep(random.uniform(0.3, 0.7))
             await page.type(self.username_selector, self.username, delay=random.randint(50, 150))
@@ -1212,7 +959,6 @@ class Scraper:
             
             login_successful = False
             
-            # 3. Verify Login Success
             if self.success_indicator:
                 try:
                     await page.wait_for_selector(self.success_indicator, timeout=10000)
@@ -1221,7 +967,6 @@ class Scraper:
                 except:
                     self.logger.warning(f"Success indicator not found: {self.success_indicator}")
             else:
-                # Fallback: check URL change or absence of error messages
                 if current_url != self.login_url:
                     self.logger.info(f"URL changed from login page (assumed successful)")
                     login_successful = True
@@ -1247,7 +992,6 @@ class Scraper:
                     if not has_error:
                         login_successful = True
             
-            # 4. Save State or Log Error
             if login_successful:
                 self.logger.info(f"Login successful. Saving state to: {self.auth_state_file}")
                 
@@ -1288,18 +1032,11 @@ class Scraper:
             return False
 
     def _init_database(self):
-        """
-        Initializes the SQLite database schema.
-        
-        Creates tables for pages, headers, links, media, structured data,
-        raw HTML structure, and file assets if they don't exist.
-        """
         os.makedirs(os.path.dirname(self.db_path) if os.path.dirname(self.db_path) else '.', exist_ok=True)
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # Main pages table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS pages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1316,7 +1053,6 @@ class Scraper:
             )
         ''')
         
-        # Headers (h1-h6)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS headers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1327,7 +1063,6 @@ class Scraper:
             )
         ''')
         
-        # Links found on the page
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS links (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1338,7 +1073,6 @@ class Scraper:
             )
         ''')
         
-        # Media (images, etc)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS media (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1349,7 +1083,6 @@ class Scraper:
             )
         ''')
         
-        # JSON-LD structured data
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS structured_data (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1359,7 +1092,6 @@ class Scraper:
             )
         ''')
         
-        # Scraped DOM elements structure
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS html_structure (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1373,7 +1105,6 @@ class Scraper:
             )
         ''')
         
-        # Downloaded files tracking
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS file_assets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1394,30 +1125,11 @@ class Scraper:
         conn.close()
 
     def _normalize_url(self, url):
-        """
-        Normalizes a URL by removing query parameters and fragments.
-
-        Args:
-            url (str): The input URL.
-
-        Returns:
-            str: Cleaned URL string.
-        """
         parsed = urlparse(url)
         clean_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
         return clean_url.rstrip('/')
 
     def _create_folder_path(self, url):
-        """
-        Creates a local directory structure mirroring the URL path.
-        Used for saving screenshots and downloads.
-
-        Args:
-            url (str): The URL to map to a folder.
-
-        Returns:
-            str: The full path to the created local directory.
-        """
         parsed = urlparse(url)
         
         domain_clean = re.sub(r'[^a-zA-Z0-9]', '_', parsed.netloc)
@@ -1427,7 +1139,6 @@ class Scraper:
         if not path_segments:
             path_segments = ["home"]
             
-        # Limit segment length to avoid OS filename limits
         safe_segments = [re.sub(r'[^a-zA-Z0-9\-_]', '_', s)[:50] for s in path_segments]
         full_path = os.path.join(self.base_dir, domain_clean, *safe_segments)
         
@@ -1437,7 +1148,6 @@ class Scraper:
         return full_path
 
     def _is_downloadable_file(self, url):
-        """Checks if a URL points to a file extension configured for download."""
         parsed = urlparse(url)
         path = parsed.path.lower()
         
@@ -1445,9 +1155,6 @@ class Scraper:
         return ext in self.downloadable_extensions
 
     def _get_file_extension(self, url, content_type=None):
-        """
-        Determines the file extension from the URL or Content-Type header.
-        """
         parsed = urlparse(url)
         path = parsed.path
         ext = os.path.splitext(path)[1].lower()
@@ -1463,18 +1170,6 @@ class Scraper:
         return '.bin'
 
     async def _download_file(self, file_url, save_path, session, max_retries=3):
-        """
-        Downloads a file asynchronously with retry logic.
-
-        Args:
-            file_url (str): URL of the file to download.
-            save_path (str): Local path where the file should be saved.
-            session (aiohttp.ClientSession): The async HTTP session.
-            max_retries (int): Number of download attempts.
-
-        Returns:
-            dict: Result dictionary with keys 'success', 'file_size', 'error', 'mime_type'.
-        """
         result = {
             'success': False,
             'file_size': 0,
@@ -1484,7 +1179,6 @@ class Scraper:
         
         for attempt in range(max_retries):
             try:
-                # Set a high total timeout for large files
                 async with session.get(file_url, timeout=aiohttp.ClientTimeout(total=60)) as response:
                     if response.status == 200:
                         content_length = response.headers.get('Content-Length')
@@ -1498,7 +1192,6 @@ class Scraper:
                         
                         with open(save_path, 'wb') as f:
                             total_downloaded = 0
-                            # Stream content to avoid loading large files into memory
                             async for chunk in response.content.iter_chunked(8192):
                                 f.write(chunk)
                                 total_downloaded += len(chunk)
@@ -1525,20 +1218,9 @@ class Scraper:
         return result
 
     async def _extract_file_links(self, page, base_url):
-        """
-        Scans the page for links pointing to downloadable assets.
-
-        Args:
-            page (Page): Playwright page object.
-            base_url (str): Base URL to resolve relative links.
-
-        Returns:
-            list: List of dicts containing 'url' and 'link_text'.
-        """
         file_links = []
         
         try:
-            # Method 1: Check standard anchor tags
             links = await page.locator("a").all()
             
             for link in links:
@@ -1565,7 +1247,6 @@ class Scraper:
                 except Exception as e:
                     continue
             
-            # Method 2: Check custom attributes or specific patterns commonly used for downloads
             for selector in ['[data-download]', '[data-file]', '[href$=".pdf"]', 
                            '[href$=".docx"]', '[href$=".zip"]', '[href$=".csv"]']:
                 try:
@@ -1585,7 +1266,6 @@ class Scraper:
         except Exception as e:
             self.logger.warning(f"Error extracting file links: {e}")
         
-        # Deduplicate
         unique_files = {}
         for file_info in file_links:
             url = file_info['url']
@@ -1595,10 +1275,6 @@ class Scraper:
         return list(unique_files.values())
 
     async def smart_scroll(self, page):
-        """
-        Performs smart scrolling to trigger lazy-loaded content.
-        Scrolls to the bottom repeatedly until height stops increasing or limit is reached.
-        """
         try:
             last_height = await page.evaluate("document.body.scrollHeight")
             for i in range(5):
@@ -1612,24 +1288,12 @@ class Scraper:
             pass
 
     async def extract_html_structure(self, page):
-        """
-        Injects JavaScript to traverse the DOM and extract a structured representation
-        of key elements (h1-h6, p, a, button, etc.).
-
-        Args:
-            page (Page): Playwright page object.
-
-        Returns:
-            list: List of dicts representing DOM elements with selectors and attributes.
-        """
         try:
-            # Execute JS in browser context
             structure = await page.evaluate("""
                 () => {
                     const elements = [];
                     const processedElements = new Set();
                     
-                    // Helper: Generate a unique CSS selector for an element
                     function getSelector(element) {
                         if (element.id) {
                             return '#' + element.id;
@@ -1646,7 +1310,6 @@ class Scraper:
                                 }
                             }
                             
-                            // Add nth-child if needed for uniqueness among siblings
                             if (element.parentNode) {
                                 const siblings = Array.from(element.parentNode.children);
                                 const index = siblings.indexOf(element) + 1;
@@ -1658,7 +1321,6 @@ class Scraper:
                             path.unshift(selector);
                             element = element.parentElement;
                             
-                            // Limit depth to avoid massive selectors
                             if (path.length >= 5) break;
                         }
                         
@@ -1680,7 +1342,6 @@ class Scraper:
                         return attrs;
                     }
                     
-                    // Target specific content tags
                     const selectors = [
                         'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
                         'p', 'a', 'button', 'input', 'textarea', 'select',
@@ -1696,13 +1357,11 @@ class Scraper:
                             const style = window.getComputedStyle(elem);
                             if (style.display === 'none' || style.visibility === 'hidden') return;
                             
-                            // Get text content (truncated)
                             let textContent = elem.textContent?.trim() || '';
                             if (textContent.length > 200) {
                                 textContent = textContent.substring(0, 200) + '...';
                             }
                             
-                            // Filter empty elements unless they are images or inputs
                             if (!textContent && !elem.src && !elem.href) return;
                             
                             const selector = getSelector(elem);
@@ -1719,7 +1378,6 @@ class Scraper:
                             
                             processedElements.add(elem);
                             
-                            // Hard limit to prevent memory issues on large pages
                             if (elements.length >= 500) return;
                         });
                     });
@@ -1734,26 +1392,6 @@ class Scraper:
             return []
 
     async def extract_and_save_data(self, page, depth, proxy_used, fingerprint):
-        """
-        Main extraction routine for a single page.
-        
-        1. Extracts JSON-LD structured data.
-        2. Extracts Headers and Body text.
-        3. Extracts Media (Images) and Links.
-        4. Extracts HTML structure using JS injection.
-        5. Downloads linked files if enabled.
-        6. Saves all gathered data to SQLite.
-        7. Saves screenshots to disk.
-
-        Args:
-            page (Page): Playwright page object.
-            depth (int): Current crawl depth.
-            proxy_used (str): The proxy used for this request.
-            fingerprint (dict): The fingerprint used for this request.
-
-        Returns:
-            tuple: (internal_links, current_depth)
-        """
         url = page.url
         
         title = await page.title()
@@ -1765,7 +1403,6 @@ class Scraper:
         except:
             pass
 
-        # --- Structured Data (JSON-LD) ---
         structured_data = []
         scripts = await page.locator('script[type="application/ld+json"]').all()
         for script in scripts:
@@ -1775,7 +1412,6 @@ class Scraper:
             except:
                 continue
 
-        # --- Content Extraction ---
         headers = {}
         for h in ['h1', 'h2', 'h3']:
             headers[h] = await page.locator(h).all_inner_texts()
@@ -1785,7 +1421,6 @@ class Scraper:
         except:
             full_text = ""
 
-        # --- Media Extraction ---
         media = []
         imgs = await page.locator("img").all()
         for img in imgs:
@@ -1794,7 +1429,6 @@ class Scraper:
                 alt = await img.get_attribute("alt") or ""
                 
                 if src:
-                    # Normalize relative URLs
                     if not src.startswith("http"):
                         if src.startswith("//"):
                             src = "https:" + src
@@ -1808,7 +1442,6 @@ class Scraper:
             except:
                 continue
 
-        # --- Link Extraction ---
         internal_links = []
         external_links = []
         links = await page.locator("a").all()
@@ -1832,10 +1465,8 @@ class Scraper:
 
         folder_path = self._create_folder_path(url)
         
-        # --- Advanced Structure Extraction ---
         html_structure = await self.extract_html_structure(page)
 
-        # --- File Asset Download ---
         file_assets = []
         if self.download_file_assets:
             self.logger.info("Searching for downloadable files...")
@@ -1853,7 +1484,6 @@ class Scraper:
                         file_url = file_info['url']
                         link_text = file_info['link_text']
                         
-                        # Calculate filename
                         parsed_file_url = urlparse(file_url)
                         original_filename = os.path.basename(parsed_file_url.path)
                         
@@ -1863,7 +1493,6 @@ class Scraper:
                             ext = self._get_file_extension(file_url)
                             safe_filename = f"{base_name}{ext}"
                         
-                        # Avoid overwriting files with same name
                         save_path = os.path.join(downloads_folder, safe_filename)
                         counter = 1
                         while os.path.exists(save_path):
@@ -1907,7 +1536,6 @@ class Scraper:
                                 'error': download_result['error']
                             })
 
-        # --- Database Insertion ---
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -1974,7 +1602,6 @@ class Scraper:
             
             conn.commit()
             
-            # Detect changes if diff tracking is enabled
             if self.enable_diff_tracking and page_id:
                 try:
                     change_result = self.diff_tracker.detect_changes(url, page_id)
@@ -1986,7 +1613,6 @@ class Scraper:
                     self.logger.error(f"Error in diff tracking: {e}")
             
         except sqlite3.IntegrityError:
-            # URL already exists - try to get existing page_id for diff tracking
             cursor.execute('SELECT id FROM pages WHERE url = ?', (url,))
             existing = cursor.fetchone()
             if existing and self.enable_diff_tracking:
@@ -2006,7 +1632,6 @@ class Scraper:
                 timeout=10000
             )
         except:
-            # Fallback for very long pages that timeout on full_page
             try:
                 await page.screenshot(
                     path=os.path.join(folder_path, "screenshot.png"),
@@ -2018,17 +1643,6 @@ class Scraper:
         return internal_links, depth
 
     async def discover_and_queue_links(self, internal_links, current_depth):
-        """
-        Filters found links and adds new unique URLs to the queue.
-        Implements breadth-first search logic respecting max_depth.
-
-        Args:
-            internal_links (list): List of URLs found on the current page.
-            current_depth (int): The depth of the current page.
-
-        Returns:
-            int: Number of new links added to the queue.
-        """
         new_links_found = 0
         
         async with self.lock:
@@ -2045,17 +1659,6 @@ class Scraper:
         return new_links_found
 
     async def create_context(self, browser, proxy=None, storage_state=None):
-        """
-        Creates a new isolated browser context with specific fingerprinting options.
-
-        Args:
-            browser (Browser): Playwright browser instance.
-            proxy (str, optional): Proxy connection string.
-            storage_state (dict, optional): Cookies/Storage for authentication.
-
-        Returns:
-            tuple: (BrowserContext, fingerprint_dict)
-        """
         fingerprint = self._generate_fingerprint()
         
         context_options = {
@@ -2087,7 +1690,6 @@ class Scraper:
         
         context = await browser.new_context(**context_options)
         
-        # Anti-detect: Override screen properties to match viewport
         await context.add_init_script(f"""
             Object.defineProperty(screen, 'width', {{
                 get: () => {fingerprint['screen']['width']}
@@ -2100,19 +1702,6 @@ class Scraper:
         return context, fingerprint
 
     async def process_page(self, browser, url, depth):
-        """
-        Orchestrates the processing of a single URL:
-        1. Gets a proxy.
-        2. Creates a context.
-        3. Navigates to the page.
-        4. Extracts data.
-        5. Handles errors and proxy failures.
-
-        Args:
-            browser (Browser): Playwright browser instance.
-            url (str): URL to process.
-            depth (int): Current depth.
-        """
         page = None
         context = None
         proxy = await self._get_next_proxy()
@@ -2152,7 +1741,6 @@ class Scraper:
                 retry_count += 1
                 error_msg = str(e)
                 
-                # Check if the error is proxy-related
                 if proxy and any(keyword in error_msg.lower() for keyword in 
                                 ['proxy', 'connection', 'timeout', 'refused']):
                     await self._mark_proxy_failed(proxy)
@@ -2171,19 +1759,11 @@ class Scraper:
                     await context.close()
 
     async def worker(self, browser, worker_id):
-        """
-        Worker coroutine that consumes URLs from the queue.
-
-        Args:
-            browser (Browser): Playwright browser instance.
-            worker_id (int): ID for logging purposes.
-        """
         while True:
             if self.should_stop:
                 self.logger.info(f"[Worker {worker_id}] Stopping...")
                 break
             
-            # Check if paused
             while self.is_paused:
                 self.logger.debug(f"[Worker {worker_id}] Paused, waiting...")
                 await asyncio.sleep(1)
@@ -2206,24 +1786,14 @@ class Scraper:
             await self.process_page(browser, url, depth)
 
     async def run(self):
-        """
-        Entry point for the scraping process.
-        
-        1. Launches the browser.
-        2. Performs login (if configured).
-        3. Spawns concurrent worker tasks.
-        4. Waits for completion and reports stats.
-        """
         async with async_playwright() as p:
-            # For manual login mode, we need a visible browser first
             if self.login_url and self.manual_login_mode:
                 self.logger.info("=" * 70)
                 self.logger.info("MANUAL LOGIN MODE - Launching visible browser")
                 self.logger.info("=" * 70)
                 
-                # Launch visible browser for manual login
                 manual_browser = await p.chromium.launch(
-                    headless=False,  # Always visible for manual login
+                    headless=False,
                     args=[
                         "--disable-blink-features=AutomationControlled",
                         "--disable-dev-shm-usage",
@@ -2237,7 +1807,6 @@ class Scraper:
                 if not login_success:
                     self.logger.warning("Manual login failed. Continuing without authentication...")
             
-            # Now launch the main browser for scraping (can be headless)
             browser = await p.chromium.launch(
                 headless=self.headless,
                 args=[
@@ -2247,7 +1816,6 @@ class Scraper:
                 ]
             )
             
-            # Automated login (if not manual mode)
             if self.login_url and not self.manual_login_mode:
                 login_success = await self.perform_login(browser)
                 if not login_success:
