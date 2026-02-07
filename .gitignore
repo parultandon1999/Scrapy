@@ -63,7 +63,7 @@ server/scraped_data/
 .env
 .env.local
 .env.*.local
-
+xml
 # Logs
 logs/
 *.log
