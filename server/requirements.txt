@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pydantic
+aiosqlite 
+playwright 
+colorama 
+aiohttp 
+plyer
